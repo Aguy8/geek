@@ -3151,8 +3151,13 @@
     }
 
     function renderPerformance() {
-      renderActivityHeatmap();
-      renderCategoryBreakdown();
+      // La heatmap et le donut sont coûteux à reconstruire (dizaines d'éléments DOM) :
+      // on ne les recalcule que si la vue Analytiques est réellement affichée, pour ne
+      // pas ralentir chaque interaction (ajout/édition de tâche) sur les autres vues.
+      if (!$('viewStats').classList.contains('hidden')) {
+        renderActivityHeatmap();
+        renderCategoryBreakdown();
+      }
       const perf = computePerformance();
       if (!perf) {
         $('perfAvgEst').textContent = '--';
@@ -3274,7 +3279,8 @@
       updateFullscreenInfo();
       renderActiveTasksMini();
       renderPerformance();
-      renderCalendarView();
+      // Idem : ne reconstruit la grille du calendrier que si on la regarde.
+      if (!$('viewCalendar').classList.contains('hidden')) renderCalendarView();
     }
 
     function generateTaskHTML(tasks) {
