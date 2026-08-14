@@ -1410,7 +1410,8 @@
                   <option value="Personnel">Personnel</option>
                   <option value="Urgent">Urgent</option>
                 </select>
-                <input type="text" class="field" id="taskDeadlineInput" placeholder="Échéance (ex: 3j 5h 30min)" />
+                <input type="text" class="field" id="taskDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
+                <input type="datetime-local" class="field" id="taskDeadlineDate" title="Ou choisir une date et heure d'échéance précises (prioritaire sur l'échéance relative)" />
                 <select id="taskRepeat" class="field" title="Répéter">
                   <option value="none">Ne pas répéter</option>
                   <option value="daily">Répéter chaque jour</option>
@@ -1640,7 +1641,8 @@
             <button class="btn-ghost" id="editAddCategoryBtn" style="padding:4px 10px;" aria-label="Ajouter une catégorie"><span class="math-icon">+</span></button>
           </div>
         </div>
-        <input type="text" class="field" id="editDeadlineInput" placeholder="Échéance (ex: 3j 5h 30min)" />
+        <input type="text" class="field" id="editDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
+        <input type="datetime-local" class="field" id="editDeadlineDate" title="Ou choisir une date et heure d'échéance précises (prioritaire sur l'échéance relative)" />
         <select class="field" id="editRepeat" title="Répéter">
           <option value="none">Ne pas répéter</option>
           <option value="daily">Répéter chaque jour</option>
@@ -1939,6 +1941,31 @@
       const now = new Date();
       const deadline = new Date(now.getTime() + days * 86400000 + hours * 3600000 + minutes * 60000);
       return deadline.toISOString();
+    }
+
+    // Convertit une date ISO en valeur locale utilisable par <input type="datetime-local">
+    function toDatetimeLocalValue(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // Convertit la valeur d'un <input type="datetime-local"> (heure locale) en ISO
+    function fromDatetimeLocalValue(value) {
+      if (!value) return null;
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString();
+    }
+
+    // Résout l'échéance d'une tâche : priorité au sélecteur date/heure précis,
+    // repli sur la saisie relative existante (ex: "3j 5h 30min") si vide.
+    function resolveDeadline(dateFieldId, relativeFieldId) {
+      const dateVal = $(dateFieldId)?.value;
+      if (dateVal) return fromDatetimeLocalValue(dateVal);
+      const relativeVal = $(relativeFieldId)?.value.trim();
+      return relativeVal ? parseDeadline(relativeVal) : null;
     }
 
     function getDeadlineStatus(deadline) {
@@ -3225,8 +3252,7 @@
     function addTask() {
       const title = $('taskInput').value.trim();
       if (!title) return;
-      const deadlineInput = $('taskDeadlineInput').value.trim();
-      const deadline = deadlineInput ? parseDeadline(deadlineInput) : null;
+      const deadline = resolveDeadline('taskDeadlineDate', 'taskDeadlineInput');
       const newTask = {
         id: Date.now().toString(),
         title,
@@ -3245,6 +3271,7 @@
       renderTasks();
       $('taskInput').value = '';
       $('taskDeadlineInput').value = '';
+      $('taskDeadlineDate').value = '';
       toast('Tâche ajoutée.');
     }
 
@@ -3321,21 +3348,10 @@
       $('editPriority').value = task.priority;
       $('editStatus').value = task.status;
       $('editCategory').value = task.category || 'Général';
-      if (task.deadline) {
-        const d = new Date(task.deadline);
-        const now = Date.now();
-        const diff = d.getTime() - now;
-        if (diff > 0) {
-          const days = Math.floor(diff / 86400000);
-          const hours = Math.floor((diff % 86400000) / 3600000);
-          const mins = Math.floor((diff % 3600000) / 60000);
-          $('editDeadlineInput').value = `${days > 0 ? days+'j ' : ''}${hours > 0 ? hours+'h ' : ''}${mins}min`;
-        } else {
-          $('editDeadlineInput').value = '';
-        }
-      } else {
-        $('editDeadlineInput').value = '';
-      }
+      // Le sélecteur de date/heure est la source de vérité affichée ; le champ relatif
+      // reste vide et ne sert qu'à saisir un nouvel ajustement rapide si besoin.
+      $('editDeadlineInput').value = '';
+      $('editDeadlineDate').value = task.deadline ? toDatetimeLocalValue(task.deadline) : '';
       $('editNotes').value = task.notes || '';
       if ($('editRepeat')) $('editRepeat').value = task.repeat || 'none';
       renderSubtaskEditor(task.subtasks || []);
@@ -3391,8 +3407,7 @@
       task.priority = $('editPriority').value;
       task.status = $('editStatus').value;
       task.category = $('editCategory').value || 'Général';
-      const deadlineInput = $('editDeadlineInput').value.trim();
-      task.deadline = deadlineInput ? parseDeadline(deadlineInput) : null;
+      task.deadline = resolveDeadline('editDeadlineDate', 'editDeadlineInput');
       task.notes = $('editNotes').value;
       if ($('editRepeat')) task.repeat = $('editRepeat').value;
       save();
@@ -3545,6 +3560,14 @@
 
     $('addTaskBtn').addEventListener('click', addTask);
     $('taskInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+    // Échéance : les deux méthodes de saisie (relative / date précise) sont mutuellement
+    // exclusives — remplir l'une vide automatiquement l'autre pour éviter toute ambiguïté.
+    [['taskDeadlineInput', 'taskDeadlineDate'], ['editDeadlineInput', 'editDeadlineDate']].forEach(([relId, dateId]) => {
+      const relEl = $(relId), dateEl = $(dateId);
+      relEl.addEventListener('input', () => { if (relEl.value.trim()) dateEl.value = ''; });
+      dateEl.addEventListener('input', () => { if (dateEl.value) relEl.value = ''; });
+    });
 
     ['startBtn', 'focusPageStart', 'fsStart'].forEach(id => {
       $(id).addEventListener('click', () => timer.running ? stopTimer() : startTimer());
