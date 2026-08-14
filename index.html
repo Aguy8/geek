@@ -314,6 +314,75 @@
     .clock.negative .days {
       color: var(--danger);
     }
+
+    /* ===== HORLOGE À VOLETS (mode "feuilleté") ===== */
+    .flip-clock {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 12px 0 8px;
+      perspective: 400px;
+    }
+    .flip-clock .flip-days {
+      font-size: 20px;
+      color: var(--text-dim);
+      font-weight: 700;
+      margin-right: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .flip-unit {
+      position: relative;
+      width: 46px;
+      height: 64px;
+    }
+    .flip-card-face {
+      width: 100%;
+      height: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 34px;
+      font-weight: 700;
+      font-family: 'Inter', monospace;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      transform-style: preserve-3d;
+    }
+    .flip-card-face::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; top: 50%;
+      height: 1px;
+      background: rgba(0, 0, 0, 0.35);
+    }
+    .flip-unit.flip .flip-card-face { animation: flipDigit 0.36s ease; }
+    @keyframes flipDigit {
+      0% { transform: rotateX(0deg); }
+      50% { transform: rotateX(-90deg); }
+      100% { transform: rotateX(0deg); }
+    }
+    .flip-sep {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-dim);
+      align-self: center;
+      padding-bottom: 6px;
+    }
+    .flip-clock.negative .flip-card-face { color: var(--danger); }
+
+    .flip-clock-fs { gap: 1.2vw; margin: 0; }
+    .flip-clock-fs .flip-unit { width: 9vw; height: 13vw; max-width: 110px; max-height: 160px; }
+    .flip-clock-fs .flip-card-face { font-size: 7vw; border-radius: 12px; }
+    .flip-clock-fs .flip-sep { font-size: 5vw; }
+    .flip-clock-fs .flip-days { font-size: 3vw; }
+
+    body.clock-mode-flip .clock,
+    body.clock-mode-flip .fs-clock { display: none; }
+    body.clock-mode-flip .flip-clock { display: flex; }
     .add-time-btns {
       display: flex;
       justify-content: center;
@@ -795,13 +864,14 @@
       border-radius: 6px;
       padding: 16px;
       margin-top: 16px;
-      max-height: 350px;
+      max-height: 500px;
       overflow-y: auto;
+      overflow-x: hidden;
       white-space: pre-wrap;
       font-size: 12px;
       line-height: 1.6;
       color: var(--text-dim);
-      font-family: 'Inter', monospace;
+      font-family: 'Inter', sans-serif;
     }
 
     /* ===== PROGRESS RING ===== */
@@ -1286,6 +1356,44 @@
       gap: 8px;
     }
 
+    /* ===== VUE CALENDRIER ===== */
+    .cal-weekdays, .cal-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .cal-weekdays span {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      text-align: center;
+      padding: 4px 0 8px;
+    }
+    .cal-day {
+      min-height: 64px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      cursor: pointer;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      transition: var(--transition);
+      font-family: 'Inter', sans-serif;
+    }
+    .cal-day:hover { border-color: var(--text-dim); }
+    .cal-day.empty { visibility: hidden; cursor: default; border-color: transparent; background: transparent; }
+    .cal-day-num { font-size: 12px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .cal-day.past .cal-day-num { color: var(--muted); }
+    .cal-day.today { border-color: var(--text-dim); border-width: 1px; }
+    .cal-day.selected { background: var(--surface-3); border-color: var(--primary); }
+    .cal-day-dots { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; margin-top: auto; }
+    .cal-day-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .cal-day-more { font-size: 9px; color: var(--muted); font-weight: 600; }
+
     /* ===== ANALYTIQUES - PERFORMANCE ===== */
     .perf-grid {
       display: grid;
@@ -1393,6 +1501,12 @@
       .modal { padding: 16px; }
       .fs-clock { font-size: 18vw; }
       .fs-clock .days { font-size: 6vw; }
+      .flip-unit { width: 34px; height: 48px; }
+      .flip-card-face { font-size: 24px; border-radius: 6px; }
+      .flip-sep { font-size: 20px; }
+      .flip-clock .flip-days { font-size: 15px; }
+      .flip-clock-fs .flip-unit { width: 14vw; height: 20vw; }
+      .flip-clock-fs .flip-card-face { font-size: 11vw; }
       .stats-top-grid { grid-template-columns: 1fr; }
 
       /* Empêche le zoom automatique iOS sur les champs (police < 16px) */
@@ -1404,6 +1518,10 @@
 
       .category-add-row { flex-wrap: wrap; }
       .category-add-row select, .category-add-row input { flex: 1 1 100%; }
+
+      .cal-day { min-height: 40px; padding: 4px; border-radius: 6px; }
+      .cal-day-num { font-size: 10px; }
+      .cal-days, .cal-weekdays { gap: 3px; }
     }
     @media (max-width: 420px) {
       .grid-2col { grid-template-columns: 1fr; }
@@ -1443,6 +1561,7 @@
       <nav class="nav">
         <button class="active" data-view="dashboard" aria-current="page"><span class="icon math-icon">∑︎</span> Dashboard</button>
         <button data-view="tasks"><span class="icon math-icon">✓︎</span> Tâches</button>
+        <button data-view="calendar"><span class="icon math-icon">▦︎</span> Calendrier</button>
         <button data-view="focus"><span class="icon math-icon">⊙︎</span> Focus</button>
         <button data-view="stats"><span class="icon math-icon">∫︎</span> Analytiques</button>
       </nav>
@@ -1463,6 +1582,7 @@
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <div id="authStatus"></div>
           <button class="btn-ghost" id="soundToggleBtn" style="padding:8px 12px;" title="Activer/couper le son" aria-label="Activer/couper le son"><span class="math-icon" id="soundIcon">♪︎</span></button>
+          <button class="btn-ghost" id="clockModeBtn" style="padding:8px 12px;" title="Changer l'affichage de l'horloge" aria-label="Changer l'affichage de l'horloge"><span class="math-icon">▤︎</span></button>
           <button class="btn-ghost" id="shortcutsBtn" style="padding:8px 12px;" title="Raccourcis clavier" aria-label="Raccourcis clavier"><span class="math-icon">?</span></button>
           <button class="btn-ghost" id="focusNowBtn"><span class="math-icon">⊙︎</span> Mode Immersif</button>
         </div>
@@ -1476,6 +1596,17 @@
               <div class="mode" id="timerMode">FOCUS ACTIF</div>
               <div class="clock-wrapper">
                 <div class="clock" id="clock"><span class="days"></span><span class="time-main">00:00:00</span><span class="ms">.000</span></div>
+                <div class="flip-clock" id="flipClockDash">
+                  <span class="flip-days"></span>
+                  <div class="flip-unit" data-unit="h1"><div class="flip-card-face">0</div></div>
+                  <div class="flip-unit" data-unit="h2"><div class="flip-card-face">0</div></div>
+                  <div class="flip-sep">:</div>
+                  <div class="flip-unit" data-unit="m1"><div class="flip-card-face">0</div></div>
+                  <div class="flip-unit" data-unit="m2"><div class="flip-card-face">0</div></div>
+                  <div class="flip-sep">:</div>
+                  <div class="flip-unit" data-unit="s1"><div class="flip-card-face">0</div></div>
+                  <div class="flip-unit" data-unit="s2"><div class="flip-card-face">0</div></div>
+                </div>
                 <div class="add-time-btns">
                   <button class="btn" data-add="5">+5min</button>
                   <button class="btn" data-add="15">+15min</button>
@@ -1611,12 +1742,48 @@
         </div>
       </section>
 
+      <!-- VUE CALENDRIER -->
+      <section class="view-panel hidden" id="viewCalendar">
+        <div class="grid-2">
+          <div class="card" style="padding:20px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+              <button type="button" class="dp-nav-btn" id="calPrevBtn" aria-label="Mois précédent"><span class="math-icon">◁︎</span></button>
+              <h2 id="calMonthLabel" style="font-size:15px; font-weight:700; text-transform:capitalize; color:var(--text);">Mois Année</h2>
+              <button type="button" class="dp-nav-btn" id="calNextBtn" aria-label="Mois suivant"><span class="math-icon">▷︎</span></button>
+            </div>
+            <div class="cal-weekdays">
+              <span>Lu</span><span>Ma</span><span>Me</span><span>Je</span><span>Ve</span><span>Sa</span><span>Di</span>
+            </div>
+            <div class="cal-days" id="calDaysGrid"></div>
+          </div>
+          <aside>
+            <div class="card">
+              <div class="card-header">
+                <h2 id="calSelectedDayLabel">Aujourd'hui</h2>
+              </div>
+              <div class="task-list" id="calDayTaskList" style="max-height:60vh;"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
       <!-- VUE FOCUS -->
       <section class="view-panel hidden" id="viewFocus">
         <div class="card focus-widget" style="min-height:55vh; justify-content:center;">
           <div class="eyebrow" style="font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase;">Contrôle Pomodoro</div>
           <h2 id="focusPageTask" style="font-size:20px; margin:16px 0 8px;">Aucune tâche</h2>
           <div class="clock" id="focusPageTime"><span class="days"></span><span class="time-main">00:00:00</span><span class="ms">.000</span></div>
+          <div class="flip-clock" id="flipClockFocus">
+            <span class="flip-days"></span>
+            <div class="flip-unit" data-unit="h1"><div class="flip-card-face">0</div></div>
+            <div class="flip-unit" data-unit="h2"><div class="flip-card-face">0</div></div>
+            <div class="flip-sep">:</div>
+            <div class="flip-unit" data-unit="m1"><div class="flip-card-face">0</div></div>
+            <div class="flip-unit" data-unit="m2"><div class="flip-card-face">0</div></div>
+            <div class="flip-sep">:</div>
+            <div class="flip-unit" data-unit="s1"><div class="flip-card-face">0</div></div>
+            <div class="flip-unit" data-unit="s2"><div class="flip-card-face">0</div></div>
+          </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:16px 0;">
             <button class="btn-ghost" onclick="setManualTimer(25)"><span class="math-icon">⊙︎</span> Focus 25m</button>
             <button class="btn-ghost" onclick="setManualTimer(5)"><span class="math-icon">⏸︎</span> Pause 5m</button>
@@ -1839,7 +2006,7 @@
         <div class="shortcut-row"><span>Nouvelle tâche</span><span class="kbd">N</span></div>
         <div class="shortcut-row"><span>Rechercher une tâche</span><span class="kbd">/</span></div>
         <div class="shortcut-row"><span>Mode Immersif (plein écran)</span><span class="kbd">F</span></div>
-        <div class="shortcut-row"><span>Dashboard / Tâches / Focus / Analytiques</span><span class="kbd">1–4</span></div>
+        <div class="shortcut-row"><span>Dashboard / Tâches / Calendrier / Focus / Analytiques</span><span class="kbd">1–5</span></div>
         <div class="shortcut-row"><span>Fermer une fenêtre / le mode immersif</span><span class="kbd">Échap</span></div>
         <div class="shortcut-row"><span>Afficher ces raccourcis</span><span class="kbd">?</span></div>
       </div>
@@ -1857,6 +2024,17 @@
     </div>
     <div class="fs-center">
       <div class="fs-clock" id="fsClock"><span class="days"></span><span class="time-main">00:00:00</span><span class="ms">.000</span></div>
+      <div class="flip-clock flip-clock-fs" id="flipClockFS">
+        <span class="flip-days"></span>
+        <div class="flip-unit" data-unit="h1"><div class="flip-card-face">0</div></div>
+        <div class="flip-unit" data-unit="h2"><div class="flip-card-face">0</div></div>
+        <div class="flip-sep">:</div>
+        <div class="flip-unit" data-unit="m1"><div class="flip-card-face">0</div></div>
+        <div class="flip-unit" data-unit="m2"><div class="flip-card-face">0</div></div>
+        <div class="flip-sep">:</div>
+        <div class="flip-unit" data-unit="s1"><div class="flip-card-face">0</div></div>
+        <div class="flip-unit" data-unit="s2"><div class="flip-card-face">0</div></div>
+      </div>
       <div class="fs-controls">
         <button class="btn btn-primary" style="padding:14px 36px; font-size:16px;" id="fsStart"><span class="math-icon">▶︎</span> Démarrer</button>
         <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsPause"><span class="math-icon">⏸︎</span> Pause</button>
@@ -2184,6 +2362,77 @@
     function clearDatePickerValue() {
       if (dp.inputId) setDatePickerField(dp.inputId, dp.btnId, null);
       closeDatePicker();
+    }
+
+    // ================================================================
+    // VUE CALENDRIER
+    // ================================================================
+    let calViewYear = null, calViewMonth = null, calSelectedDay = null;
+
+    function initCalendarState() {
+      const now = new Date();
+      calViewYear = now.getFullYear();
+      calViewMonth = now.getMonth();
+      calSelectedDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+
+    function dateKey(y, m, d) {
+      return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    function getTasksByDateKey() {
+      const map = {};
+      state.tasks.forEach(t => {
+        if (!t.deadline) return;
+        const d = new Date(t.deadline);
+        const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+        (map[key] = map[key] || []).push(t);
+      });
+      return map;
+    }
+
+    function renderCalendarView() {
+      if (calViewYear === null) initCalendarState();
+      if (!$('calDaysGrid')) return;
+      $('calMonthLabel').textContent = `${DP_MONTHS[calViewMonth]} ${calViewYear}`;
+      const tasksByDay = getTasksByDateKey();
+      const firstOfMonth = new Date(calViewYear, calViewMonth, 1);
+      const offset = (firstOfMonth.getDay() + 6) % 7;
+      const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const priorityColor = { high: 'var(--danger)', medium: 'var(--warning)', low: 'var(--success)' };
+      let html = '';
+      for (let i = 0; i < offset; i++) html += '<div class="cal-day empty"></div>';
+      for (let day = 1; day <= daysInMonth; day++) {
+        const cellDate = new Date(calViewYear, calViewMonth, day);
+        const dayTasks = (tasksByDay[dateKey(calViewYear, calViewMonth, day)] || []).filter(t => t.status !== 'done');
+        const classes = ['cal-day'];
+        if (cellDate.getTime() === today.getTime()) classes.push('today');
+        if (cellDate.getTime() < today.getTime()) classes.push('past');
+        if (calSelectedDay && cellDate.getTime() === calSelectedDay.getTime()) classes.push('selected');
+        const shown = dayTasks.slice(0, 4);
+        const dots = shown.map(t => `<span class="cal-day-dot" style="background:${priorityColor[t.priority] || 'var(--muted)'};"></span>`).join('');
+        const more = dayTasks.length > 4 ? `<span class="cal-day-more">+${dayTasks.length - 4}</span>` : '';
+        html += `<button type="button" class="${classes.join(' ')}" data-day="${day}"><span class="cal-day-num">${day}</span><span class="cal-day-dots">${dots}${more}</span></button>`;
+      }
+      $('calDaysGrid').innerHTML = html;
+      renderCalendarSelectedDay();
+    }
+
+    function renderCalendarSelectedDay() {
+      if (!calSelectedDay || !$('calDayTaskList')) return;
+      const tasksByDay = getTasksByDateKey();
+      const key = dateKey(calSelectedDay.getFullYear(), calSelectedDay.getMonth(), calSelectedDay.getDate());
+      const dayTasks = (tasksByDay[key] || []).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const isToday = calSelectedDay.getTime() === todayMidnight.getTime();
+      const label = calSelectedDay.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+      $('calSelectedDayLabel').textContent = isToday ? `Aujourd'hui — ${label}` : label;
+      $('calDayTaskList').innerHTML = dayTasks.length
+        ? generateTaskHTML(dayTasks)
+        : '<div style="padding:16px; color:var(--muted); text-align:center;">Aucune échéance ce jour-là.</div>';
     }
 
     function getDeadlineStatus(deadline) {
@@ -2868,6 +3117,7 @@
       updateFullscreenInfo();
       renderActiveTasksMini();
       renderPerformance();
+      renderCalendarView();
     }
 
     function generateTaskHTML(tasks) {
@@ -3044,55 +3294,125 @@
       return state.tasks.filter(t => ids.includes(t.id));
     }
 
+    // Version texte brut : utilisée pour le presse-papiers et le repli hors-ligne.
     function generateReportText(tasks) {
       if (!tasks.length) return 'Aucune tâche sélectionnée.';
-      let report = '═══════════════════════════════════════\n';
-      report += `  RAPPORT D'EXÉCUTION  —  ${new Date().toLocaleString('fr-FR')}\n`;
-      report += '═══════════════════════════════════════\n\n';
+      const statusLabels = { todo: 'À faire', inprogress: 'En cours', done: 'Terminée', blocked: 'Bloquée' };
+      const priorityLabels = { high: 'Critique', medium: 'Normale', low: 'Basse' };
+      let report = `TEMPO.PRO — RAPPORT D'EXÉCUTION\n${new Date().toLocaleString('fr-FR')}\n\n`;
       tasks.forEach((t, i) => {
         const subtasks = t.subtasks || [];
         const doneSub = subtasks.filter(s => s.done).length;
         const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : (t.status === 'done' ? 100 : 0);
-        report += `[${i+1}] ${t.title}\n`;
-        report += `  Statut      : ${t.status}\n`;
-        report += `  Priorité    : ${t.priority}\n`;
-        report += `  Catégorie   : ${t.category || 'Général'}\n`;
-        report += `  Durée estimée: ${t.duration}m\n`;
-        report += `  Temps passé : ${formatTimeShort(t.timeSpent || 0)}\n`;
-        report += `  Progression : ${progress}% (${doneSub}/${subtasks.length})\n`;
-        if (t.deadline) report += `  Échéance    : ${new Date(t.deadline).toLocaleString('fr-FR')}\n`;
-        if (t.notes) report += `  Notes       : ${t.notes}\n`;
-        if (subtasks.length) {
-          report += `  Sous-tâches :\n`;
-          subtasks.forEach(s => {
-            report += `    - ${s.done ? '✓︎' : '□'} ${s.title}\n`;
-          });
-        }
-        report += `\n`;
+        report += `${i + 1}. ${t.title}\n`;
+        report += `   Statut : ${statusLabels[t.status] || t.status}  ·  Priorité : ${priorityLabels[t.priority] || t.priority}  ·  Catégorie : ${t.category || 'Général'}\n`;
+        report += `   Estimé : ${t.duration}m  ·  Passé : ${formatTimeShort(t.timeSpent || 0)}\n`;
+        if (subtasks.length) report += `   Sous-tâches : ${doneSub}/${subtasks.length} (${progress}%)\n`;
+        if (t.deadline) report += `   Échéance : ${new Date(t.deadline).toLocaleString('fr-FR')}\n`;
+        if (t.notes) report += `   Notes : ${t.notes}\n`;
+        report += '\n';
       });
-      report += '═══════════════════════════════════════\n';
-      report += `Total : ${tasks.length}\n`;
       const totalTime = tasks.reduce((acc, t) => acc + (t.timeSpent || 0), 0);
-      report += `Temps total : ${formatTimeShort(totalTime)}\n`;
-      report += '═══════════════════════════════════════\n';
+      report += `Total : ${tasks.length} tâche${tasks.length > 1 ? 's' : ''}  ·  Temps cumulé : ${formatTimeShort(totalTime)}\n`;
+      report += `Généré avec Tempo.PRO`;
       return report;
     }
+
+    // Version stylée (aperçu app + PDF + impression) : reprend la charte visuelle de Tempo.PRO.
+    function reportTaskCardHTML(t, idx) {
+      const subtasks = t.subtasks || [];
+      const doneSub = subtasks.filter(s => s.done).length;
+      const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : (t.status === 'done' ? 100 : 0);
+      const statusMeta = {
+        todo: { label: 'À faire', color: '#888888' },
+        inprogress: { label: 'En cours', color: '#fbbf24' },
+        done: { label: 'Terminée', color: '#4ade80' },
+        blocked: { label: 'Bloquée', color: '#f87171' }
+      } [t.status] || { label: t.status, color: '#888888' };
+      const priorityMeta = {
+        high: { label: 'Critique', color: '#f87171' },
+        medium: { label: 'Normale', color: '#fbbf24' },
+        low: { label: 'Basse', color: '#4ade80' }
+      } [t.priority] || { label: t.priority, color: '#888888' };
+      return `
+        <div style="background:#121212; border:1px solid #2a2a2a; border-radius:10px; padding:16px 18px; margin-bottom:10px; page-break-inside:avoid;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div style="font-size:14px; font-weight:600; color:#e8e8e8;">${idx}. ${escHtml(t.title)}</div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+              <span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; padding:2px 8px; border-radius:4px; background:${statusMeta.color}26; color:${statusMeta.color}; border:1px solid ${statusMeta.color}40; white-space:nowrap;">${statusMeta.label}</span>
+              <span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; padding:2px 8px; border-radius:4px; background:${priorityMeta.color}26; color:${priorityMeta.color}; border:1px solid ${priorityMeta.color}40; white-space:nowrap;">${priorityMeta.label}</span>
+            </div>
+          </div>
+          <div style="font-size:11px; color:#888888; margin-top:8px; display:flex; gap:14px; flex-wrap:wrap;">
+            <span>${escHtml(t.category || 'Général')}</span>
+            <span>Estimé ${t.duration}m</span>
+            <span>Passé ${formatTimeShort(t.timeSpent || 0)}</span>
+            ${t.deadline ? `<span>Échéance ${new Date(t.deadline).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>` : ''}
+          </div>
+          ${subtasks.length ? `
+            <div style="margin-top:10px;">
+              <div style="height:4px; background:#2a2a2a; border-radius:4px; overflow:hidden;">
+                <div style="height:100%; width:${progress}%; background:#4ade80;"></div>
+              </div>
+              <div style="font-size:10px; color:#555555; margin-top:4px;">${doneSub}/${subtasks.length} sous-tâches · ${progress}%</div>
+            </div>
+          ` : ''}
+          ${t.notes ? `<div style="font-size:11px; color:#888888; margin-top:10px; padding-top:10px; border-top:1px solid #2a2a2a;">${escHtml(t.notes)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function generateReportHTML(tasks) {
+      const total = tasks.length;
+      const totalTime = tasks.reduce((acc, t) => acc + (t.timeSpent || 0), 0);
+      const doneCount = tasks.filter(t => t.status === 'done').length;
+      const pct = total ? Math.round((doneCount / total) * 100) : 0;
+      return `
+        <div class="tempo-report" style="white-space:normal; font-family:'Inter',sans-serif; background:#0a0a0a; color:#e8e8e8; padding:28px; width:100%; box-sizing:border-box;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid #2a2a2a; padding-bottom:16px; margin-bottom:22px;">
+            <div>
+              <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#555555; font-weight:600;">Rapport d'exécution</div>
+              <div style="font-size:24px; font-weight:700; letter-spacing:-0.5px; margin-top:4px;">Tempo<span style="color:#888888; font-weight:300;">.PRO</span></div>
+            </div>
+            <div style="text-align:right; font-size:11px; color:#888888;">${new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}</div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:22px;">
+            <div style="background:#121212; border:1px solid #2a2a2a; border-radius:10px; padding:14px;">
+              <div style="font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#555555;">Tâches</div>
+              <div style="font-size:22px; font-weight:700; margin-top:4px;">${total}</div>
+            </div>
+            <div style="background:#121212; border:1px solid #2a2a2a; border-radius:10px; padding:14px;">
+              <div style="font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#555555;">Temps total</div>
+              <div style="font-size:22px; font-weight:700; margin-top:4px;">${formatTimeShort(totalTime)}</div>
+            </div>
+            <div style="background:#121212; border:1px solid #2a2a2a; border-radius:10px; padding:14px;">
+              <div style="font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#555555;">Complétion</div>
+              <div style="font-size:22px; font-weight:700; margin-top:4px; color:#4ade80;">${pct}%</div>
+            </div>
+          </div>
+          ${tasks.map((t, i) => reportTaskCardHTML(t, i + 1)).join('')}
+          <div style="margin-top:18px; padding-top:14px; border-top:1px solid #2a2a2a; font-size:9px; color:#555555; text-align:center; letter-spacing:0.5px; text-transform:uppercase;">Généré avec Tempo.PRO</div>
+        </div>
+      `;
+    }
+
+    let lastReportTasks = [];
 
     function generateReport() {
       const selected = getSelectedTasks();
       if (!selected.length) { toast('Sélectionnez au moins une tâche.'); return; }
-      $('reportOutput').textContent = generateReportText(selected);
+      lastReportTasks = selected;
+      $('reportOutput').innerHTML = generateReportHTML(selected);
       toast('Rapport généré.');
     }
 
     async function copyReportToClipboard() {
-      const text = $('reportOutput').textContent;
-      if (!text || text === 'Sélectionnez des tâches puis « Générer ».') {
+      if (!lastReportTasks.length) {
         toast('Générez un rapport avant de le copier.');
         return;
       }
       try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(generateReportText(lastReportTasks));
         toast('Rapport copié dans le presse-papiers.');
       } catch (e) {
         toast('Copie impossible sur cet appareil.');
@@ -3105,19 +3425,24 @@
     function exportPDF() {
       const selected = getSelectedTasks();
       if (!selected.length) { toast('Sélectionnez des tâches.'); return; }
-      const text = generateReportText(selected);
       const container = document.createElement('div');
-      container.style.padding = '20px';
-      container.style.fontFamily = 'monospace';
-      container.style.whiteSpace = 'pre-wrap';
-      container.style.background = '#fff';
-      container.style.color = '#000';
-      container.textContent = text;
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '760px';
+      container.innerHTML = generateReportHTML(selected);
       document.body.appendChild(container);
 
       if (typeof html2pdf === 'function') {
-        html2pdf().from(container).save('rapport_tempo.pdf').then(() => {
+        const height = Math.max(container.scrollHeight, 400);
+        html2pdf().set({
+          margin: 0,
+          filename: 'rapport_tempo.pdf',
+          html2canvas: { backgroundColor: '#0a0a0a', scale: 2, windowWidth: 760 },
+          jsPDF: { unit: 'px', format: [760, height], orientation: 'portrait' }
+        }).from(container).save().then(() => {
           document.body.removeChild(container);
+          toast('PDF exporté.');
         }).catch(() => {
           document.body.removeChild(container);
           toast("Échec de l'export PDF.");
@@ -3127,11 +3452,19 @@
         document.body.removeChild(container);
         const win = window.open('', '_blank');
         if (!win) { toast('Autorisez les popups pour exporter en PDF.'); return; }
-        win.document.write(`<pre style="font-family:monospace; white-space:pre-wrap; padding:20px;">${escHtml(text)}</pre>`);
-        win.document.title = 'Rapport Tempo';
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport Tempo</title>
+          <style>
+            body { margin:0; background:#0a0a0a; }
+            @media print {
+              body { background:#fff !important; }
+              .tempo-report { background:#fff !important; color:#111111 !important; }
+              .tempo-report * { border-color:#dddddd !important; }
+            }
+          </style>
+        </head><body>${generateReportHTML(selected)}</body></html>`);
         win.document.close();
         win.focus();
-        win.print();
+        setTimeout(() => win.print(), 300);
         toast('Bibliothèque PDF indisponible (hors-ligne) — fenêtre d\'impression ouverte.');
       }
     }
@@ -3189,16 +3522,19 @@
     function exportCSV() {
       const selected = getSelectedTasks();
       if (!selected.length) { toast('Sélectionnez des tâches.'); return; }
-      let csv = 'Titre,Statut,Priorité,Catégorie,Durée estimée,Temps passé,Progression,Échéance,Notes\n';
+      const statusLabels = { todo: 'À faire', inprogress: 'En cours', done: 'Terminée', blocked: 'Bloquée' };
+      const priorityLabels = { high: 'Critique', medium: 'Normale', low: 'Basse' };
+      let csv = '﻿'; // BOM : accents corrects à l'ouverture dans Excel
+      csv += 'Titre,Statut,Priorité,Catégorie,Durée estimée,Temps passé,Progression,Échéance,Notes\n';
       selected.forEach(t => {
         const subtasks = t.subtasks || [];
         const doneSub = subtasks.filter(s => s.done).length;
         const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : (t.status === 'done' ? 100 : 0);
         const deadline = t.deadline ? new Date(t.deadline).toLocaleString('fr-FR') : '';
         const row = [
-          `"${t.title}"`,
-          t.status,
-          t.priority,
+          `"${t.title.replace(/"/g, '""')}"`,
+          statusLabels[t.status] || t.status,
+          priorityLabels[t.priority] || t.priority,
           t.category || 'Général',
           t.duration,
           formatTimeShort(t.timeSpent || 0),
@@ -3260,6 +3596,48 @@
       return timer.targetDuration - elapsed;
     }
 
+    // ================================================================
+    // MODE D'AFFICHAGE DE L'HORLOGE (numérique / à volets)
+    // ================================================================
+    let clockDisplayMode = localStorage.getItem('tempo_pro_clock_mode') || 'digital';
+
+    function updateClockModeUI() {
+      document.body.classList.toggle('clock-mode-flip', clockDisplayMode === 'flip');
+    }
+
+    function toggleClockMode() {
+      clockDisplayMode = clockDisplayMode === 'digital' ? 'flip' : 'digital';
+      localStorage.setItem('tempo_pro_clock_mode', clockDisplayMode);
+      updateClockModeUI();
+      updateClock(); // rafraîchit immédiatement pour éviter un flash "00:00:00" au bascule
+      toast(clockDisplayMode === 'flip' ? 'Horloge à volets activée.' : 'Horloge numérique activée.');
+    }
+
+    function setFlipDigit(unitEl, newDigit) {
+      const face = unitEl.querySelector('.flip-card-face');
+      if (!face || face.textContent === newDigit) return;
+      unitEl.classList.remove('flip');
+      void unitEl.offsetWidth; // force le reflow pour pouvoir rejouer l'animation
+      unitEl.classList.add('flip');
+      setTimeout(() => { face.textContent = newDigit; }, 180);
+    }
+
+    function updateFlipClockDisplay(containerId, parts, isNegative) {
+      const container = $(containerId);
+      if (!container || clockDisplayMode !== 'flip') return;
+      const hh = String(parts.h).padStart(2, '0');
+      const mm = String(parts.m).padStart(2, '0');
+      const ss = String(parts.s).padStart(2, '0');
+      const digits = { h1: hh[0], h2: hh[1], m1: mm[0], m2: mm[1], s1: ss[0], s2: ss[1] };
+      Object.keys(digits).forEach(unit => {
+        const el = container.querySelector(`.flip-unit[data-unit="${unit}"]`);
+        if (el) setFlipDigit(el, digits[unit]);
+      });
+      const daysLabel = container.querySelector('.flip-days');
+      if (daysLabel) daysLabel.textContent = parts.days > 0 ? `${parts.sign}${parts.days}j ` : (parts.sign || '');
+      container.classList.toggle('negative', !!isNegative);
+    }
+
     function updateClock() {
       const remaining = getRemainingMs();
       const parts = getTimeParts(remaining);
@@ -3275,7 +3653,9 @@
       const fullStr = `${parts.sign}${timeStr}${msStr}`;
 
       // Mettre à jour les horloges
+      const flipClockIds = { clock: 'flipClockDash', focusPageTime: 'flipClockFocus', fsClock: 'flipClockFS' };
       ['clock', 'focusPageTime', 'fsClock'].forEach(id => {
+        updateFlipClockDisplay(flipClockIds[id], parts, remaining < 0);
         const el = $(id);
         if (el) {
           const daysSpan = el.querySelector('.days');
@@ -3835,10 +4215,11 @@
     });
     $('resetBtn').addEventListener('click', resetTimer);
 
-    const views = ['dashboard', 'tasks', 'focus', 'stats'];
+    const views = ['dashboard', 'tasks', 'calendar', 'focus', 'stats'];
     const titles = {
       dashboard: { eye: 'Tableau de bord', h1: 'Opérations du Jour.' },
       tasks: { eye: 'Base de données', h1: 'Centre de Tâches.' },
+      calendar: { eye: 'Vue chronologique', h1: 'Calendrier.' },
       focus: { eye: 'Deep Work', h1: 'Immersion Active.' },
       stats: { eye: 'Analytiques', h1: 'Performances.' }
     };
@@ -3860,7 +4241,25 @@
           renderPerformance(); }
         if (v === 'tasks') renderTasks();
         if (v === 'dashboard') renderTasks();
+        if (v === 'calendar') renderCalendarView();
       });
+    });
+
+    $('calPrevBtn').addEventListener('click', () => {
+      calViewMonth--;
+      if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+      renderCalendarView();
+    });
+    $('calNextBtn').addEventListener('click', () => {
+      calViewMonth++;
+      if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+      renderCalendarView();
+    });
+    $('calDaysGrid').addEventListener('click', function(e) {
+      const btn = e.target.closest('.cal-day:not(.empty)');
+      if (!btn) return;
+      calSelectedDay = new Date(calViewYear, calViewMonth, parseInt(btn.dataset.day, 10));
+      renderCalendarView();
     });
 
     function openFS() {
@@ -3884,6 +4283,7 @@
     $('shortcutsModalCloseBtn').addEventListener('click', closeShortcutsModal);
     $('shortcutsModal').addEventListener('click', function(e) { if (e.target === this) closeShortcutsModal(); });
     $('soundToggleBtn').addEventListener('click', toggleSound);
+    $('clockModeBtn').addEventListener('click', toggleClockMode);
     $('goalCard').addEventListener('click', editDailyGoal);
 
 
@@ -3948,7 +4348,7 @@
       if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) {
         $('focusScreen').classList.contains('open') ? closeFS() : openFS();
       }
-      if (['1', '2', '3', '4'].includes(e.key)) {
+      if (['1', '2', '3', '4', '5'].includes(e.key)) {
         switchToView(views[+e.key - 1]);
       }
     });
@@ -4083,6 +4483,7 @@
     }
     updateCategorySelects();
     updateSoundUI();
+    updateClockModeUI();
 
     if (state.activeTaskIds.length) {
       const primary = getPrimaryActiveTask();
