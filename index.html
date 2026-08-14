@@ -1172,6 +1172,120 @@
       gap: 6px;
     }
 
+    /* ===== SÉLECTEUR DE DATE/HEURE ===== */
+    .date-picker-btn {
+      text-align: left;
+      cursor: pointer;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .date-picker-btn.has-value { color: var(--text); }
+    .date-picker-btn:hover { border-color: var(--text-dim); }
+
+    .datepicker-popover {
+      position: fixed;
+      z-index: 10002;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      width: 264px;
+      font-family: 'Inter', sans-serif;
+    }
+    .datepicker-popover.hidden { display: none; }
+    .dp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .dp-month-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: capitalize;
+      letter-spacing: 0.3px;
+    }
+    .dp-nav-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--text-dim);
+      display: grid;
+      place-items: center;
+      font-size: 10px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .dp-nav-btn:hover { background: var(--surface-2); color: var(--text); }
+    .dp-weekdays, .dp-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      text-align: center;
+    }
+    .dp-weekdays span {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      padding: 4px 0;
+    }
+    .dp-day {
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid transparent;
+      transition: var(--transition);
+      font-variant-numeric: tabular-nums;
+    }
+    .dp-day:hover { background: var(--surface-2); }
+    .dp-day.empty { visibility: hidden; cursor: default; }
+    .dp-day.past { color: var(--muted); }
+    .dp-day.today { border-color: var(--text-dim); }
+    .dp-day.selected { background: var(--primary); color: var(--primary-text); font-weight: 700; }
+    .dp-time-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 12px 0 10px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .dp-time-row label {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 600;
+      margin-right: 2px;
+    }
+    .dp-time-row input {
+      width: 48px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 6px 4px;
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: center;
+      font-family: 'Inter', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .dp-time-row input:focus { border-color: var(--text-dim); }
+    .dp-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
     /* ===== ANALYTIQUES - PERFORMANCE ===== */
     .perf-grid {
       display: grid;
@@ -1411,7 +1525,8 @@
                   <option value="Urgent">Urgent</option>
                 </select>
                 <input type="text" class="field" id="taskDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
-                <input type="datetime-local" class="field" id="taskDeadlineDate" title="Ou choisir une date et heure d'échéance précises (prioritaire sur l'échéance relative)" />
+                <button type="button" class="field date-picker-btn" id="taskDeadlineDateBtn" data-picker="taskDeadlineDate" data-related="taskDeadlineInput" title="Ou choisir une date et heure d'échéance précises">Date précise</button>
+                <input type="hidden" id="taskDeadlineDate" />
                 <select id="taskRepeat" class="field" title="Répéter">
                   <option value="none">Ne pas répéter</option>
                   <option value="daily">Répéter chaque jour</option>
@@ -1642,7 +1757,8 @@
           </div>
         </div>
         <input type="text" class="field" id="editDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
-        <input type="datetime-local" class="field" id="editDeadlineDate" title="Ou choisir une date et heure d'échéance précises (prioritaire sur l'échéance relative)" />
+        <button type="button" class="field date-picker-btn" id="editDeadlineDateBtn" data-picker="editDeadlineDate" data-related="editDeadlineInput" title="Ou choisir une date et heure d'échéance précises">Date précise</button>
+        <input type="hidden" id="editDeadlineDate" />
         <select class="field" id="editRepeat" title="Répéter">
           <option value="none">Ne pas répéter</option>
           <option value="daily">Répéter chaque jour</option>
@@ -1662,6 +1778,29 @@
           <button class="btn btn-primary" id="modalSaveBtn">Enregistrer</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- POPOVER SÉLECTEUR DE DATE/HEURE -->
+  <div class="datepicker-popover hidden" id="datePickerPopover">
+    <div class="dp-header">
+      <button type="button" class="dp-nav-btn" id="dpPrevBtn" aria-label="Mois précédent"><span class="math-icon">◁</span></button>
+      <span class="dp-month-label" id="dpMonthLabel">Mois Année</span>
+      <button type="button" class="dp-nav-btn" id="dpNextBtn" aria-label="Mois suivant"><span class="math-icon">▷</span></button>
+    </div>
+    <div class="dp-weekdays">
+      <span>Lu</span><span>Ma</span><span>Me</span><span>Je</span><span>Ve</span><span>Sa</span><span>Di</span>
+    </div>
+    <div class="dp-days" id="dpDaysGrid"></div>
+    <div class="dp-time-row">
+      <label for="dpHour">Heure</label>
+      <input type="number" id="dpHour" min="0" max="23" value="9" />
+      <span style="color:var(--muted);">:</span>
+      <input type="number" id="dpMinute" min="0" max="59" value="0" />
+    </div>
+    <div class="dp-actions">
+      <button type="button" class="btn-ghost" id="dpClearBtn" style="padding:6px 12px; font-size:11px;">Effacer</button>
+      <button type="button" class="btn btn-primary" id="dpConfirmBtn" style="padding:6px 16px; font-size:11px;">Valider</button>
     </div>
   </div>
 
@@ -1943,29 +2082,108 @@
       return deadline.toISOString();
     }
 
-    // Convertit une date ISO en valeur locale utilisable par <input type="datetime-local">
-    function toDatetimeLocalValue(iso) {
-      if (!iso) return '';
-      const d = new Date(iso);
-      const pad = n => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
-
-    // Convertit la valeur d'un <input type="datetime-local"> (heure locale) en ISO
-    function fromDatetimeLocalValue(value) {
-      if (!value) return null;
-      const d = new Date(value);
-      if (isNaN(d.getTime())) return null;
-      return d.toISOString();
-    }
-
-    // Résout l'échéance d'une tâche : priorité au sélecteur date/heure précis,
-    // repli sur la saisie relative existante (ex: "3j 5h 30min") si vide.
+    // Résout l'échéance d'une tâche : priorité au sélecteur date/heure précis
+    // (déjà stocké en ISO), repli sur la saisie relative (ex: "3j 5h 30min") si vide.
     function resolveDeadline(dateFieldId, relativeFieldId) {
       const dateVal = $(dateFieldId)?.value;
-      if (dateVal) return fromDatetimeLocalValue(dateVal);
+      if (dateVal) return dateVal;
       const relativeVal = $(relativeFieldId)?.value.trim();
       return relativeVal ? parseDeadline(relativeVal) : null;
+    }
+
+    // ================================================================
+    // SÉLECTEUR DE DATE/HEURE (calendrier custom, aligné à la charte visuelle)
+    // ================================================================
+    const DP_MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    const dp = { inputId: null, btnId: null, relatedId: null, viewYear: 0, viewMonth: 0, selectedDay: null };
+
+    function formatDeadlineButtonLabel(iso) {
+      if (!iso) return 'Date précise';
+      return new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function setDatePickerField(inputId, btnId, iso) {
+      $(inputId).value = iso || '';
+      const btn = $(btnId);
+      const label = formatDeadlineButtonLabel(iso);
+      btn.textContent = label;
+      btn.title = iso ? `Échéance : ${label}` : "Choisir une date et heure d'échéance précises";
+      btn.classList.toggle('has-value', !!iso);
+    }
+
+    function openDatePicker(btn) {
+      dp.inputId = btn.dataset.picker;
+      dp.btnId = btn.id;
+      dp.relatedId = btn.dataset.related;
+      const current = $(dp.inputId).value;
+      const base = current ? new Date(current) : new Date();
+      dp.viewYear = base.getFullYear();
+      dp.viewMonth = base.getMonth();
+      dp.selectedDay = current ? new Date(base.getFullYear(), base.getMonth(), base.getDate()) : null;
+      $('dpHour').value = String(current ? base.getHours() : 9).padStart(2, '0');
+      $('dpMinute').value = String(current ? base.getMinutes() : 0).padStart(2, '0');
+      renderDatePickerCalendar();
+      positionDatePicker(btn);
+      $('datePickerPopover').classList.remove('hidden');
+    }
+
+    function closeDatePicker() {
+      $('datePickerPopover').classList.add('hidden');
+      dp.inputId = null;
+      dp.btnId = null;
+      dp.relatedId = null;
+    }
+
+    function positionDatePicker(btn) {
+      const pop = $('datePickerPopover');
+      const rect = btn.getBoundingClientRect();
+      const popWidth = 264;
+      const popHeightEstimate = 360;
+      let left = rect.left;
+      let top = rect.bottom + 6;
+      if (left + popWidth > window.innerWidth - 8) left = window.innerWidth - popWidth - 8;
+      if (left < 8) left = 8;
+      if (top + popHeightEstimate > window.innerHeight - 8) {
+        top = rect.top - popHeightEstimate - 6;
+        if (top < 8) top = 8;
+      }
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+    }
+
+    function renderDatePickerCalendar() {
+      $('dpMonthLabel').textContent = `${DP_MONTHS[dp.viewMonth]} ${dp.viewYear}`;
+      const firstOfMonth = new Date(dp.viewYear, dp.viewMonth, 1);
+      const offset = (firstOfMonth.getDay() + 6) % 7; // grille Lundi -> Dimanche
+      const daysInMonth = new Date(dp.viewYear, dp.viewMonth + 1, 0).getDate();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let html = '';
+      for (let i = 0; i < offset; i++) html += '<div class="dp-day empty"></div>';
+      for (let day = 1; day <= daysInMonth; day++) {
+        const cellDate = new Date(dp.viewYear, dp.viewMonth, day);
+        const classes = ['dp-day'];
+        if (cellDate.getTime() === today.getTime()) classes.push('today');
+        if (cellDate.getTime() < today.getTime()) classes.push('past');
+        if (dp.selectedDay && cellDate.getTime() === dp.selectedDay.getTime()) classes.push('selected');
+        html += `<button type="button" class="${classes.join(' ')}" data-day="${day}">${day}</button>`;
+      }
+      $('dpDaysGrid').innerHTML = html;
+    }
+
+    function confirmDatePicker() {
+      if (!dp.selectedDay) { toast('Choisissez un jour dans le calendrier.'); return; }
+      const hour = Math.min(23, Math.max(0, parseInt($('dpHour').value, 10) || 0));
+      const minute = Math.min(59, Math.max(0, parseInt($('dpMinute').value, 10) || 0));
+      const finalDate = new Date(dp.selectedDay.getFullYear(), dp.selectedDay.getMonth(), dp.selectedDay.getDate(), hour, minute);
+      setDatePickerField(dp.inputId, dp.btnId, finalDate.toISOString());
+      if (dp.relatedId) $(dp.relatedId).value = '';
+      closeDatePicker();
+    }
+
+    function clearDatePickerValue() {
+      if (dp.inputId) setDatePickerField(dp.inputId, dp.btnId, null);
+      closeDatePicker();
     }
 
     function getDeadlineStatus(deadline) {
@@ -3271,7 +3489,7 @@
       renderTasks();
       $('taskInput').value = '';
       $('taskDeadlineInput').value = '';
-      $('taskDeadlineDate').value = '';
+      setDatePickerField('taskDeadlineDate', 'taskDeadlineDateBtn', null);
       toast('Tâche ajoutée.');
     }
 
@@ -3351,7 +3569,7 @@
       // Le sélecteur de date/heure est la source de vérité affichée ; le champ relatif
       // reste vide et ne sert qu'à saisir un nouvel ajustement rapide si besoin.
       $('editDeadlineInput').value = '';
-      $('editDeadlineDate').value = task.deadline ? toDatetimeLocalValue(task.deadline) : '';
+      setDatePickerField('editDeadlineDate', 'editDeadlineDateBtn', task.deadline || null);
       $('editNotes').value = task.notes || '';
       if ($('editRepeat')) $('editRepeat').value = task.repeat || 'none';
       renderSubtaskEditor(task.subtasks || []);
@@ -3563,10 +3781,50 @@
 
     // Échéance : les deux méthodes de saisie (relative / date précise) sont mutuellement
     // exclusives — remplir l'une vide automatiquement l'autre pour éviter toute ambiguïté.
-    [['taskDeadlineInput', 'taskDeadlineDate'], ['editDeadlineInput', 'editDeadlineDate']].forEach(([relId, dateId]) => {
-      const relEl = $(relId), dateEl = $(dateId);
-      relEl.addEventListener('input', () => { if (relEl.value.trim()) dateEl.value = ''; });
-      dateEl.addEventListener('input', () => { if (dateEl.value) relEl.value = ''; });
+    [
+      { rel: 'taskDeadlineInput', date: 'taskDeadlineDate', btn: 'taskDeadlineDateBtn' },
+      { rel: 'editDeadlineInput', date: 'editDeadlineDate', btn: 'editDeadlineDateBtn' }
+    ].forEach(({ rel, date, btn }) => {
+      $(rel).addEventListener('input', function() {
+        if (this.value.trim()) setDatePickerField(date, btn, null);
+      });
+    });
+
+    // Popover du calendrier
+    document.querySelectorAll('.date-picker-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openDatePicker(this);
+      });
+    });
+    $('dpPrevBtn').addEventListener('click', () => {
+      dp.viewMonth--;
+      if (dp.viewMonth < 0) { dp.viewMonth = 11; dp.viewYear--; }
+      renderDatePickerCalendar();
+    });
+    $('dpNextBtn').addEventListener('click', () => {
+      dp.viewMonth++;
+      if (dp.viewMonth > 11) { dp.viewMonth = 0; dp.viewYear++; }
+      renderDatePickerCalendar();
+    });
+    $('dpDaysGrid').addEventListener('click', function(e) {
+      const btn = e.target.closest('.dp-day:not(.empty)');
+      if (!btn) return;
+      e.stopPropagation();
+      dp.selectedDay = new Date(dp.viewYear, dp.viewMonth, parseInt(btn.dataset.day, 10));
+      renderDatePickerCalendar();
+    });
+    $('dpConfirmBtn').addEventListener('click', confirmDatePicker);
+    $('dpClearBtn').addEventListener('click', clearDatePickerValue);
+    document.addEventListener('click', function(e) {
+      const pop = $('datePickerPopover');
+      if (pop.classList.contains('hidden')) return;
+      if (!pop.contains(e.target) && !e.target.closest('.date-picker-btn')) closeDatePicker();
+    });
+    window.addEventListener('resize', function() {
+      if (!$('datePickerPopover').classList.contains('hidden') && dp.btnId) {
+        positionDatePicker($(dp.btnId));
+      }
     });
 
     ['startBtn', 'focusPageStart', 'fsStart'].forEach(id => {
@@ -3635,6 +3893,10 @@
     }
 
     document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && !$('datePickerPopover').classList.contains('hidden')) {
+        closeDatePicker();
+        return;
+      }
       if (e.key === 'Escape' && !$('editModal').classList.contains('hidden')) {
         closeEditModal();
         return;
