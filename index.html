@@ -1976,10 +1976,10 @@
       const box = $('authStatus');
       if (!box) return;
       if (cloudUser) {
-        box.innerHTML = `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;">☁ ${escHtml(cloudUser.email)}</span><button class="btn-ghost" id="logoutBtn" style="padding:4px 10px; font-size:11px;">Déconnexion</button>`;
+        box.innerHTML = `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;"><span class="math-icon">⇅</span> ${escHtml(cloudUser.email)}</span><button class="btn-ghost" id="logoutBtn" style="padding:4px 10px; font-size:11px;">Déconnexion</button>`;
         $('logoutBtn').addEventListener('click', () => supa && supa.auth.signOut());
       } else {
-        box.innerHTML = `<button class="btn-ghost" id="loginOpenBtn" style="padding:4px 10px; font-size:11px;"><span class="math-icon">☁</span> Synchroniser</button>`;
+        box.innerHTML = `<button class="btn-ghost" id="loginOpenBtn" style="padding:4px 10px; font-size:11px;"><span class="math-icon">⇅</span> Synchroniser</button>`;
         $('loginOpenBtn').addEventListener('click', openAuthModal);
       }
     }
@@ -2468,14 +2468,14 @@
           <div class="task-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}">
             <button class="task-check" data-action="toggle" aria-label="${t.status === 'done' ? 'Marquer comme non terminée' : 'Marquer comme terminée'}">${t.status === 'done' ? '✓' : ''}</button>
             <div>
-              <div class="task-title">${escHtml(t.title)}${isActive ? (isPrimary ? ' ★' : ' ⏳') : ''}</div>
+              <div class="task-title">${escHtml(t.title)}${isActive ? (isPrimary ? ' ★' : ' ○') : ''}</div>
               <div class="task-meta">
                 <span class="status-badge ${statusClass}">${statusLabel}</span>
                 <span>${t.duration}m</span>
                 <span class="priority priority-${t.priority}">${t.priority}</span>
                 <span>${escHtml(t.category) || 'Général'}</span>
-                <span>⏱️ ${formatTimeShort(t.timeSpent || 0)}</span>
-                ${subtasks.length ? `<span>📋 ${doneSubtasks}/${subtasks.length}</span>` : ''}
+                <span><span class="math-icon">◷</span> ${formatTimeShort(t.timeSpent || 0)}</span>
+                ${subtasks.length ? `<span><span class="math-icon">≡</span> ${doneSubtasks}/${subtasks.length}</span>` : ''}
                 ${deadlineBadge}
               </div>
               ${subtasks.length ? `
@@ -2489,7 +2489,7 @@
                   <div class="progress-bar"><div class="fill" style="width:${progress}%;"></div></div>
                 </div>
               ` : ''}
-              ${t.notes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">📝 ${escHtml(t.notes)}</div>` : ''}
+              ${t.notes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;"><span class="math-icon">✐</span> ${escHtml(t.notes)}</div>` : ''}
             </div>
             <div class="task-actions">
               <button class="icon-btn ${isActive ? 'active-timer' : ''}" data-action="toggle-active" title="${isActive ? 'Arrêter le suivi' : 'Suivre'}" aria-label="${isActive ? 'Arrêter le suivi' : 'Suivre cette tâche'}">${isActive ? '⏹' : '▶'}</button>
@@ -2886,7 +2886,7 @@
         if (remaining <= 0 && !timer.notified) {
           timer.notified = true;
           playBeep();
-          toast('⏰ Temps écoulé !');
+          toast('Temps écoulé !');
           sendNotification('Temps écoulé', 'La tâche active est maintenant en dépassement.');
           vibrate([200, 100, 200]);
           state.history[todayStr].sessions = (state.history[todayStr].sessions || 0) + 1;
@@ -3532,7 +3532,7 @@
       }
     }, 1000);
 
-    console.log('🚀 Tempo PRO — affichage des jours pour les dépassements > 24h.');
+    console.log('Tempo PRO — affichage des jours pour les dépassements > 24h.');
   </script>
 </body>
 </html>
