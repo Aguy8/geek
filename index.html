@@ -8,6 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Tempo PRO — Multi‑Focus</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230a0a0a%22/%3E%20%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2222%22%20fill%3D%22none%22%20stroke%3D%22%232a2a2a%22%20stroke-width%3D%228%22/%3E%20%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2222%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-dasharray%3D%22103.6%20138.16%22%20transform%3D%22rotate%28-90%2032%2032%29%22/%3E%20%3C/svg%3E" />
+  <link rel="apple-touch-icon" href="data:image/png;base64,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" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
   <style>
@@ -1229,9 +1231,11 @@
     /* ===== RESPONSIVE ===== */
     @media (max-width: 900px) {
       .app { grid-template-columns: 1fr; }
-      body { padding-bottom: 66px; }
+      /* Marge généreuse pour que rien (barre de statut incluse) ne se retrouve jamais
+         caché derrière la barre de navigation fixe. */
+      body { padding-bottom: 84px; }
 
-      /* La sidebar devient une barre de navigation fixe en bas (mobile) */
+      /* La sidebar devient une barre de navigation fixe en bas (mobile), toujours visible */
       .sidebar {
         position: fixed;
         left: 0; right: 0; bottom: 0;
@@ -1323,10 +1327,10 @@
     <aside class="sidebar">
       <div class="brand">Tempo<span>.PRO</span></div>
       <nav class="nav">
-        <button class="active" data-view="dashboard" aria-current="page"><span class="icon math-icon">∑</span> Dashboard</button>
-        <button data-view="tasks"><span class="icon math-icon">✓</span> Tâches</button>
-        <button data-view="focus"><span class="icon math-icon">⊙</span> Focus</button>
-        <button data-view="stats"><span class="icon math-icon">∫</span> Analytiques</button>
+        <button class="active" data-view="dashboard" aria-current="page"><span class="icon math-icon">∑︎</span> Dashboard</button>
+        <button data-view="tasks"><span class="icon math-icon">✓︎</span> Tâches</button>
+        <button data-view="focus"><span class="icon math-icon">⊙︎</span> Focus</button>
+        <button data-view="stats"><span class="icon math-icon">∫︎</span> Analytiques</button>
       </nav>
       <div class="side-note">
         <strong>Deep Work Protocol</strong>
@@ -1344,9 +1348,9 @@
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <div id="authStatus"></div>
-          <button class="btn-ghost" id="soundToggleBtn" style="padding:8px 12px;" title="Activer/couper le son" aria-label="Activer/couper le son"><span class="math-icon" id="soundIcon">♪</span></button>
+          <button class="btn-ghost" id="soundToggleBtn" style="padding:8px 12px;" title="Activer/couper le son" aria-label="Activer/couper le son"><span class="math-icon" id="soundIcon">♪︎</span></button>
           <button class="btn-ghost" id="shortcutsBtn" style="padding:8px 12px;" title="Raccourcis clavier" aria-label="Raccourcis clavier"><span class="math-icon">?</span></button>
-          <button class="btn-ghost" id="focusNowBtn"><span class="math-icon">⊙</span> Mode Immersif</button>
+          <button class="btn-ghost" id="focusNowBtn"><span class="math-icon">⊙︎</span> Mode Immersif</button>
         </div>
       </div>
 
@@ -1367,9 +1371,9 @@
               </div>
               <div class="focus-task" id="activeTaskText">Aucune tâche active</div>
               <div class="timer-controls">
-                <button class="btn btn-primary" id="startBtn"><span class="math-icon">▶</span> Démarrer</button>
-                <button class="btn btn-ghost" id="pauseBtn"><span class="math-icon">⏸</span> Pause</button>
-                <button class="btn btn-ghost" id="resetBtn"><span class="math-icon">⟳</span> Reset</button>
+                <button class="btn btn-primary" id="startBtn"><span class="math-icon">▶︎</span> Démarrer</button>
+                <button class="btn btn-ghost" id="pauseBtn"><span class="math-icon">⏸︎</span> Pause</button>
+                <button class="btn btn-ghost" id="resetBtn"><span class="math-icon">⟳︎</span> Reset</button>
               </div>
               <div class="active-tasks-mini" id="activeTasksMini"></div>
               <div class="stats-mini">
@@ -1381,7 +1385,10 @@
             <div class="card" style="margin-top:20px;">
               <div class="card-header">
                 <h2>Objectifs Immédiats</h2>
-                <span id="taskSummary">0 restants</span>
+                <span style="display:flex; align-items:center; gap:8px;">
+                  <span id="urgentBadge" class="status-badge priority-high hidden"></span>
+                  <span id="taskSummary">0 restants</span>
+                </span>
               </div>
               <div class="task-form">
                 <input id="taskInput" class="field" placeholder="Ex. Contacter le livreur" style="grid-column:span 2;" />
@@ -1434,7 +1441,7 @@
             <div class="card">
               <div class="card-header">
                 <h2>Journal d'Exécution</h2>
-                <button class="btn-ghost" style="padding:4px 8px; font-size:10px;" id="clearTimelineBtn"><span class="math-icon">⌧</span> Purger</button>
+                <button class="btn-ghost" style="padding:4px 8px; font-size:10px;" id="clearTimelineBtn"><span class="math-icon">⌧︎</span> Purger</button>
               </div>
               <div class="timeline-list" id="timeline"></div>
             </div>
@@ -1462,6 +1469,12 @@
               <option value="Personnel">Personnel</option>
               <option value="Urgent">Urgent</option>
             </select>
+            <select id="filterPriority" class="field" style="width:auto;">
+              <option value="all">Toutes priorités</option>
+              <option value="high">Critique / Urgent</option>
+              <option value="medium">Normale</option>
+              <option value="low">Basse</option>
+            </select>
             <select id="filterDeadline" class="field" style="width:auto;">
               <option value="all">Toutes échéances</option>
               <option value="overdue">En retard</option>
@@ -1476,7 +1489,7 @@
               <option value="status">Trier : Statut</option>
               <option value="duration">Trier : Durée</option>
             </select>
-            <button class="btn btn-danger" id="clearDoneBtn"><span class="math-icon">⌧</span> Purger Terminées</button>
+            <button class="btn btn-danger" id="clearDoneBtn"><span class="math-icon">⌧︎</span> Purger Terminées</button>
           </div>
           <div class="task-list" id="fullTaskList" style="max-height:60vh;"></div>
         </div>
@@ -1489,14 +1502,14 @@
           <h2 id="focusPageTask" style="font-size:20px; margin:16px 0 8px;">Aucune tâche</h2>
           <div class="clock" id="focusPageTime"><span class="days"></span><span class="time-main">00:00:00</span><span class="ms">.000</span></div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:16px 0;">
-            <button class="btn-ghost" onclick="setManualTimer(25)"><span class="math-icon">⊙</span> Focus 25m</button>
-            <button class="btn-ghost" onclick="setManualTimer(5)"><span class="math-icon">⏸</span> Pause 5m</button>
-            <button class="btn-ghost" onclick="setManualTimer(15)"><span class="math-icon">⏸</span> Pause 15m</button>
+            <button class="btn-ghost" onclick="setManualTimer(25)"><span class="math-icon">⊙︎</span> Focus 25m</button>
+            <button class="btn-ghost" onclick="setManualTimer(5)"><span class="math-icon">⏸︎</span> Pause 5m</button>
+            <button class="btn-ghost" onclick="setManualTimer(15)"><span class="math-icon">⏸︎</span> Pause 15m</button>
             <button class="btn-ghost" onclick="setChronoMode()"><span class="math-icon">∞</span> Chrono Libre</button>
           </div>
           <div class="timer-controls">
-            <button class="btn btn-primary" style="padding:12px 36px; font-size:15px;" id="focusPageStart"><span class="math-icon">▶</span> Démarrer</button>
-            <button class="btn btn-ghost" style="padding:12px 28px;" id="focusPageFull"><span class="math-icon">⊙</span> Plein Écran</button>
+            <button class="btn btn-primary" style="padding:12px 36px; font-size:15px;" id="focusPageStart"><span class="math-icon">▶︎</span> Démarrer</button>
+            <button class="btn btn-ghost" style="padding:12px 28px;" id="focusPageFull"><span class="math-icon">⊙︎</span> Plein Écran</button>
           </div>
         </div>
       </section>
@@ -1517,7 +1530,7 @@
             <div style="font-size:32px; font-weight:700;" id="statsCompletion">0%</div>
           </div>
           <div class="card" style="padding:20px; cursor:pointer;" id="goalCard" title="Cliquer pour définir l'objectif quotidien">
-            <div class="eyebrow" style="font-size:10px;">Objectif quotidien <span class="math-icon">✎</span></div>
+            <div class="eyebrow" style="font-size:10px;">Objectif quotidien <span class="math-icon">✎︎</span></div>
             <div style="font-size:32px; font-weight:700;" id="statsGoalPct">0%</div>
             <div style="font-size:11px; color:var(--text-dim); margin-top:4px;" id="statsGoalSub">0 / 120m · Série 0j</div>
           </div>
@@ -1564,13 +1577,13 @@
             <h2>Générer un rapport</h2>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-            <button class="btn btn-primary" id="generateReportBtn"><span class="report-btn-icon">∑</span> Générer</button>
-            <button class="btn btn-success" id="exportPdfBtn"><span class="report-btn-icon">∫</span> PDF</button>
-            <button class="btn-ghost" id="exportCsvBtn"><span class="report-btn-icon">⌠</span> CSV</button>
-            <button class="btn-ghost" id="copyReportBtn"><span class="report-btn-icon">≡</span> Copier</button>
-            <button class="btn-ghost" id="clearSelectionBtn"><span class="report-btn-icon">⌧</span> Désélectionner</button>
-            <button class="btn-ghost" id="backupJsonBtn"><span class="report-btn-icon">⇩</span> Sauvegarder</button>
-            <button class="btn-ghost" id="restoreJsonBtn"><span class="report-btn-icon">⇧</span> Restaurer</button>
+            <button class="btn btn-primary" id="generateReportBtn"><span class="report-btn-icon">∑︎</span> Générer</button>
+            <button class="btn btn-success" id="exportPdfBtn"><span class="report-btn-icon">∫︎</span> PDF</button>
+            <button class="btn-ghost" id="exportCsvBtn"><span class="report-btn-icon">⌠︎</span> CSV</button>
+            <button class="btn-ghost" id="copyReportBtn"><span class="report-btn-icon">≡︎</span> Copier</button>
+            <button class="btn-ghost" id="clearSelectionBtn"><span class="report-btn-icon">⌧︎</span> Désélectionner</button>
+            <button class="btn-ghost" id="backupJsonBtn"><span class="report-btn-icon">⇩︎</span> Sauvegarder</button>
+            <button class="btn-ghost" id="restoreJsonBtn"><span class="report-btn-icon">⇧︎</span> Restaurer</button>
             <input type="file" id="restoreJsonInput" accept="application/json" class="hidden" />
           </div>
           <div style="max-height:260px; overflow-y:auto; margin-bottom:12px; border:1px solid var(--line); border-radius:6px; padding:8px;">
@@ -1699,13 +1712,13 @@
         <div class="eyebrow" style="font-size:10px; color:var(--muted); letter-spacing:2px;">MODE DEEP WORK</div>
         <div class="fs-task" id="fsTask">En attente...</div>
       </div>
-      <button class="btn-ghost" id="exitFullscreenBtn"><span class="math-icon">✕</span> Quitter</button>
+      <button class="btn-ghost" id="exitFullscreenBtn"><span class="math-icon">✕︎</span> Quitter</button>
     </div>
     <div class="fs-center">
       <div class="fs-clock" id="fsClock"><span class="days"></span><span class="time-main">00:00:00</span><span class="ms">.000</span></div>
       <div class="fs-controls">
-        <button class="btn btn-primary" style="padding:14px 36px; font-size:16px;" id="fsStart"><span class="math-icon">▶</span> Démarrer</button>
-        <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsPause"><span class="math-icon">⏸</span> Pause</button>
+        <button class="btn btn-primary" style="padding:14px 36px; font-size:16px;" id="fsStart"><span class="math-icon">▶︎</span> Démarrer</button>
+        <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsPause"><span class="math-icon">⏸︎</span> Pause</button>
       </div>
 
       <!-- Mini horloges des tâches actives (mode immersif) -->
@@ -1715,11 +1728,11 @@
       <div id="fsTaskDetails" class="fs-task-details hidden">
         <div id="fsDetailsContent"></div>
         <div class="action-buttons">
-          <button id="fsDetailsDoneBtn" class="btn-done">✓ Terminer</button>
-          <button id="fsDetailsEditBtn">✎ Modifier</button>
+          <button id="fsDetailsDoneBtn" class="btn-done">✓︎ Terminer</button>
+          <button id="fsDetailsEditBtn">✎︎ Modifier</button>
         </div>
         <div class="close-details">
-          <button id="fsDetailsCloseBtn">✕ Fermer</button>
+          <button id="fsDetailsCloseBtn">✕︎ Fermer</button>
         </div>
       </div>
     </div>
@@ -1974,9 +1987,15 @@
     // ================================================================
     const SUPABASE_URL = 'https://sybyymvcvmeidyubafzk.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_WszL2k5wYzGE6-pmy-9HAw_QmcvqRPU';
-    const supa = (window.supabase && window.supabase.createClient)
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-      : null;
+    let supa = null;
+    try {
+      if (window.supabase && window.supabase.createClient) {
+        supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      }
+    } catch (e) {
+      console.warn('Initialisation Supabase impossible (app en mode local seul).', e);
+      supa = null;
+    }
 
     const CLIENT_ID = Math.random().toString(36).slice(2);
     let cloudUser = null;
@@ -2077,10 +2096,10 @@
       const box = $('authStatus');
       if (!box) return;
       if (cloudUser) {
-        box.innerHTML = `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;"><span class="math-icon">⇅</span> ${escHtml(cloudUser.email)}</span><button class="btn-ghost" id="logoutBtn" style="padding:4px 10px; font-size:11px;">Déconnexion</button>`;
+        box.innerHTML = `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;"><span class="math-icon">⇅︎</span> ${escHtml(cloudUser.email)}</span><button class="btn-ghost" id="logoutBtn" style="padding:4px 10px; font-size:11px;">Déconnexion</button>`;
         $('logoutBtn').addEventListener('click', () => supa && supa.auth.signOut());
       } else {
-        box.innerHTML = `<button class="btn-ghost" id="loginOpenBtn" style="padding:4px 10px; font-size:11px;"><span class="math-icon">⇅</span> Synchroniser</button>`;
+        box.innerHTML = `<button class="btn-ghost" id="loginOpenBtn" style="padding:4px 10px; font-size:11px;"><span class="math-icon">⇅︎</span> Synchroniser</button>`;
         $('loginOpenBtn').addEventListener('click', openAuthModal);
       }
     }
@@ -2197,7 +2216,7 @@
             <div class="subtask-list-fs">
               ${subtasks.map(s => `
                 <div class="subtask-row-fs ${s.done ? 'done' : ''}">
-                  <span style="opacity:0.6;">${s.done ? '✓' : '□'}</span>
+                  <span style="opacity:0.6;">${s.done ? '✓︎' : '□'}</span>
                   <span class="subtask-label-fs">${escHtml(s.title)}</span>
                 </div>
               `).join('')}
@@ -2361,7 +2380,7 @@
             <span class="mini-title">${escHtml(t.title)}</span>
             <span class="${timeCls}">${timeStr}</span>
             ${label ? `<span style="font-size:9px; color:var(--muted);">${label}</span>` : ''}
-            ${isPrimary ? '<span class="mini-badge">★</span>' : ''}
+            ${isPrimary ? '<span class="mini-badge">★︎</span>' : ''}
           </div>
         `;
       });
@@ -2398,7 +2417,7 @@
             <span class="mini-title">${escHtml(t.title)}</span>
             <span class="${timeCls}">${timeStr}</span>
             ${label ? `<span style="font-size:10px; color:var(--muted); margin-left:4px;">${label}</span>` : ''}
-            ${isPrimary ? '<span class="mini-badge">★</span>' : ''}
+            ${isPrimary ? '<span class="mini-badge">★︎</span>' : ''}
           </div>
         `;
       });
@@ -2520,18 +2539,23 @@
     // ================================================================
     function renderTasks() {
       const allTasks = state.tasks;
+      const dashPriorityRank = { high: 0, medium: 1, low: 2 };
       const dashList = allTasks
         .filter(t => t.status !== 'done')
         .sort((a, b) => {
-          if (!a.deadline) return 1;
-          if (!b.deadline) return -1;
-          return new Date(a.deadline) - new Date(b.deadline);
+          // Les échéances passent devant, mais à échéance égale (ou absente),
+          // les tâches critiques/urgentes remontent en premier.
+          if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+          if (a.deadline) return -1;
+          if (b.deadline) return 1;
+          return (dashPriorityRank[a.priority] ?? 9) - (dashPriorityRank[b.priority] ?? 9);
         })
-        .slice(0, 5);
+        .slice(0, 6);
       $('dashTaskList').innerHTML = generateTaskHTML(dashList);
 
       const filterStatus = $('filterStatus')?.value || 'all';
       const filterCat = $('filterCategory')?.value || 'all';
+      const filterPriority = $('filterPriority')?.value || 'all';
       const filterDeadline = $('filterDeadline')?.value || 'all';
       const search = $('searchInput')?.value?.toLowerCase() || '';
       const sortBy = $('taskSort')?.value || 'deadline';
@@ -2539,6 +2563,7 @@
       const filtered = allTasks.filter(t => {
         if (filterStatus !== 'all' && t.status !== filterStatus) return false;
         if (filterCat !== 'all' && t.category !== filterCat) return false;
+        if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
         if (search) {
           const haystack = `${t.title} ${t.category || ''} ${t.notes || ''}`.toLowerCase();
           if (!haystack.includes(search)) return false;
@@ -2577,6 +2602,14 @@
       const done = allTasks.filter(t => t.status === 'done').length;
       const p = total ? Math.round((done / total) * 100) : 0;
       $('taskSummary').textContent = `${total - done} restants`;
+      const urgentCount = allTasks.filter(t => t.status !== 'done' && t.priority === 'high').length;
+      const urgentBadge = $('urgentBadge');
+      if (urgentCount > 0) {
+        urgentBadge.textContent = `${urgentCount} critique${urgentCount > 1 ? 's' : ''}`;
+        urgentBadge.classList.remove('hidden');
+      } else {
+        urgentBadge.classList.add('hidden');
+      }
       $('doneCount').textContent = done;
       $('ring').style.setProperty('--progress', p + '%');
       $('ringValue').textContent = p + '%';
@@ -2617,17 +2650,17 @@
         const isPrimary = timer.activeTaskId === t.id;
         return `
           <div class="task-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}">
-            <button class="task-check" data-action="toggle" aria-label="${t.status === 'done' ? 'Marquer comme non terminée' : 'Marquer comme terminée'}">${t.status === 'done' ? '✓' : ''}</button>
+            <button class="task-check" data-action="toggle" aria-label="${t.status === 'done' ? 'Marquer comme non terminée' : 'Marquer comme terminée'}">${t.status === 'done' ? '✓︎' : ''}</button>
             <div>
-              <div class="task-title">${escHtml(t.title)}${isActive ? (isPrimary ? ' ★' : ' ○') : ''}</div>
+              <div class="task-title">${escHtml(t.title)}${isActive ? (isPrimary ? ' ★︎' : ' ○︎') : ''}</div>
               <div class="task-meta">
                 <span class="status-badge ${statusClass}">${statusLabel}</span>
                 <span>${t.duration}m</span>
                 <span class="priority priority-${t.priority}">${t.priority}</span>
                 <span>${escHtml(t.category) || 'Général'}</span>
-                <span><span class="math-icon">◷</span> ${formatTimeShort(t.timeSpent || 0)}</span>
-                ${subtasks.length ? `<span><span class="math-icon">≡</span> ${doneSubtasks}/${subtasks.length}</span>` : ''}
-                ${t.repeat && t.repeat !== 'none' ? `<span><span class="math-icon">⟳</span> ${t.repeat === 'daily' ? 'Quotidienne' : 'Hebdomadaire'}</span>` : ''}
+                <span><span class="math-icon">◷︎</span> ${formatTimeShort(t.timeSpent || 0)}</span>
+                ${subtasks.length ? `<span><span class="math-icon">≡︎</span> ${doneSubtasks}/${subtasks.length}</span>` : ''}
+                ${t.repeat && t.repeat !== 'none' ? `<span><span class="math-icon">⟳︎</span> ${t.repeat === 'daily' ? 'Quotidienne' : 'Hebdomadaire'}</span>` : ''}
                 ${deadlineBadge}
               </div>
               ${subtasks.length ? `
@@ -2641,14 +2674,14 @@
                   <div class="progress-bar"><div class="fill" style="width:${progress}%;"></div></div>
                 </div>
               ` : ''}
-              ${t.notes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;"><span class="math-icon">✐</span> ${escHtml(t.notes)}</div>` : ''}
+              ${t.notes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;"><span class="math-icon">✐︎</span> ${escHtml(t.notes)}</div>` : ''}
             </div>
             <div class="task-actions">
-              <button class="icon-btn ${isActive ? 'active-timer' : ''}" data-action="toggle-active" title="${isActive ? 'Arrêter le suivi' : 'Suivre'}" aria-label="${isActive ? 'Arrêter le suivi' : 'Suivre cette tâche'}">${isActive ? '⏹' : '▶'}</button>
-              <button class="icon-btn" data-action="focus" title="Verrouiller comme cible" aria-label="Verrouiller comme cible">⊙</button>
-              <button class="icon-btn" data-action="duplicate" title="Dupliquer" aria-label="Dupliquer la tâche">⧉</button>
-              <button class="icon-btn" data-action="edit" title="Modifier" aria-label="Modifier la tâche">✎</button>
-              <button class="icon-btn" data-action="delete" title="Supprimer" aria-label="Supprimer la tâche">✕</button>
+              <button class="icon-btn ${isActive ? 'active-timer' : ''}" data-action="toggle-active" title="${isActive ? 'Arrêter le suivi' : 'Suivre'}" aria-label="${isActive ? 'Arrêter le suivi' : 'Suivre cette tâche'}">${isActive ? '⏹︎' : '▶︎'}</button>
+              <button class="icon-btn" data-action="focus" title="Verrouiller comme cible" aria-label="Verrouiller comme cible">⊙︎</button>
+              <button class="icon-btn" data-action="duplicate" title="Dupliquer" aria-label="Dupliquer la tâche">⧉︎</button>
+              <button class="icon-btn" data-action="edit" title="Modifier" aria-label="Modifier la tâche">✎︎</button>
+              <button class="icon-btn" data-action="delete" title="Supprimer" aria-label="Supprimer la tâche">✕︎</button>
             </div>
           </div>
         `;
@@ -2787,7 +2820,7 @@
         if (subtasks.length) {
           report += `  Sous-tâches :\n`;
           subtasks.forEach(s => {
-            report += `    - ${s.done ? '✓' : '□'} ${s.title}\n`;
+            report += `    - ${s.done ? '✓︎' : '□'} ${s.title}\n`;
           });
         }
         report += `\n`;
@@ -2949,13 +2982,22 @@
         if (!sel) return;
         const current = sel.value;
         sel.innerHTML = '';
+        // Le filtre de la vue Tâches a besoin de son option « Toutes catégories »,
+        // sans quoi il se réinitialisait silencieusement sur la 1ère catégorie
+        // à chaque rafraîchissement, empêchant d'afficher durablement "Urgent" etc.
+        if (id === 'filterCategory') {
+          const allOpt = document.createElement('option');
+          allOpt.value = 'all';
+          allOpt.textContent = 'Toutes catégories';
+          sel.appendChild(allOpt);
+        }
         cats.forEach(c => {
           const opt = document.createElement('option');
           opt.value = c;
           opt.textContent = c;
           sel.appendChild(opt);
         });
-        if (cats.includes(current)) sel.value = current;
+        if (Array.from(sel.options).some(o => o.value === current)) sel.value = current;
       });
     }
 
@@ -3061,9 +3103,9 @@
       timer.running = true;
       timer.startTime = Date.now();
       timer.notified = false;
-      $('startBtn').textContent = '⏹ En cours';
-      $('focusPageStart').textContent = '⏹ En cours';
-      $('fsStart').textContent = '⏹ En cours';
+      $('startBtn').textContent = '⏹︎ En cours';
+      $('focusPageStart').textContent = '⏹︎ En cours';
+      $('fsStart').textContent = '⏹︎ En cours';
       // Compteur de ticks (100ms) pour créditer le temps réellement écoulé toutes les 5s,
       // au lieu de comparer deux instants Date.now() qui se recouvraient sur ~1s à chaque cycle.
       let ticks = 0;
@@ -3102,7 +3144,7 @@
       const icon = $('soundIcon');
       const btn = $('soundToggleBtn');
       if (!icon || !btn) return;
-      icon.textContent = soundEnabled ? '♪' : '⌀';
+      icon.textContent = soundEnabled ? '♪︎' : '⌀︎';
       btn.title = soundEnabled ? 'Son activé (cliquer pour couper)' : 'Son coupé (cliquer pour activer)';
       btn.setAttribute('aria-label', btn.title);
     }
@@ -3120,9 +3162,9 @@
       clearInterval(timer.interval);
       timer.elapsed += Date.now() - timer.startTime;
       timer.startTime = null;
-      $('startBtn').textContent = '▶ Démarrer';
-      $('focusPageStart').textContent = '▶ Démarrer';
-      $('fsStart').textContent = '▶ Démarrer';
+      $('startBtn').textContent = '▶︎ Démarrer';
+      $('focusPageStart').textContent = '▶︎ Démarrer';
+      $('fsStart').textContent = '▶︎ Démarrer';
       save();
       updateDisplays();
     }
@@ -3173,7 +3215,7 @@
 
     function sendNotification(title, body) {
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⊙</text></svg>' });
+        new Notification(title, { body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⊙︎</text></svg>' });
       }
     }
 
@@ -3314,7 +3356,7 @@
       container.innerHTML = subtasks.map((s, idx) => `
         <div class="subtask-row-editor">
           <span>${escHtml(s.title)}</span>
-          <button data-index="${idx}" class="remove-subtask-btn" style="background:transparent; color:var(--danger); border:none; font-size:14px; cursor:pointer;">✕</button>
+          <button data-index="${idx}" class="remove-subtask-btn" style="background:transparent; color:var(--danger); border:none; font-size:14px; cursor:pointer;">✕︎</button>
         </div>
       `).join('');
     }
@@ -3563,6 +3605,7 @@
     $('soundToggleBtn').addEventListener('click', toggleSound);
     $('goalCard').addEventListener('click', editDailyGoal);
 
+
     function switchToView(name) {
       const btn = document.querySelector(`.nav button[data-view="${name}"]`);
       if (btn) btn.click();
@@ -3653,7 +3696,7 @@
       toast('Journal purgé.');
     });
 
-    ['filterStatus', 'filterCategory', 'filterDeadline', 'searchInput', 'taskSort'].forEach(id => {
+    ['filterStatus', 'filterCategory', 'filterPriority', 'filterDeadline', 'searchInput', 'taskSort'].forEach(id => {
       const el = $(id);
       if (el) {
         el.addEventListener('input', renderTasks);
