@@ -1371,6 +1371,7 @@
       padding: 4px 0 8px;
     }
     .cal-day {
+      position: relative;
       min-height: 64px;
       border-radius: 8px;
       border: 1px solid var(--line);
@@ -1387,6 +1388,14 @@
     .cal-day:hover { border-color: var(--text-dim); }
     .cal-day.empty { visibility: hidden; cursor: default; border-color: transparent; background: transparent; }
     .cal-day-num { font-size: 12px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .cal-day-check {
+      position: absolute;
+      top: 4px;
+      right: 5px;
+      font-size: 9px;
+      color: var(--success);
+      font-family: 'Inter', sans-serif;
+    }
     .cal-day.past .cal-day-num { color: var(--muted); }
     .cal-day.today { border-color: var(--text-dim); border-width: 1px; }
     .cal-day.selected { background: var(--surface-3); border-color: var(--primary); }
@@ -1449,6 +1458,104 @@
     .perf-item .perf-item-diff.early { color: var(--success); }
     .perf-item .perf-item-diff.late { color: var(--danger); }
     .perf-item .perf-item-diff.on-time { color: var(--warning); }
+
+    /* ===== HEATMAP D'ASSIDUITÉ ===== */
+    .heatmap-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .heatmap-grid {
+      display: grid;
+      grid-template-rows: repeat(7, 12px);
+      grid-auto-flow: column;
+      grid-auto-columns: 12px;
+      gap: 3px;
+      width: max-content;
+    }
+    .heatmap-grid > div {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--line);
+    }
+    .heatmap-grid > div[data-level="1"] { background: rgba(74, 222, 128, 0.25); }
+    .heatmap-grid > div[data-level="2"] { background: rgba(74, 222, 128, 0.5); }
+    .heatmap-grid > div[data-level="3"] { background: rgba(74, 222, 128, 0.75); }
+    .heatmap-grid > div[data-level="4"] { background: var(--success); }
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .heatmap-legend .heatmap-cell {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      background: var(--line);
+    }
+    .heatmap-legend .heatmap-cell[data-level="1"] { background: rgba(74, 222, 128, 0.25); }
+    .heatmap-legend .heatmap-cell[data-level="2"] { background: rgba(74, 222, 128, 0.5); }
+    .heatmap-legend .heatmap-cell[data-level="3"] { background: rgba(74, 222, 128, 0.75); }
+    .heatmap-legend .heatmap-cell[data-level="4"] { background: var(--success); }
+
+    /* ===== RÉPARTITION PAR CATÉGORIE ===== */
+    .cat-donut-wrap {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+    .cat-donut-box {
+      position: relative;
+      width: 130px;
+      height: 130px;
+      flex-shrink: 0;
+    }
+    .cat-donut {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: var(--line);
+    }
+    .cat-donut-box::after {
+      content: '';
+      position: absolute;
+      inset: 20px;
+      background: var(--surface);
+      border-radius: 50%;
+    }
+    .cat-donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      text-align: center;
+    }
+    .cat-donut-center strong { font-size: 17px; font-weight: 700; }
+    .cat-donut-center small { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+    .cat-legend {
+      display: grid;
+      gap: 8px;
+      flex: 1;
+      min-width: 180px;
+    }
+    .cat-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .cat-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .cat-legend-item .cat-legend-label { flex: 1; color: var(--text); }
+    .cat-legend-item .cat-legend-value { color: var(--text-dim); font-variant-numeric: tabular-nums; font-size: 11px; }
 
     /* ===== RESPONSIVE ===== */
     @media (max-width: 900px) {
@@ -1760,6 +1867,7 @@
             <div class="card">
               <div class="card-header">
                 <h2 id="calSelectedDayLabel">Aujourd'hui</h2>
+                <button class="btn-ghost" id="exportIcsBtn" style="padding:4px 10px; font-size:10px;" title="Exporter toutes les échéances vers votre calendrier (Google Agenda, Apple Calendrier, Outlook...)">Exporter .ics</button>
               </div>
               <div class="task-list" id="calDayTaskList" style="max-height:60vh;"></div>
             </div>
@@ -1823,6 +1931,35 @@
             <h2>Activité sur 7 jours (minutes)</h2>
           </div>
           <div class="chart-container" id="weeklyChart"></div>
+        </div>
+        <div class="card" style="padding:20px; margin-bottom:20px;">
+          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+            <h2>Assiduité (12 dernières semaines)</h2>
+          </div>
+          <div class="heatmap-wrap">
+            <div class="heatmap-grid" id="activityHeatmap"></div>
+            <div class="heatmap-legend">
+              <span>Moins</span>
+              <span class="heatmap-cell" data-level="0"></span>
+              <span class="heatmap-cell" data-level="1"></span>
+              <span class="heatmap-cell" data-level="2"></span>
+              <span class="heatmap-cell" data-level="3"></span>
+              <span class="heatmap-cell" data-level="4"></span>
+              <span>Plus</span>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="padding:20px; margin-bottom:20px;">
+          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+            <h2>Répartition du temps par catégorie</h2>
+          </div>
+          <div class="cat-donut-wrap">
+            <div class="cat-donut-box">
+              <div class="cat-donut" id="categoryDonut"></div>
+              <div class="cat-donut-center" id="categoryDonutCenter"><strong>--</strong><small>Aucune donnée</small></div>
+            </div>
+            <div class="cat-legend" id="categoryLegend"></div>
+          </div>
         </div>
         <div class="card" style="padding:20px; margin-bottom:20px;">
           <div class="card-header" style="padding:0 0 12px 0; border:none;">
@@ -2406,7 +2543,9 @@
       for (let i = 0; i < offset; i++) html += '<div class="cal-day empty"></div>';
       for (let day = 1; day <= daysInMonth; day++) {
         const cellDate = new Date(calViewYear, calViewMonth, day);
-        const dayTasks = (tasksByDay[dateKey(calViewYear, calViewMonth, day)] || []).filter(t => t.status !== 'done');
+        const key = dateKey(calViewYear, calViewMonth, day);
+        const dayTasks = (tasksByDay[key] || []).filter(t => t.status !== 'done');
+        const hasCompleted = (state.history[key]?.completedTasks?.length || 0) > 0;
         const classes = ['cal-day'];
         if (cellDate.getTime() === today.getTime()) classes.push('today');
         if (cellDate.getTime() < today.getTime()) classes.push('past');
@@ -2414,7 +2553,8 @@
         const shown = dayTasks.slice(0, 4);
         const dots = shown.map(t => `<span class="cal-day-dot" style="background:${priorityColor[t.priority] || 'var(--muted)'};"></span>`).join('');
         const more = dayTasks.length > 4 ? `<span class="cal-day-more">+${dayTasks.length - 4}</span>` : '';
-        html += `<button type="button" class="${classes.join(' ')}" data-day="${day}"><span class="cal-day-num">${day}</span><span class="cal-day-dots">${dots}${more}</span></button>`;
+        const checkBadge = hasCompleted ? '<span class="cal-day-check" title="Tâches terminées ce jour-là">✓︎</span>' : '';
+        html += `<button type="button" class="${classes.join(' ')}" data-day="${day}">${checkBadge}<span class="cal-day-num">${day}</span><span class="cal-day-dots">${dots}${more}</span></button>`;
       }
       $('calDaysGrid').innerHTML = html;
       renderCalendarSelectedDay();
@@ -2430,9 +2570,24 @@
       const isToday = calSelectedDay.getTime() === todayMidnight.getTime();
       const label = calSelectedDay.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
       $('calSelectedDayLabel').textContent = isToday ? `Aujourd'hui — ${label}` : label;
-      $('calDayTaskList').innerHTML = dayTasks.length
+
+      let html = dayTasks.length
         ? generateTaskHTML(dayTasks)
         : '<div style="padding:16px; color:var(--muted); text-align:center;">Aucune échéance ce jour-là.</div>';
+
+      const completedThatDay = state.history[key]?.completedTasks || [];
+      if (completedThatDay.length) {
+        html += `
+          <div style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:4px;">Terminées ce jour-là</div>
+          ${completedThatDay.map(c => `
+            <div class="perf-item">
+              <span class="perf-item-title">${escHtml(c.title)}</span>
+              <span style="color:var(--text-dim); font-size:11px;">${escHtml(c.time)}</span>
+            </div>
+          `).join('')}
+        `;
+      }
+      $('calDayTaskList').innerHTML = html;
     }
 
     function getDeadlineStatus(deadline) {
@@ -2996,6 +3151,8 @@
     }
 
     function renderPerformance() {
+      renderActivityHeatmap();
+      renderCategoryBreakdown();
       const perf = computePerformance();
       if (!perf) {
         $('perfAvgEst').textContent = '--';
@@ -3265,6 +3422,87 @@
         `;
         chart.appendChild(wrap);
       }
+    }
+
+    // ================================================================
+    // HEATMAP D'ASSIDUITÉ (12 dernières semaines)
+    // ================================================================
+    function renderActivityHeatmap() {
+      const container = $('activityHeatmap');
+      if (!container) return;
+      const totalDays = 84; // 12 semaines
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const rangeStart = new Date(today);
+      rangeStart.setDate(rangeStart.getDate() - (totalDays - 1));
+      // Recule jusqu'au lundi pour aligner proprement les colonnes de la grille
+      const mondayOffset = (rangeStart.getDay() + 6) % 7;
+      rangeStart.setDate(rangeStart.getDate() - mondayOffset);
+
+      const days = [];
+      let maxSecs = 0;
+      const cursor = new Date(rangeStart);
+      while (cursor <= today) {
+        const key = cursor.toISOString().slice(0, 10);
+        const secs = state.history[key]?.focusSecs || 0;
+        days.push({ date: new Date(cursor), key, secs });
+        if (secs > maxSecs) maxSecs = secs;
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      container.innerHTML = days.map(d => {
+        let level = 0;
+        if (d.secs > 0 && maxSecs > 0) {
+          const ratio = d.secs / maxSecs;
+          level = ratio > 0.75 ? 4 : ratio > 0.5 ? 3 : ratio > 0.25 ? 2 : 1;
+        }
+        const minutes = Math.floor(d.secs / 60);
+        const label = d.date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+        return `<div data-level="${level}" title="${label} — ${minutes > 0 ? minutes + ' min' : 'aucune activité'}"></div>`;
+      }).join('');
+    }
+
+    // ================================================================
+    // RÉPARTITION DU TEMPS PAR CATÉGORIE
+    // ================================================================
+    const CATEGORY_PALETTE = ['#60a5fa', '#f87171', '#fbbf24', '#4ade80', '#a78bfa', '#f472b6', '#38bdf8', '#fb923c'];
+
+    function renderCategoryBreakdown() {
+      const donut = $('categoryDonut');
+      const center = $('categoryDonutCenter');
+      const legend = $('categoryLegend');
+      if (!donut || !legend) return;
+      const totals = {};
+      state.tasks.forEach(t => {
+        const secs = t.timeSpent || 0;
+        if (secs <= 0) return;
+        const cat = t.category || 'Général';
+        totals[cat] = (totals[cat] || 0) + secs;
+      });
+      const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+      const totalSecs = entries.reduce((sum, [, s]) => sum + s, 0);
+
+      if (!entries.length) {
+        donut.style.background = 'var(--line)';
+        center.innerHTML = '<strong>--</strong><small>Aucune donnée</small>';
+        legend.innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucun temps enregistré pour l\'instant.</div>';
+        return;
+      }
+
+      let acc = 0;
+      const stops = entries.map(([, secs], i) => {
+        const color = CATEGORY_PALETTE[i % CATEGORY_PALETTE.length];
+        const from = acc;
+        acc += (secs / totalSecs) * 100;
+        return `${color} ${from}% ${acc}%`;
+      }).join(', ');
+      donut.style.background = `conic-gradient(${stops})`;
+      center.innerHTML = `<strong>${formatTimeShort(totalSecs)}</strong><small>au total</small>`;
+      legend.innerHTML = entries.map(([cat, secs], i) => {
+        const color = CATEGORY_PALETTE[i % CATEGORY_PALETTE.length];
+        const pct = Math.round((secs / totalSecs) * 100);
+        return `<div class="cat-legend-item"><span class="cat-legend-dot" style="background:${color};"></span><span class="cat-legend-label">${escHtml(cat)}</span><span class="cat-legend-value">${formatTimeShort(secs)} · ${pct}%</span></div>`;
+      }).join('');
     }
 
     // ================================================================
@@ -3564,6 +3802,44 @@
     }
 
     // ================================================================
+    // EXPORT .ICS (synchronisation avec un calendrier externe)
+    // ================================================================
+    function icsEscape(str) {
+      return String(str || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+    }
+
+    function toICSDate(iso) {
+      return new Date(iso).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    }
+
+    function exportICS() {
+      const tasksWithDeadline = state.tasks.filter(t => t.deadline && t.status !== 'done');
+      if (!tasksWithDeadline.length) { toast('Aucune tâche avec échéance à exporter.'); return; }
+      const priorityLabels = { high: 'Critique', medium: 'Normale', low: 'Basse' };
+      const now = toICSDate(new Date().toISOString());
+      const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tempo.PRO//FR', 'CALSCALE:GREGORIAN'];
+      tasksWithDeadline.forEach(t => {
+        let desc = `Priorité : ${priorityLabels[t.priority] || t.priority}\\nCatégorie : ${icsEscape(t.category || 'Général')}`;
+        if (t.notes) desc += `\\nNotes : ${icsEscape(t.notes)}`;
+        lines.push('BEGIN:VEVENT');
+        lines.push(`UID:${t.id}@tempo.pro`);
+        lines.push(`DTSTAMP:${now}`);
+        lines.push(`DTSTART:${toICSDate(t.deadline)}`);
+        lines.push(`SUMMARY:${icsEscape(t.title)}`);
+        lines.push(`DESCRIPTION:${desc}`);
+        lines.push('END:VEVENT');
+      });
+      lines.push('END:VCALENDAR');
+      const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'tempo_taches.ics';
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast(`${tasksWithDeadline.length} échéance${tasksWithDeadline.length > 1 ? 's' : ''} exportée${tasksWithDeadline.length > 1 ? 's' : ''}.`);
+    }
+
+    // ================================================================
     // MISE À JOUR CATÉGORIES
     // ================================================================
     function updateCategorySelects() {
@@ -3852,6 +4128,29 @@
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(title, { body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⊙︎</text></svg>' });
       }
+    }
+
+    // ================================================================
+    // RAPPELS PROACTIFS AVANT ÉCHÉANCE (pas seulement au dépassement)
+    // ================================================================
+    const REMINDER_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
+    const remindedDeadlines = new Set();
+
+    function checkUpcomingDeadlines() {
+      const now = Date.now();
+      state.tasks.forEach(t => {
+        if (t.status === 'done' || !t.deadline) return;
+        const reminderKey = `${t.id}:${t.deadline}`;
+        if (remindedDeadlines.has(reminderKey)) return;
+        const diff = new Date(t.deadline).getTime() - now;
+        if (diff > 0 && diff <= REMINDER_THRESHOLD_MS) {
+          remindedDeadlines.add(reminderKey);
+          const mins = Math.max(1, Math.round(diff / 60000));
+          toast(`« ${t.title} » à échéance dans ${mins} min.`);
+          sendNotification('Échéance proche', `"${t.title}" est à échéance dans ${mins} minute${mins > 1 ? 's' : ''}.`);
+          vibrate([100, 60, 100]);
+        }
+      });
     }
 
     // ================================================================
@@ -4271,6 +4570,7 @@
       calSelectedDay = new Date(calViewYear, calViewMonth, parseInt(btn.dataset.day, 10));
       renderCalendarView();
     });
+    $('exportIcsBtn').addEventListener('click', exportICS);
 
     function openFS() {
       $('focusScreen').classList.add('open');
@@ -4520,9 +4820,11 @@
     updateStatusBar();
     updateFullscreenInfo();
     initCloudAuth();
+    checkUpcomingDeadlines();
     setInterval(() => {
       updateStatusBar();
       updateFullscreenInfo();
+      checkUpcomingDeadlines();
       if (!timer.running) {
         updateClock();
         renderActiveTasksMini();
