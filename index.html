@@ -150,16 +150,6 @@
       font-weight: 300;
       margin: 0 2px;
     }
-    .status-bar .right .key-hint {
-      color: var(--muted);
-      background: var(--bg);
-      padding: 2px 8px;
-      border-radius: 4px;
-      border: 1px solid var(--line);
-      font-size: 10px;
-      font-family: 'Times New Roman', serif;
-      letter-spacing: 0.5px;
-    }
     #statusTimerState.running { color: var(--success); }
     #statusTimerState.paused { color: var(--warning); }
     .status-overdue { color: var(--danger); font-weight: 500; }
@@ -1229,7 +1219,6 @@
       .grid-2 { grid-template-columns: 1fr; }
       .task-form { grid-template-columns: 1fr 1fr; }
       .status-bar { flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 16px; }
-      .status-bar .right .key-hint { display: none; }
       .fs-bottom { flex-direction: column; align-items: stretch; text-align: center; }
       .fs-stats { justify-content: center; }
       .active-tasks-mini { flex-direction: column; align-items: center; gap: 6px; }
@@ -1554,10 +1543,6 @@
         <span id="statusOverdue">0 en retard</span>
         <span class="separator">·</span>
         <span id="statusTimerState" class="paused">En pause</span>
-        <span class="separator">·</span>
-        <span class="key-hint">[Space] Start/Pause</span>
-        <span class="key-hint">[R] Reset</span>
-        <span class="key-hint">[Ctrl+E] Éditer</span>
       </div>
     </div>
   </div>
