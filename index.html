@@ -1,0 +1,3553 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Tempo PRO — Multi‑Focus</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+  <style>
+    /* ===== RESET & VARIABLES (identique) ===== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
+    :root {
+      --bg: #0a0a0a;
+      --surface: #121212;
+      --surface-2: #1a1a1a;
+      --surface-3: #2a2a2a;
+      --text: #e8e8e8;
+      --text-dim: #888;
+      --muted: #555;
+      --line: #2a2a2a;
+      --primary: #ffffff;
+      --primary-text: #000;
+      --success: #4ade80;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --info: #60a5fa;
+      --radius: 10px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      --transition: 0.2s ease;
+    }
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    button, input, select, textarea {
+      font: inherit;
+      outline: none;
+    }
+    button { cursor: pointer; border: 0; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; }
+    .hidden { display: none !important; }
+
+    /* ===== LAYOUT ===== */
+    .app {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      grid-template-rows: 1fr auto;
+      min-height: 100vh;
+    }
+    .sidebar {
+      padding: 30px 16px;
+      background: var(--surface);
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      grid-row: 1 / 2;
+    }
+    .brand {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      padding: 0 8px 24px 8px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 16px;
+    }
+    .brand span { color: var(--text-dim); font-weight: 300; }
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nav button {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      color: var(--text-dim);
+      background: transparent;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: var(--transition);
+    }
+    .nav button:hover { color: var(--text); background: var(--surface-2); }
+    .nav button.active { color: var(--primary); background: var(--surface-3); }
+    .nav button .icon {
+      font-family: 'Times New Roman', 'STIX', 'Latin Modern Math', serif;
+      font-style: italic;
+      font-size: 18px;
+      width: 24px;
+      text-align: center;
+      opacity: 0.8;
+    }
+    .side-note {
+      margin-top: auto;
+      padding: 16px 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .side-note strong { color: var(--text-dim); display: block; }
+
+    .main {
+      padding: 32px 36px 16px 36px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      grid-row: 1 / 2;
+    }
+
+    /* ===== STATUS BAR ===== */
+    .status-bar {
+      grid-column: 1 / -1;
+      grid-row: 2 / 3;
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      padding: 6px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      flex-wrap: wrap;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.3px;
+    }
+    .status-bar .left, .status-bar .right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .status-bar .separator {
+      color: var(--muted);
+      font-weight: 300;
+      margin: 0 2px;
+    }
+    .status-bar .right .key-hint {
+      color: var(--muted);
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      font-size: 10px;
+      font-family: 'Times New Roman', serif;
+      letter-spacing: 0.5px;
+    }
+    #statusTimerState.running { color: var(--success); }
+    #statusTimerState.paused { color: var(--warning); }
+    .status-overdue { color: var(--danger); font-weight: 500; }
+    .status-time { font-weight: 500; color: var(--text); }
+    .status-date { color: var(--text-dim); }
+    .status-progress { color: var(--info); font-weight: 500; }
+
+    /* ===== TOPBAR ===== */
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .topbar .title-group .eyebrow {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .topbar .title-group h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin: 4px 0 2px;
+    }
+    .topbar .title-group .date {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      transition: var(--transition);
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-ghost:hover { background: var(--surface-2); }
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-text);
+      border-radius: 6px;
+      padding: 8px 18px;
+      font-size: 12px;
+      font-weight: 600;
+      transition: var(--transition);
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-primary:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(255,255,255,0.15); }
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-danger:hover { opacity: 0.8; }
+    .btn-success {
+      background: var(--success);
+      color: #000;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-success:hover { opacity: 0.8; }
+    .btn-info {
+      background: var(--info);
+      color: #000;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-info:hover { opacity: 0.8; }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .card-header h2 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+    }
+
+    /* ===== FOCUS WIDGET ===== */
+    .focus-widget {
+      padding: 32px 24px;
+      text-align: center;
+      position: relative;
+    }
+    .focus-widget .mode {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      cursor: default;
+      transition: color 0.3s;
+    }
+    .focus-widget .mode.running { color: var(--success); animation: pulse 1.5s infinite; }
+    .focus-widget .mode.overdue { color: var(--danger); animation: pulse 0.8s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .clock-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    .clock {
+      font-variant-numeric: tabular-nums;
+      font-size: 80px;
+      font-weight: 700;
+      letter-spacing: -3px;
+      line-height: 1;
+      margin: 12px 0 8px;
+      font-family: 'Inter', monospace;
+    }
+    .clock .ms {
+      font-size: 28px;
+      color: var(--text-dim);
+      letter-spacing: 0;
+    }
+    .clock .days {
+      font-size: 32px;
+      color: var(--text-dim);
+      letter-spacing: 0;
+      margin-right: 4px;
+    }
+    .clock.negative {
+      color: var(--danger);
+    }
+    .clock.negative .ms {
+      color: var(--danger);
+    }
+    .clock.negative .days {
+      color: var(--danger);
+    }
+    .add-time-btns {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+    .add-time-btns .btn {
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: var(--text-dim);
+      border: 1px solid var(--line);
+      transition: var(--transition);
+    }
+    .add-time-btns .btn:hover {
+      background: var(--surface-3);
+      color: var(--text);
+      border-color: var(--text-dim);
+    }
+    .focus-task {
+      font-size: 14px;
+      color: var(--text-dim);
+      min-height: 24px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      padding: 4px 12px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .focus-task:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .timer-controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .timer-controls .btn {
+      padding: 10px 22px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+    }
+
+    /* ===== LISTE DES TÂCHES ACTIVES EN PETIT (Dashboard) ===== */
+    .active-tasks-mini {
+      margin-top: 20px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px 20px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .active-tasks-mini .mini-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: var(--transition);
+      font-family: 'Inter', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .active-tasks-mini .mini-item:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .active-tasks-mini .mini-item .mini-title {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 400;
+    }
+    .active-tasks-mini .mini-item .mini-time {
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+    .active-tasks-mini .mini-item .mini-time.overdue {
+      color: var(--danger);
+    }
+    .active-tasks-mini .mini-item.active-primary {
+      border: 1px solid var(--primary);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      padding: 4px 12px;
+    }
+    .active-tasks-mini .mini-item .mini-badge {
+      font-size: 9px;
+      background: var(--success);
+      color: #000;
+      padding: 0 6px;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+
+    /* ===== LISTE DES TÂCHES ACTIVES EN MODE IMMERSIF ===== */
+    .active-tasks-mini-fs {
+      margin: 16px 0;
+      font-size: 13px;
+      color: var(--text-dim);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px 20px;
+    }
+    .active-tasks-mini-fs .mini-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      transition: background 0.2s;
+      cursor: pointer;
+      font-family: 'Inter', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .active-tasks-mini-fs .mini-item:hover {
+      background: var(--surface-2);
+    }
+    .active-tasks-mini-fs .mini-item .mini-title {
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .active-tasks-mini-fs .mini-item .mini-time {
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+    .active-tasks-mini-fs .mini-item .mini-time.overdue {
+      color: var(--danger);
+    }
+    .active-tasks-mini-fs .mini-item.active-primary {
+      border: 1px solid var(--primary);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      padding: 4px 12px;
+    }
+    .active-tasks-mini-fs .mini-badge {
+      font-size: 9px;
+      background: var(--success);
+      color: #000;
+      padding: 0 6px;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+
+    /* ===== DÉTAILS D'UNE TÂCHE EN MODE IMMERSIF ===== */
+    .fs-task-details {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin: 12px auto;
+      max-width: 600px;
+      width: 100%;
+      text-align: left;
+      font-size: 13px;
+      color: var(--text-dim);
+      transition: all 0.3s ease;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .fs-task-details .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .fs-task-details .detail-row:last-child { border-bottom: none; }
+    .fs-task-details .label { color: var(--muted); font-weight: 500; }
+    .fs-task-details .value { color: var(--text); font-weight: 400; max-width: 60%; text-align: right; word-break: break-word; }
+    .fs-task-details .subtask-list-fs {
+      margin-top: 6px;
+      display: grid;
+      gap: 4px;
+    }
+    .fs-task-details .subtask-list-fs .subtask-row-fs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .fs-task-details .subtask-list-fs .subtask-row-fs.done .subtask-label-fs {
+      text-decoration: line-through;
+      opacity: 0.5;
+    }
+    .fs-task-details .close-details {
+      text-align: right;
+      margin-top: 8px;
+    }
+    .fs-task-details .close-details button {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .fs-task-details .close-details button:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .fs-task-details .action-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .fs-task-details .action-buttons button {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--text-dim);
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .fs-task-details .action-buttons button:hover {
+      background: var(--surface-2);
+      color: var(--text);
+      border-color: var(--text-dim);
+    }
+    .fs-task-details .action-buttons .btn-done {
+      border-color: var(--success);
+      color: var(--success);
+    }
+    .fs-task-details .action-buttons .btn-done:hover {
+      background: rgba(74, 222, 128, 0.15);
+    }
+
+    /* ===== STATS MINI ===== */
+    .stats-mini {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: var(--line);
+      gap: 1px;
+      margin-top: 28px;
+      border-top: 1px solid var(--line);
+    }
+    .stats-mini .stat {
+      background: var(--surface);
+      padding: 16px;
+      text-align: center;
+    }
+    .stats-mini .stat small {
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stats-mini .stat strong {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* ===== TASK FORM ===== */
+    .task-form {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto 1fr auto;
+      gap: 10px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      align-items: end;
+    }
+    .task-form .field { min-width: 70px; }
+    .field {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      width: 100%;
+      transition: var(--transition);
+      font-family: 'Inter', sans-serif;
+    }
+    .field:focus { border-color: var(--text-dim); }
+    .field::placeholder { color: var(--muted); }
+    .task-list {
+      padding: 12px 20px 20px;
+      display: grid;
+      gap: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .task-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      transition: var(--transition);
+    }
+    .task-item:hover { border-color: #444; }
+    .task-item.done { opacity: 0.5; }
+    .task-item.done .task-title { text-decoration: line-through; }
+    .task-check {
+      width: 20px;
+      height: 20px;
+      border: 1px solid var(--muted);
+      border-radius: 50%;
+      background: transparent;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: var(--transition);
+      font-family: 'Times New Roman', serif;
+    }
+    .task-item.done .task-check {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    .task-title { font-weight: 600; font-size: 13px; }
+    .task-meta {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+      align-items: center;
+    }
+    .task-deadline {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .task-deadline.overdue {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+    }
+    .task-deadline.soon {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--warning);
+      border: 1px solid rgba(251, 191, 36, 0.25);
+    }
+    .task-deadline.ok {
+      background: rgba(74, 222, 128, 0.1);
+      color: var(--success);
+      border: 1px solid rgba(74, 222, 128, 0.2);
+    }
+    .task-actions { display: flex; gap: 4px; }
+    .icon-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      transition: var(--transition);
+      font-family: 'Times New Roman', serif;
+    }
+    .icon-btn:hover {
+      color: var(--text);
+      background: var(--surface-3);
+    }
+    .icon-btn.active-timer {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    /* ===== SUBTASKS ===== */
+    .subtask-list {
+      margin-top: 6px;
+      padding-left: 12px;
+      border-left: 2px solid var(--line);
+      display: grid;
+      gap: 4px;
+    }
+    .subtask-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .subtask-row input[type="checkbox"] {
+      accent-color: var(--success);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+    .subtask-row.done .subtask-label {
+      text-decoration: line-through;
+      opacity: 0.5;
+    }
+    .progress-bar {
+      height: 3px;
+      background: var(--line);
+      border-radius: 4px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .progress-bar .fill {
+      height: 100%;
+      background: var(--success);
+      transition: width 0.3s;
+    }
+
+    /* ===== STATUS BADGES ===== */
+    .status-badge {
+      font-size: 9px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      display: inline-block;
+      font-family: 'Inter', sans-serif;
+    }
+    .status-todo {
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+      border: 1px solid var(--muted);
+    }
+    .status-inprogress {
+      background: rgba(251,191,36,0.15);
+      color: var(--warning);
+      border: 1px solid rgba(251,191,36,0.2);
+    }
+    .status-done {
+      background: rgba(74,222,128,0.1);
+      color: var(--success);
+      border: 1px solid rgba(74,222,128,0.2);
+    }
+    .status-blocked {
+      background: rgba(248,113,113,0.15);
+      color: var(--danger);
+      border: 1px solid rgba(248,113,113,0.2);
+    }
+    .priority-high {
+      background: rgba(248,113,113,0.15);
+      color: var(--danger);
+      border: 1px solid rgba(248,113,113,0.2);
+    }
+    .priority-medium {
+      background: rgba(251,191,36,0.15);
+      color: var(--warning);
+      border: 1px solid rgba(251,191,36,0.2);
+    }
+    .priority-low {
+      background: rgba(74,222,128,0.1);
+      color: var(--success);
+      border: 1px solid rgba(74,222,128,0.2);
+    }
+
+    /* ===== RAPPORT ===== */
+    .report-area {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 16px;
+      max-height: 350px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-dim);
+      font-family: 'Inter', monospace;
+    }
+
+    /* ===== PROGRESS RING ===== */
+    .progress-ring-wrap {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 24px 20px;
+    }
+    .ring-box {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    .ring {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(var(--primary) var(--progress), var(--line) 0);
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .ring::after {
+      content: "";
+      width: 66px;
+      height: 66px;
+      background: var(--surface);
+      border-radius: 50%;
+      position: absolute;
+    }
+    .ring-value {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 16px;
+      font-weight: 700;
+      z-index: 2;
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+    }
+    .progress-copy strong {
+      font-size: 16px;
+      display: block;
+    }
+    .progress-copy small {
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    /* ===== TIMELINE ===== */
+    .timeline-list {
+      padding: 16px 20px;
+      display: grid;
+      gap: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .slot {
+      display: grid;
+      grid-template-columns: 44px 8px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .slot-time {
+      font-size: 10px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      padding-top: 2px;
+      font-family: 'Inter', monospace;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--line);
+      border-radius: 50%;
+      margin-top: 6px;
+      border: 2px solid var(--bg);
+      box-shadow: 0 0 0 1px var(--text-dim);
+    }
+    .slot-content {
+      border-left: 1px solid var(--line);
+      padding-left: 14px;
+      padding-bottom: 8px;
+    }
+    .slot-content strong { font-size: 12px; font-weight: 600; }
+    .slot-content small { display: block; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+    /* ===== FULLSCREEN FOCUS ===== */
+    .focus-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      background: var(--bg);
+      padding: 32px 40px 24px;
+    }
+    .focus-screen.open { display: flex; }
+    .fs-top {
+      display: flex;
+      justify-content: space-between;
+    }
+    .fs-task {
+      font-size: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.2s;
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .fs-task:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .fs-center {
+      text-align: center;
+      margin: auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .fs-clock {
+      font-size: 12vw;
+      font-weight: 700;
+      letter-spacing: -0.5vw;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      font-family: 'Inter', monospace;
+    }
+    .fs-clock .ms {
+      font-size: 3vw;
+      color: var(--text-dim);
+    }
+    .fs-clock .days {
+      font-size: 4vw;
+      color: var(--text-dim);
+      margin-right: 0.5vw;
+    }
+    .fs-clock.negative {
+      color: var(--danger);
+    }
+    .fs-clock.negative .ms {
+      color: var(--danger);
+    }
+    .fs-clock.negative .days {
+      color: var(--danger);
+    }
+    .fs-controls {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 20px;
+    }
+    .fs-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .fs-stats {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .fs-stats span { display: flex; align-items: center; gap: 4px; }
+    .fs-stats .overdue { color: var(--danger); }
+
+    /* ===== TOAST ===== */
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 72px;
+      background: var(--primary);
+      color: var(--primary-text);
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      transform: translateY(16px);
+      opacity: 0;
+      transition: var(--transition);
+      z-index: 10000;
+      box-shadow: var(--shadow);
+      font-family: 'Inter', sans-serif;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* ===== CHART ===== */
+    .chart-container {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 160px;
+      padding: 16px;
+      background: var(--surface-2);
+      border-radius: 6px;
+      margin-top: 16px;
+      border: 1px solid var(--line);
+    }
+    .chart-bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+    .chart-bar {
+      width: 100%;
+      background: var(--line);
+      border-radius: 4px;
+      transition: height 0.5s;
+      min-height: 3px;
+      max-width: 32px;
+    }
+    .chart-bar:hover { background: var(--text-dim); }
+    .chart-label {
+      font-size: 9px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    /* ===== MODALE ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10001;
+      padding: 16px;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      max-width: 520px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .modal-header h2 { font-size: 18px; font-weight: 700; }
+    .modal-close {
+      font-size: 22px;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-family: 'Times New Roman', serif;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal .field { margin-bottom: 10px; }
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .subtask-editor {
+      display: flex;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .subtask-editor input { flex: 1; }
+    .subtask-list-editor {
+      display: grid;
+      gap: 4px;
+      margin: 6px 0;
+    }
+    .subtask-list-editor .subtask-row-editor {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-2);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .subtask-list-editor .subtask-row-editor span { flex: 1; font-size: 12px; }
+    .subtask-list-editor .subtask-row-editor button {
+      background: transparent;
+      color: var(--danger);
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: 'Times New Roman', serif;
+    }
+
+    /* ===== GRILLES (ex-inline, nécessaires pour override responsive) ===== */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+    }
+    .stats-top-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .category-add-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* ===== ANALYTIQUES - PERFORMANCE ===== */
+    .perf-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .perf-card {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 16px;
+    }
+    .perf-card .perf-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .perf-card .perf-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .perf-card .perf-value.good { color: var(--success); }
+    .perf-card .perf-value.bad { color: var(--danger); }
+    .perf-card .perf-value.neutral { color: var(--warning); }
+    .perf-card .perf-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+    .perf-list {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .perf-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: var(--surface);
+      border-radius: 4px;
+      border-left: 3px solid var(--line);
+      font-size: 12px;
+    }
+    .perf-item .perf-item-title { font-weight: 500; }
+    .perf-item .perf-item-diff { font-weight: 600; }
+    .perf-item .perf-item-diff.early { color: var(--success); }
+    .perf-item .perf-item-diff.late { color: var(--danger); }
+    .perf-item .perf-item-diff.on-time { color: var(--warning); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      body { padding-bottom: 66px; }
+
+      /* La sidebar devient une barre de navigation fixe en bas (mobile) */
+      .sidebar {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 500;
+        flex-direction: row;
+        padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+        border-right: none;
+        border-top: 1px solid var(--line);
+        background: var(--surface);
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+      }
+      .sidebar .brand, .sidebar .side-note { display: none; }
+      .sidebar .nav { flex-direction: row; width: 100%; gap: 2px; }
+      .sidebar .nav button {
+        flex: 1;
+        flex-direction: column;
+        gap: 2px;
+        padding: 6px 2px;
+        font-size: 9px;
+        text-align: center;
+      }
+      .sidebar .nav button .icon { font-size: 17px; width: auto; }
+
+      .grid-2 { grid-template-columns: 1fr; }
+      .task-form { grid-template-columns: 1fr 1fr; }
+      .status-bar { flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 16px; }
+      .status-bar .right .key-hint { display: none; }
+      .fs-bottom { flex-direction: column; align-items: stretch; text-align: center; }
+      .fs-stats { justify-content: center; }
+      .active-tasks-mini { flex-direction: column; align-items: center; gap: 6px; }
+      .active-tasks-mini-fs { flex-direction: column; align-items: center; gap: 6px; }
+      .perf-grid { grid-template-columns: 1fr; }
+      .fs-task-details { max-width: 100%; }
+    }
+    @media (max-width: 600px) {
+      .main { padding: 16px; }
+      .clock { font-size: 48px; }
+      .clock .ms { font-size: 18px; }
+      .clock .days { font-size: 20px; }
+      .task-form { grid-template-columns: 1fr; }
+      .modal { padding: 16px; }
+      .fs-clock { font-size: 18vw; }
+      .fs-clock .days { font-size: 6vw; }
+      .stats-top-grid { grid-template-columns: 1fr; }
+
+      /* Empêche le zoom automatique iOS sur les champs (police < 16px) */
+      .field { font-size: 16px; }
+
+      /* Les actions de tâche passent en dessous du titre pour rester accessibles */
+      .task-item { grid-template-columns: auto 1fr; }
+      .task-actions { grid-column: 1 / -1; justify-content: flex-end; flex-wrap: wrap; margin-top: 6px; }
+
+      .category-add-row { flex-wrap: wrap; }
+      .category-add-row select, .category-add-row input { flex: 1 1 100%; }
+    }
+    @media (max-width: 420px) {
+      .grid-2col { grid-template-columns: 1fr; }
+    }
+
+    /* ===== ICÔNES MATHÉMATIQUES ===== */
+    .math-icon {
+      font-family: 'Times New Roman', 'STIX', 'Latin Modern Math', serif;
+      font-style: italic;
+      font-weight: 400;
+      opacity: 0.8;
+    }
+    .report-btn-icon {
+      font-family: 'Times New Roman', serif;
+      font-style: italic;
+      font-size: 14px;
+      margin-right: 4px;
+    }
+
+    /* Transition pour le changement de tâche principale */
+    .mini-item {
+      transition: border 0.3s, background 0.3s;
+    }
+    .fs-task {
+      transition: opacity 0.3s;
+    }
+    .fs-task.fade {
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">Tempo<span>.PRO</span></div>
+      <nav class="nav">
+        <button class="active" data-view="dashboard" aria-current="page"><span class="icon math-icon">∑</span> Dashboard</button>
+        <button data-view="tasks"><span class="icon math-icon">✓</span> Tâches</button>
+        <button data-view="focus"><span class="icon math-icon">⊙</span> Focus</button>
+        <button data-view="stats"><span class="icon math-icon">∫</span> Analytiques</button>
+      </nav>
+      <div class="side-note">
+        <strong>Deep Work Protocol</strong>
+        <span style="display:block;margin-top:4px;">Éliminez le bruit. Exécutez avec précision.</span>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="topbar">
+        <div class="title-group">
+          <div class="eyebrow" id="topbarEyebrow">Tableau de bord</div>
+          <h1 id="topbarTitle">Opérations du Jour.</h1>
+          <div class="date" id="todayDate"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div id="authStatus"></div>
+          <button class="btn-ghost" id="focusNowBtn"><span class="math-icon">⊙</span> Mode Immersif</button>
+        </div>
+      </div>
+
+      <!-- VUE DASHBOARD -->
+      <section class="view-panel" id="viewDashboard">
+        <div class="grid-2">
+          <div>
+            <div class="card focus-widget" id="mainTimerWidget">
+              <div class="mode" id="timerMode">FOCUS ACTIF</div>
+              <div class="clock-wrapper">
+                <div class="clock" id="clock"><span class="days"></span><span class="time-main">00:00:00</span><span class="ms">.000</span></div>
+                <div class="add-time-btns">
+                  <button class="btn" data-add="5">+5min</button>
+                  <button class="btn" data-add="15">+15min</button>
+                  <button class="btn" data-add="30">+30min</button>
+                  <button class="btn" data-add="60">+1h</button>
+                </div>
+              </div>
+              <div class="focus-task" id="activeTaskText">Aucune tâche active</div>
+              <div class="timer-controls">
+                <button class="btn btn-primary" id="startBtn"><span class="math-icon">▶</span> Démarrer</button>
+                <button class="btn btn-ghost" id="pauseBtn"><span class="math-icon">⏸</span> Pause</button>
+                <button class="btn btn-ghost" id="resetBtn"><span class="math-icon">⟳</span> Reset</button>
+              </div>
+              <div class="active-tasks-mini" id="activeTasksMini"></div>
+              <div class="stats-mini">
+                <div class="stat"><small>Focus du jour</small><strong id="focusToday">0m</strong></div>
+                <div class="stat"><small>Sessions</small><strong id="sessionCount">0</strong></div>
+                <div class="stat"><small>Achevées</small><strong id="doneCount">0</strong></div>
+              </div>
+            </div>
+            <div class="card" style="margin-top:20px;">
+              <div class="card-header">
+                <h2>Objectifs Immédiats</h2>
+                <span id="taskSummary">0 restants</span>
+              </div>
+              <div class="task-form">
+                <input id="taskInput" class="field" placeholder="Ex. Contacter le livreur" style="grid-column:span 2;" />
+                <select id="taskDuration" class="field">
+                  <option value="15">15m</option>
+                  <option value="25" selected>25m</option>
+                  <option value="45">45m</option>
+                  <option value="60">1h</option>
+                </select>
+                <select id="taskPriority" class="field">
+                  <option value="high">Critique</option>
+                  <option value="medium" selected>Normale</option>
+                  <option value="low">Basse</option>
+                </select>
+                <select id="taskCategory" class="field">
+                  <option value="Général">Général</option>
+                  <option value="Livraison">Livraison</option>
+                  <option value="Développement">Développement</option>
+                  <option value="Personnel">Personnel</option>
+                  <option value="Urgent">Urgent</option>
+                </select>
+                <input type="text" class="field" id="taskDeadlineInput" placeholder="Échéance (ex: 3j 5h 30min)" />
+                <button class="btn btn-primary" id="addTaskBtn"><span class="math-icon">+</span> Créer</button>
+              </div>
+              <div class="task-list" id="dashTaskList"></div>
+            </div>
+          </div>
+          <aside>
+            <div class="card" style="margin-bottom:20px;">
+              <div class="card-header">
+                <h2>Avancement</h2>
+                <span id="progressLabel">0%</span>
+              </div>
+              <div class="progress-ring-wrap">
+                <div class="ring-box">
+                  <div class="ring" id="ring"></div>
+                  <div class="ring-value" id="ringValue">0%</div>
+                </div>
+                <div class="progress-copy">
+                  <strong id="progressMain">0 / 0</strong>
+                  <small>La vélocité dépend de la constance.</small>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h2>Journal d'Exécution</h2>
+                <button class="btn-ghost" style="padding:4px 8px; font-size:10px;" id="clearTimelineBtn"><span class="math-icon">⌧</span> Purger</button>
+              </div>
+              <div class="timeline-list" id="timeline"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- VUE TÂCHES -->
+      <section class="view-panel hidden" id="viewTasks">
+        <div class="card" style="padding:20px;">
+          <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; align-items:center;">
+            <input type="text" class="field search-bar" id="searchInput" placeholder="Rechercher..." style="flex:1; max-width:280px;" />
+            <select id="filterStatus" class="field" style="width:auto;">
+              <option value="all">Tous statuts</option>
+              <option value="todo">À faire</option>
+              <option value="inprogress">En cours</option>
+              <option value="done">Terminée</option>
+              <option value="blocked">Bloquée</option>
+            </select>
+            <select id="filterCategory" class="field" style="width:auto;">
+              <option value="all">Toutes catégories</option>
+              <option value="Général">Général</option>
+              <option value="Livraison">Livraison</option>
+              <option value="Développement">Développement</option>
+              <option value="Personnel">Personnel</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+            <select id="filterDeadline" class="field" style="width:auto;">
+              <option value="all">Toutes échéances</option>
+              <option value="overdue">En retard</option>
+              <option value="today">Aujourd'hui</option>
+              <option value="week">Cette semaine</option>
+              <option value="future">À venir</option>
+            </select>
+            <select id="taskSort" class="field" style="width:auto;">
+              <option value="deadline">Trier : Échéance</option>
+              <option value="priority">Trier : Priorité</option>
+              <option value="title">Trier : Titre (A-Z)</option>
+              <option value="status">Trier : Statut</option>
+              <option value="duration">Trier : Durée</option>
+            </select>
+            <button class="btn btn-danger" id="clearDoneBtn"><span class="math-icon">⌧</span> Purger Terminées</button>
+          </div>
+          <div class="task-list" id="fullTaskList" style="max-height:60vh;"></div>
+        </div>
+      </section>
+
+      <!-- VUE FOCUS -->
+      <section class="view-panel hidden" id="viewFocus">
+        <div class="card focus-widget" style="min-height:55vh; justify-content:center;">
+          <div class="eyebrow" style="font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase;">Contrôle Pomodoro</div>
+          <h2 id="focusPageTask" style="font-size:20px; margin:16px 0 8px;">Aucune tâche</h2>
+          <div class="clock" id="focusPageTime"><span class="days"></span><span class="time-main">00:00:00</span><span class="ms">.000</span></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:16px 0;">
+            <button class="btn-ghost" onclick="setManualTimer(25)"><span class="math-icon">⊙</span> Focus 25m</button>
+            <button class="btn-ghost" onclick="setManualTimer(5)"><span class="math-icon">⏸</span> Pause 5m</button>
+            <button class="btn-ghost" onclick="setManualTimer(15)"><span class="math-icon">⏸</span> Pause 15m</button>
+            <button class="btn-ghost" onclick="setChronoMode()"><span class="math-icon">∞</span> Chrono Libre</button>
+          </div>
+          <div class="timer-controls">
+            <button class="btn btn-primary" style="padding:12px 36px; font-size:15px;" id="focusPageStart"><span class="math-icon">▶</span> Démarrer</button>
+            <button class="btn btn-ghost" style="padding:12px 28px;" id="focusPageFull"><span class="math-icon">⊙</span> Plein Écran</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VUE STATS -->
+      <section class="view-panel hidden" id="viewStats">
+        <div class="stats-top-grid">
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Temps total aujourd'hui</div>
+            <div style="font-size:32px; font-weight:700;" id="statsFocus">0m</div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Sessions achevées</div>
+            <div style="font-size:32px; font-weight:700;" id="statsSessions">0</div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Taux de complétion</div>
+            <div style="font-size:32px; font-weight:700;" id="statsCompletion">0%</div>
+          </div>
+        </div>
+        <div class="card" style="padding:20px; margin-bottom:20px;">
+          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+            <h2>Activité sur 7 jours (minutes)</h2>
+          </div>
+          <div class="chart-container" id="weeklyChart"></div>
+        </div>
+        <div class="card" style="padding:20px; margin-bottom:20px;">
+          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+            <h2>Performance d'exécution</h2>
+          </div>
+          <div class="perf-grid" id="perfGrid">
+            <div class="perf-card">
+              <div class="perf-title">Temps moyen estimé</div>
+              <div class="perf-value" id="perfAvgEst">--</div>
+              <div class="perf-sub">par tâche</div>
+            </div>
+            <div class="perf-card">
+              <div class="perf-title">Temps moyen réel</div>
+              <div class="perf-value" id="perfAvgReal">--</div>
+              <div class="perf-sub">par tâche</div>
+            </div>
+            <div class="perf-card">
+              <div class="perf-title">Écart moyen</div>
+              <div class="perf-value" id="perfAvgDiff">--</div>
+              <div class="perf-sub">estimé vs réel</div>
+            </div>
+            <div class="perf-card">
+              <div class="perf-title">Précision</div>
+              <div class="perf-value" id="perfAccuracy">--</div>
+              <div class="perf-sub">% de conformité</div>
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <div class="perf-title" style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Détail par tâche terminée</div>
+            <div class="perf-list" id="perfTaskList"></div>
+          </div>
+        </div>
+        <div class="card" style="padding:20px;">
+          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+            <h2>Générer un rapport</h2>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <button class="btn btn-primary" id="generateReportBtn"><span class="report-btn-icon">∑</span> Générer</button>
+            <button class="btn btn-success" id="exportPdfBtn"><span class="report-btn-icon">∫</span> PDF</button>
+            <button class="btn-ghost" id="exportCsvBtn"><span class="report-btn-icon">⌠</span> CSV</button>
+            <button class="btn-ghost" id="clearSelectionBtn"><span class="report-btn-icon">⌧</span> Désélectionner</button>
+            <button class="btn-ghost" id="backupJsonBtn"><span class="report-btn-icon">⇩</span> Sauvegarder</button>
+            <button class="btn-ghost" id="restoreJsonBtn"><span class="report-btn-icon">⇧</span> Restaurer</button>
+            <input type="file" id="restoreJsonInput" accept="application/json" class="hidden" />
+          </div>
+          <div style="max-height:260px; overflow-y:auto; margin-bottom:12px; border:1px solid var(--line); border-radius:6px; padding:8px;">
+            <div id="reportTaskSelector"></div>
+          </div>
+          <div class="report-area" id="reportOutput">Sélectionnez des tâches puis « Générer ».</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <div class="left">
+        <span class="status-time" id="statusTime">--:--:--</span>
+        <span class="separator">·</span>
+        <span class="status-date" id="statusDate">--/--/----</span>
+        <span class="separator">·</span>
+        <span class="status-progress" id="statusProgress">0%</span>
+      </div>
+      <div class="right">
+        <span id="statusTasks">0 en cours</span>
+        <span class="separator">·</span>
+        <span id="statusOverdue">0 en retard</span>
+        <span class="separator">·</span>
+        <span id="statusTimerState" class="paused">En pause</span>
+        <span class="separator">·</span>
+        <span class="key-hint">[Space] Start/Pause</span>
+        <span class="key-hint">[R] Reset</span>
+        <span class="key-hint">[Ctrl+E] Éditer</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE ÉDITION -->
+  <div class="modal-overlay hidden" id="editModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Modifier la tâche</h2>
+        <button class="modal-close" id="modalCloseBtn">&times;</button>
+      </div>
+      <div>
+        <input type="text" class="field" id="editTitle" placeholder="Titre" />
+        <div class="grid-2col">
+          <select class="field" id="editDuration">
+            <option value="15">15m</option><option value="25">25m</option><option value="45">45m</option><option value="60">1h</option>
+          </select>
+          <select class="field" id="editPriority">
+            <option value="high">Critique</option><option value="medium">Normale</option><option value="low">Basse</option>
+          </select>
+        </div>
+        <div class="grid-2col">
+          <select class="field" id="editStatus">
+            <option value="todo">À faire</option><option value="inprogress">En cours</option><option value="done">Terminée</option><option value="blocked">Bloquée</option>
+          </select>
+          <div class="category-add-row">
+            <select class="field" id="editCategory" style="flex:1;"></select>
+            <input type="text" class="field" id="editNewCategory" placeholder="Nouvelle catégorie" style="flex:1;" />
+            <button class="btn-ghost" id="editAddCategoryBtn" style="padding:4px 10px;" aria-label="Ajouter une catégorie"><span class="math-icon">+</span></button>
+          </div>
+        </div>
+        <input type="text" class="field" id="editDeadlineInput" placeholder="Échéance (ex: 3j 5h 30min)" />
+        <textarea class="field" id="editNotes" placeholder="Notes" rows="2"></textarea>
+        <div style="margin:10px 0;">
+          <label style="font-weight:600; font-size:12px; color:var(--text-dim);">Sous-tâches</label>
+          <div class="subtask-editor">
+            <input type="text" class="field" id="editSubtaskInput" placeholder="Ajouter" />
+            <button class="btn-ghost" id="editAddSubtaskBtn" style="padding:4px 12px;"><span class="math-icon">+</span></button>
+          </div>
+          <div class="subtask-list-editor" id="editSubtaskList"></div>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+          <button class="btn-ghost" id="modalCancelBtn">Annuler</button>
+          <button class="btn btn-primary" id="modalSaveBtn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE SYNCHRONISATION CLOUD -->
+  <div class="modal-overlay hidden" id="authModal">
+    <div class="modal" style="max-width:380px;">
+      <div class="modal-header">
+        <h2>Synchronisation cloud</h2>
+        <button class="modal-close" id="authModalCloseBtn" aria-label="Fermer">&times;</button>
+      </div>
+      <div>
+        <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">Connectez-vous pour retrouver vos tâches sur tous vos appareils.</p>
+        <input type="email" class="field" id="authEmail" placeholder="Email" autocomplete="email" style="margin-bottom:10px;" />
+        <input type="password" class="field" id="authPassword" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password" style="margin-bottom:10px;" />
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px; flex-wrap:wrap;">
+          <button class="btn-ghost" id="authSignupBtn">Créer un compte</button>
+          <button class="btn btn-primary" id="authLoginBtn">Se connecter</button>
+        </div>
+        <div id="authMsg" style="font-size:11px; color:var(--text-dim); margin-top:10px; min-height:14px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLEIN ÉCRAN (mode immersif) -->
+  <div class="focus-screen" id="focusScreen">
+    <div class="fs-top">
+      <div>
+        <div class="eyebrow" style="font-size:10px; color:var(--muted); letter-spacing:2px;">MODE DEEP WORK</div>
+        <div class="fs-task" id="fsTask">En attente...</div>
+      </div>
+      <button class="btn-ghost" id="exitFullscreenBtn"><span class="math-icon">✕</span> Quitter</button>
+    </div>
+    <div class="fs-center">
+      <div class="fs-clock" id="fsClock"><span class="days"></span><span class="time-main">00:00:00</span><span class="ms">.000</span></div>
+      <div class="fs-controls">
+        <button class="btn btn-primary" style="padding:14px 36px; font-size:16px;" id="fsStart"><span class="math-icon">▶</span> Démarrer</button>
+        <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsPause"><span class="math-icon">⏸</span> Pause</button>
+      </div>
+
+      <!-- Mini horloges des tâches actives (mode immersif) -->
+      <div class="active-tasks-mini-fs" id="activeTasksMiniFS"></div>
+
+      <!-- Panneau de détails d'une tâche (caché par défaut) -->
+      <div id="fsTaskDetails" class="fs-task-details hidden">
+        <div id="fsDetailsContent"></div>
+        <div class="action-buttons">
+          <button id="fsDetailsDoneBtn" class="btn-done">✓ Terminer</button>
+          <button id="fsDetailsEditBtn">✎ Modifier</button>
+        </div>
+        <div class="close-details">
+          <button id="fsDetailsCloseBtn">✕ Fermer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="fs-bottom">
+      <div class="fs-time"><span id="fsCurrentTime">--:--:--</span></div>
+      <div class="fs-stats">
+        <span><span id="fsInProgress">0</span> en cours</span>
+        <span class="overdue"><span id="fsOverdue">0</span> en retard</span>
+        <span><span id="fsDoneToday">0</span> terminées</span>
+      </div>
+      <div class="fs-date"><span id="fsCurrentDate">--/--/----</span></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Message</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    // ================================================================
+    // ÉTAT
+    // ================================================================
+    const STORE_KEY = 'tempo_pro_db_v8';
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const defaultState = {
+      tasks: [],
+      history: {},
+      categories: ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent']
+    };
+
+    let state = JSON.parse(localStorage.getItem(STORE_KEY)) || defaultState;
+
+    if (!state.history[todayStr]) {
+      state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
+    }
+    if (!state.activeTaskIds) state.activeTaskIds = [];
+
+    // ================================================================
+    // TIMER GLOBAL
+    // ================================================================
+    const timer = {
+      running: false,
+      startTime: null,
+      elapsed: 0,
+      interval: null,
+      targetDuration: 25 * 60 * 1000,
+      activeTaskId: null,
+      notified: false
+    };
+
+    // ================================================================
+    // RÉFÉRENCES DOM
+    // ================================================================
+    const $ = id => document.getElementById(id);
+
+    // ================================================================
+    // UTILITAIRES
+    // ================================================================
+    function save() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      scheduleCloudSave();
+    }
+
+    function toast(msg) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // Formatte le temps en affichant les jours si > 24h
+    function formatTimeMs(ms) {
+      let sign = '';
+      if (ms < 0) {
+        sign = '-';
+        ms = -ms;
+      }
+      const days = Math.floor(ms / 86400000);
+      const rest = ms % 86400000;
+      const totalSec = Math.floor(rest / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const milliseconds = rest % 1000;
+
+      let timeStr = '';
+      if (days > 0) {
+        timeStr = `${days}j ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      } else {
+        timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+      const msStr = `.${String(milliseconds).padStart(3, '0')}`;
+      return `${sign}${timeStr}${msStr}`;
+    }
+
+    function formatTimeShort(ms) {
+      if (ms < 0) ms = -ms;
+      const days = Math.floor(ms / 86400000);
+      const rest = ms % 86400000;
+      const totalSec = Math.floor(rest / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      let parts = [];
+      if (days > 0) parts.push(`${days}j`);
+      if (h > 0) parts.push(`${h}h`);
+      if (m > 0) parts.push(`${m}m`);
+      if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+      return parts.join(' ');
+    }
+
+    function formatDuration(ms) {
+      if (ms < 0) ms = -ms;
+      const days = Math.floor(ms / 86400000);
+      const rest = ms % 86400000;
+      const totalSec = Math.floor(rest / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      let parts = [];
+      if (days > 0) parts.push(`${days}j`);
+      if (h > 0) parts.push(`${h}h`);
+      if (m > 0) parts.push(`${m}m`);
+      if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+      return parts.join(' ');
+    }
+
+    // Extrait les jours et le reste pour l'affichage dans les horloges
+    function getTimeParts(ms) {
+      let sign = '';
+      if (ms < 0) {
+        sign = '-';
+        ms = -ms;
+      }
+      const days = Math.floor(ms / 86400000);
+      const rest = ms % 86400000;
+      const totalSec = Math.floor(rest / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const milliseconds = rest % 1000;
+      return { sign, days, h, m, s, ms: milliseconds };
+    }
+
+    function playBeep() {
+      try {
+        const ctx = new(window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.8);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.8);
+      } catch (e) {}
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        if (m === '"') return '&quot;';
+        return m;
+      });
+    }
+
+    function parseDeadline(input) {
+      if (!input || input.trim() === '') return null;
+      const str = input.toLowerCase().trim();
+      let days = 0, hours = 0, minutes = 0;
+      const dayMatch = str.match(/(\d+)\s*j/);
+      const hourMatch = str.match(/(\d+)\s*h/);
+      const minMatch = str.match(/(\d+)\s*min/);
+      if (dayMatch) days = parseInt(dayMatch[1], 10);
+      if (hourMatch) hours = parseInt(hourMatch[1], 10);
+      if (minMatch) minutes = parseInt(minMatch[1], 10);
+      if (days === 0 && hours === 0 && minutes === 0) return null;
+      const now = new Date();
+      const deadline = new Date(now.getTime() + days * 86400000 + hours * 3600000 + minutes * 60000);
+      return deadline.toISOString();
+    }
+
+    function getDeadlineStatus(deadline) {
+      if (!deadline) return 'none';
+      const now = Date.now();
+      const d = new Date(deadline).getTime();
+      const diff = d - now;
+      if (diff < 0) return 'overdue';
+      if (diff < 24 * 3600000) return 'today';
+      if (diff < 7 * 24 * 3600000) return 'week';
+      return 'future';
+    }
+
+    function getDeadlineLabel(deadline) {
+      if (!deadline) return '';
+      const now = Date.now();
+      const d = new Date(deadline).getTime();
+      const diff = d - now;
+      const abs = Math.abs(diff);
+      const days = Math.floor(abs / 86400000);
+      const hours = Math.floor((abs % 86400000) / 3600000);
+      const mins = Math.floor((abs % 3600000) / 60000);
+      if (diff < 0) {
+        if (days > 0) return `en retard ${days}j ${hours}h`;
+        if (hours > 0) return `en retard ${hours}h ${mins}m`;
+        return 'en retard';
+      }
+      if (days > 0) return `dans ${days}j ${hours}h`;
+      if (hours > 0) return `dans ${hours}h ${mins}m`;
+      return `dans ${mins}m`;
+    }
+
+    function getDeadlineBadge(deadline) {
+      if (!deadline) return '';
+      const status = getDeadlineStatus(deadline);
+      const label = getDeadlineLabel(deadline);
+      let cls = 'task-deadline';
+      if (status === 'overdue') cls += ' overdue';
+      else if (status === 'today' || status === 'week') cls += ' soon';
+      else cls += ' ok';
+      return `<span class="${cls}">${label}</span>`;
+    }
+
+    // ================================================================
+    // SYNCHRONISATION CLOUD (Supabase) — accès multi-appareils
+    // ================================================================
+    const SUPABASE_URL = 'https://sybyymvcvmeidyubafzk.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_WszL2k5wYzGE6-pmy-9HAw_QmcvqRPU';
+    const supa = (window.supabase && window.supabase.createClient)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+      : null;
+
+    const CLIENT_ID = Math.random().toString(36).slice(2);
+    let cloudUser = null;
+    let cloudSaveTimeout = null;
+    let applyingRemoteState = false;
+    let realtimeChannel = null;
+
+    function scheduleCloudSave() {
+      if (!supa || !cloudUser || applyingRemoteState) return;
+      clearTimeout(cloudSaveTimeout);
+      cloudSaveTimeout = setTimeout(pushStateToCloud, 2000);
+    }
+
+    async function pushStateToCloud() {
+      if (!supa || !cloudUser) return;
+      try {
+        await supa.from('tempo_pro_state').upsert({
+          user_id: cloudUser.id,
+          state: { ...state, _client: CLIENT_ID },
+          updated_at: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('Synchronisation cloud échouée', e);
+      }
+    }
+
+    async function pullStateFromCloud() {
+      if (!supa || !cloudUser) return null;
+      const { data, error } = await supa
+        .from('tempo_pro_state')
+        .select('state, updated_at')
+        .eq('user_id', cloudUser.id)
+        .maybeSingle();
+      if (error) {
+        console.warn(error);
+        return null;
+      }
+      return data;
+    }
+
+    function applyRemoteState(remoteState) {
+      applyingRemoteState = true;
+      state = remoteState;
+      if (!state.activeTaskIds) state.activeTaskIds = [];
+      if (!state.categories || !state.categories.length) {
+        state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
+      }
+      if (!state.history) state.history = {};
+      if (!state.history[todayStr]) state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      stopTimer();
+      timer.activeTaskId = state.activeTaskIds.length ? (getPrimaryActiveTask()?.id || null) : null;
+      timer.elapsed = 0;
+      timer.notified = false;
+      updateTimerTarget();
+      updateCategorySelects();
+      renderTasks();
+      renderTimeline();
+      renderWeeklyChart();
+      renderPerformance();
+      updateDisplays();
+      applyingRemoteState = false;
+    }
+
+    function subscribeRealtime() {
+      if (!supa || !cloudUser) return;
+      if (realtimeChannel) supa.removeChannel(realtimeChannel);
+      realtimeChannel = supa.channel('tempo_state_' + cloudUser.id)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'tempo_pro_state',
+          filter: `user_id=eq.${cloudUser.id}`
+        }, payload => {
+          const incoming = payload.new;
+          if (!incoming || !incoming.state) return;
+          if (incoming.state._client === CLIENT_ID) return; // écho de notre propre écriture
+          applyRemoteState(incoming.state);
+          toast('Données mises à jour depuis un autre appareil.');
+        })
+        .subscribe();
+    }
+
+    async function onAuthReady(user) {
+      cloudUser = user;
+      updateAuthUI();
+      const remote = await pullStateFromCloud();
+      if (remote && remote.state && Array.isArray(remote.state.tasks)) {
+        applyRemoteState(remote.state);
+        toast('Données cloud chargées.');
+      } else {
+        await pushStateToCloud();
+        toast('Compte connecté — données synchronisées.');
+      }
+      subscribeRealtime();
+    }
+
+    function updateAuthUI() {
+      const box = $('authStatus');
+      if (!box) return;
+      if (cloudUser) {
+        box.innerHTML = `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;">☁ ${escHtml(cloudUser.email)}</span><button class="btn-ghost" id="logoutBtn" style="padding:4px 10px; font-size:11px;">Déconnexion</button>`;
+        $('logoutBtn').addEventListener('click', () => supa && supa.auth.signOut());
+      } else {
+        box.innerHTML = `<button class="btn-ghost" id="loginOpenBtn" style="padding:4px 10px; font-size:11px;"><span class="math-icon">☁</span> Synchroniser</button>`;
+        $('loginOpenBtn').addEventListener('click', openAuthModal);
+      }
+    }
+
+    function openAuthModal() {
+      if (!supa) { toast('Synchronisation indisponible (librairie non chargée / hors-ligne).'); return; }
+      $('authMsg').textContent = '';
+      $('authModal').classList.remove('hidden');
+    }
+    function closeAuthModal() {
+      $('authModal').classList.add('hidden');
+    }
+
+    async function initCloudAuth() {
+      updateAuthUI();
+      if (!supa) return;
+      const { data: { session } } = await supa.auth.getSession();
+      if (session) await onAuthReady(session.user);
+      supa.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session && (!cloudUser || cloudUser.id !== session.user.id)) {
+          await onAuthReady(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          cloudUser = null;
+          if (realtimeChannel) { supa.removeChannel(realtimeChannel); realtimeChannel = null; }
+          updateAuthUI();
+        }
+      });
+    }
+
+    // ================================================================
+    // GESTION DES TÂCHES ACTIVES
+    // ================================================================
+    function getActiveTasks() {
+      return state.tasks.filter(t => state.activeTaskIds.includes(t.id) && t.status !== 'done');
+    }
+
+    function getPrimaryActiveTask() {
+      const actives = getActiveTasks();
+      if (!actives.length) return null;
+      if (timer.activeTaskId) {
+        const selected = actives.find(t => t.id === timer.activeTaskId);
+        if (selected) return selected;
+      }
+      return actives.sort((a, b) => {
+        if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+        if (a.deadline) return -1;
+        if (b.deadline) return 1;
+        return 0;
+      })[0];
+    }
+
+    function toggleTaskActive(id) {
+      const idx = state.activeTaskIds.indexOf(id);
+      if (idx === -1) {
+        state.activeTaskIds.push(id);
+        if (state.activeTaskIds.length === 1) {
+          timer.activeTaskId = id;
+        }
+      } else {
+        state.activeTaskIds.splice(idx, 1);
+        if (timer.activeTaskId === id) {
+          timer.activeTaskId = getPrimaryActiveTask()?.id || null;
+        }
+      }
+      save();
+      renderTasks();
+      updateTimerTarget();
+      updateDisplays();
+    }
+
+    // ================================================================
+    // DÉTAILS EN MODE IMMERSIF
+    // ================================================================
+    let _fsDetailsTaskId = null;
+    let _fsDetailsVisible = false;
+
+    function toggleTaskDetails() {
+      const id = timer.activeTaskId;
+      if (!id) {
+        toast('Aucune tâche active.');
+        return;
+      }
+      if (_fsDetailsVisible && _fsDetailsTaskId === id) {
+        hideTaskDetails();
+      } else {
+        showTaskDetails(id);
+      }
+    }
+
+    function showTaskDetails(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      _fsDetailsTaskId = id;
+      _fsDetailsVisible = true;
+      window._fsDetailsTaskId = id;
+
+      const container = $('fsDetailsContent');
+      const subtasks = task.subtasks || [];
+      const doneSub = subtasks.filter(s => s.done).length;
+      const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : 0;
+
+      let html = `
+        <div class="detail-row"><span class="label">Titre</span><span class="value">${escHtml(task.title)}</span></div>
+        <div class="detail-row"><span class="label">Statut</span><span class="value">${task.status}</span></div>
+        <div class="detail-row"><span class="label">Priorité</span><span class="value">${task.priority}</span></div>
+        <div class="detail-row"><span class="label">Catégorie</span><span class="value">${escHtml(task.category) || 'Général'}</span></div>
+        <div class="detail-row"><span class="label">Durée estimée</span><span class="value">${task.duration}m</span></div>
+        <div class="detail-row"><span class="label">Temps passé</span><span class="value">${formatTimeShort(task.timeSpent || 0)}</span></div>
+        ${task.deadline ? `<div class="detail-row"><span class="label">Échéance</span><span class="value">${new Date(task.deadline).toLocaleString('fr-FR')} (${getDeadlineLabel(task.deadline)})</span></div>` : ''}
+        ${task.notes ? `<div class="detail-row"><span class="label">Notes</span><span class="value">${escHtml(task.notes)}</span></div>` : ''}
+        ${subtasks.length ? `
+          <div class="detail-row" style="flex-direction:column; align-items:stretch; gap:6px;">
+            <span class="label">Sous-tâches (${doneSub}/${subtasks.length})</span>
+            <div class="subtask-list-fs">
+              ${subtasks.map(s => `
+                <div class="subtask-row-fs ${s.done ? 'done' : ''}">
+                  <span style="opacity:0.6;">${s.done ? '✓' : '□'}</span>
+                  <span class="subtask-label-fs">${escHtml(s.title)}</span>
+                </div>
+              `).join('')}
+            </div>
+            <div class="progress-bar"><div class="fill" style="width:${progress}%;"></div></div>
+          </div>
+        ` : ''}
+      `;
+      container.innerHTML = html;
+      $('fsTaskDetails').classList.remove('hidden');
+    }
+
+    function hideTaskDetails() {
+      $('fsTaskDetails').classList.add('hidden');
+      _fsDetailsTaskId = null;
+      _fsDetailsVisible = false;
+      window._fsDetailsTaskId = null;
+    }
+
+    function setPrimaryTask(id) {
+      if (!state.activeTaskIds.includes(id)) return;
+      timer.activeTaskId = id;
+      timer.notified = false;
+      if (_fsDetailsVisible && _fsDetailsTaskId !== id) {
+        hideTaskDetails();
+      }
+      updateTimerTarget();
+      updateDisplays();
+      renderTasks();
+    }
+
+    // ================================================================
+    // AJOUT DE TEMPS
+    // ================================================================
+    function addTimeToActiveTask(minutes) {
+      const task = state.tasks.find(t => t.id === timer.activeTaskId);
+      if (!task) {
+        toast('Aucune tâche active sélectionnée.');
+        return;
+      }
+      if (task.deadline) {
+        const d = new Date(task.deadline);
+        d.setMinutes(d.getMinutes() + minutes);
+        task.deadline = d.toISOString();
+        toast(`+${minutes}min ajouté à l'échéance de "${task.title}"`);
+      } else {
+        task.duration += minutes;
+        toast(`+${minutes}min ajouté à la durée de "${task.title}"`);
+      }
+      save();
+      updateTimerTarget();
+      updateDisplays();
+      renderTasks();
+    }
+
+    // ================================================================
+    // TIMER TARGET
+    // ================================================================
+    function updateTimerTarget() {
+      const task = state.tasks.find(t => t.id === timer.activeTaskId);
+      if (task) {
+        if (task.deadline) {
+          timer.targetDuration = Math.max(0, new Date(task.deadline).getTime() - Date.now());
+        } else {
+          timer.targetDuration = task.duration * 60 * 1000;
+        }
+      } else {
+        timer.targetDuration = 25 * 60 * 1000;
+      }
+    }
+
+    // ================================================================
+    // HORLOGE EN TEMPS RÉEL
+    // ================================================================
+    function updateStatusBar() {
+      const now = new Date();
+      const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const date = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      $('statusTime').textContent = time;
+      $('statusDate').textContent = date;
+
+      const task = state.tasks.find(t => t.id === timer.activeTaskId);
+      let progress = 0;
+      if (task) {
+        const elapsed = timer.targetDuration > 0 ? (timer.targetDuration - getRemainingMs()) / timer.targetDuration : 0;
+        progress = Math.min(100, Math.round(elapsed * 100));
+      }
+      $('statusProgress').textContent = progress + '%';
+
+      const inProgress = state.tasks.filter(t => t.status === 'todo' || t.status === 'inprogress').length;
+      $('statusTasks').textContent = `${inProgress} en cours`;
+      const overdue = state.tasks.filter(t => {
+        if (t.status === 'done') return false;
+        return t.deadline && getDeadlineStatus(t.deadline) === 'overdue';
+      }).length;
+      const statusOverdue = $('statusOverdue');
+      if (overdue > 0) {
+        statusOverdue.textContent = `${overdue} en retard`;
+        statusOverdue.className = 'status-overdue';
+      } else {
+        statusOverdue.textContent = '0 en retard';
+        statusOverdue.className = '';
+      }
+      const statusTimerState = $('statusTimerState');
+      if (timer.running) {
+        statusTimerState.textContent = 'En cours';
+        statusTimerState.className = 'running';
+      } else {
+        statusTimerState.textContent = 'En pause';
+        statusTimerState.className = 'paused';
+      }
+    }
+
+    // ================================================================
+    // MISE À JOUR MODE IMMERSIF
+    // ================================================================
+    function updateFullscreenInfo() {
+      const now = new Date();
+      const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const date = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      $('fsCurrentTime').textContent = time;
+      $('fsCurrentDate').textContent = date;
+      const inProgress = state.tasks.filter(t => t.status === 'todo' || t.status === 'inprogress').length;
+      const overdue = state.tasks.filter(t => {
+        if (t.status === 'done') return false;
+        return t.deadline && getDeadlineStatus(t.deadline) === 'overdue';
+      }).length;
+      const doneToday = state.history[todayStr]?.completedTasks?.length || 0;
+      $('fsInProgress').textContent = inProgress;
+      $('fsOverdue').textContent = overdue;
+      $('fsDoneToday').textContent = doneToday;
+      renderActiveTasksMiniFS();
+    }
+
+    // ================================================================
+    // RENDU DES TÂCHES ACTIVES EN MINI (Dashboard)
+    // ================================================================
+    function renderActiveTasksMini() {
+      const container = $('activeTasksMini');
+      const actives = getActiveTasks();
+      if (!actives.length) {
+        container.innerHTML = '<span style="color:var(--muted); font-size:11px;">Aucune tâche active</span>';
+        return;
+      }
+      const primary = getPrimaryActiveTask();
+      let html = '';
+      actives.forEach(t => {
+        const isPrimary = t.id === primary?.id;
+        let remaining = 0;
+        if (t.deadline) {
+          remaining = new Date(t.deadline).getTime() - Date.now();
+        } else {
+          remaining = t.duration * 60 * 1000 - (t.timeSpent || 0);
+        }
+        const timeStr = formatTimeMs(remaining);
+        const label = t.deadline ? getDeadlineLabel(t.deadline) : '';
+        const cls = isPrimary ? 'mini-item active-primary' : 'mini-item';
+        const timeCls = remaining < 0 ? 'mini-time overdue' : 'mini-time';
+        html += `
+          <div class="${cls}" data-id="${t.id}" onclick="setPrimaryTask('${t.id}')">
+            <span class="mini-title">${escHtml(t.title)}</span>
+            <span class="${timeCls}">${timeStr}</span>
+            ${label ? `<span style="font-size:9px; color:var(--muted);">${label}</span>` : ''}
+            ${isPrimary ? '<span class="mini-badge">★</span>' : ''}
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // ================================================================
+    // RENDU DES TÂCHES ACTIVES EN MINI (Mode immersif)
+    // ================================================================
+    function renderActiveTasksMiniFS() {
+      const container = $('activeTasksMiniFS');
+      if (!container) return;
+      const actives = getActiveTasks();
+      if (!actives.length) {
+        container.innerHTML = '<span style="color:var(--muted); font-size:12px;">Aucune tâche active</span>';
+        return;
+      }
+      const primary = getPrimaryActiveTask();
+      let html = '';
+      actives.forEach(t => {
+        const isPrimary = t.id === primary?.id;
+        let remaining = 0;
+        if (t.deadline) {
+          remaining = new Date(t.deadline).getTime() - Date.now();
+        } else {
+          remaining = t.duration * 60 * 1000 - (t.timeSpent || 0);
+        }
+        const timeStr = formatTimeMs(remaining);
+        const label = t.deadline ? getDeadlineLabel(t.deadline) : '';
+        const cls = isPrimary ? 'mini-item active-primary' : 'mini-item';
+        const timeCls = remaining < 0 ? 'mini-time overdue' : 'mini-time';
+        html += `
+          <div class="${cls}" data-id="${t.id}" onclick="setPrimaryTask('${t.id}')">
+            <span class="mini-title">${escHtml(t.title)}</span>
+            <span class="${timeCls}">${timeStr}</span>
+            ${label ? `<span style="font-size:10px; color:var(--muted); margin-left:4px;">${label}</span>` : ''}
+            ${isPrimary ? '<span class="mini-badge">★</span>' : ''}
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // ================================================================
+    // PERFORMANCE / ANALYTIQUES
+    // ================================================================
+    function computePerformance() {
+      const doneTasks = state.tasks.filter(t => t.status === 'done' && t.timeSpent > 0);
+      if (!doneTasks.length) return null;
+      const totalEst = doneTasks.reduce((sum, t) => sum + t.duration * 60 * 1000, 0);
+      const totalReal = doneTasks.reduce((sum, t) => sum + (t.timeSpent || 0) * 1000, 0);
+      const avgEst = totalEst / doneTasks.length;
+      const avgReal = totalReal / doneTasks.length;
+      const avgDiff = avgReal - avgEst;
+      const accuracy = totalEst > 0 ? (1 - Math.abs(totalReal - totalEst) / totalEst) * 100 : 0;
+      return {
+        count: doneTasks.length,
+        avgEst,
+        avgReal,
+        avgDiff,
+        accuracy: Math.min(100, Math.max(0, accuracy)),
+        tasks: doneTasks.map(t => ({
+          title: t.title,
+          est: t.duration * 60 * 1000,
+          real: (t.timeSpent || 0) * 1000,
+          diff: (t.timeSpent || 0) * 1000 - t.duration * 60 * 1000
+        }))
+      };
+    }
+
+    function renderPerformance() {
+      const perf = computePerformance();
+      if (!perf) {
+        $('perfAvgEst').textContent = '--';
+        $('perfAvgReal').textContent = '--';
+        $('perfAvgDiff').textContent = '--';
+        $('perfAccuracy').textContent = '--';
+        $('perfTaskList').innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucune tâche terminée avec temps enregistré.</div>';
+        return;
+      }
+      $('perfAvgEst').textContent = formatDuration(perf.avgEst);
+      $('perfAvgReal').textContent = formatDuration(perf.avgReal);
+      const diffEl = $('perfAvgDiff');
+      const diffText = perf.avgDiff > 0 ? `+${formatDuration(perf.avgDiff)}` : formatDuration(perf.avgDiff);
+      diffEl.textContent = diffText;
+      diffEl.className = 'perf-value ' + (perf.avgDiff > 0 ? 'bad' : perf.avgDiff < 0 ? 'good' : 'neutral');
+      const accEl = $('perfAccuracy');
+      accEl.textContent = Math.round(perf.accuracy) + '%';
+      accEl.className = 'perf-value ' + (perf.accuracy >= 90 ? 'good' : perf.accuracy >= 70 ? 'neutral' : 'bad');
+      const list = $('perfTaskList');
+      list.innerHTML = perf.tasks.map(t => {
+        const diff = t.diff;
+        const cls = diff > 0 ? 'late' : diff < 0 ? 'early' : 'on-time';
+        const label = diff > 0 ? `+${formatDuration(diff)}` : formatDuration(diff);
+        return `
+          <div class="perf-item">
+            <span class="perf-item-title">${escHtml(t.title)}</span>
+            <span class="perf-item-diff ${cls}">${label}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ================================================================
+    // RENDU TÂCHES
+    // ================================================================
+    function renderTasks() {
+      const allTasks = state.tasks;
+      const dashList = allTasks
+        .filter(t => t.status !== 'done')
+        .sort((a, b) => {
+          if (!a.deadline) return 1;
+          if (!b.deadline) return -1;
+          return new Date(a.deadline) - new Date(b.deadline);
+        })
+        .slice(0, 5);
+      $('dashTaskList').innerHTML = generateTaskHTML(dashList);
+
+      const filterStatus = $('filterStatus')?.value || 'all';
+      const filterCat = $('filterCategory')?.value || 'all';
+      const filterDeadline = $('filterDeadline')?.value || 'all';
+      const search = $('searchInput')?.value?.toLowerCase() || '';
+      const sortBy = $('taskSort')?.value || 'deadline';
+
+      const filtered = allTasks.filter(t => {
+        if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+        if (filterCat !== 'all' && t.category !== filterCat) return false;
+        if (search) {
+          const haystack = `${t.title} ${t.category || ''} ${t.notes || ''}`.toLowerCase();
+          if (!haystack.includes(search)) return false;
+        }
+        if (filterDeadline !== 'all') {
+          const status = getDeadlineStatus(t.deadline);
+          if (filterDeadline === 'overdue' && status !== 'overdue') return false;
+          if (filterDeadline === 'today' && status !== 'today') return false;
+          if (filterDeadline === 'week' && status !== 'week' && status !== 'today') return false;
+          if (filterDeadline === 'future' && (status === 'overdue' || status === 'none')) return false;
+        }
+        return true;
+      });
+      const priorityRank = { high: 0, medium: 1, low: 2 };
+      const statusRank = { blocked: 0, inprogress: 1, todo: 2, done: 3 };
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case 'priority':
+            return (priorityRank[a.priority] ?? 9) - (priorityRank[b.priority] ?? 9);
+          case 'title':
+            return a.title.localeCompare(b.title, 'fr');
+          case 'status':
+            return (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9);
+          case 'duration':
+            return a.duration - b.duration;
+          case 'deadline':
+          default:
+            if (!a.deadline) return 1;
+            if (!b.deadline) return -1;
+            return new Date(a.deadline) - new Date(b.deadline);
+        }
+      });
+      $('fullTaskList').innerHTML = generateTaskHTML(filtered);
+
+      const total = allTasks.length;
+      const done = allTasks.filter(t => t.status === 'done').length;
+      const p = total ? Math.round((done / total) * 100) : 0;
+      $('taskSummary').textContent = `${total - done} restants`;
+      $('doneCount').textContent = done;
+      $('ring').style.setProperty('--progress', p + '%');
+      $('ringValue').textContent = p + '%';
+      $('progressLabel').textContent = p + '%';
+      $('progressMain').textContent = `${done} / ${total}`;
+      $('statsCompletion').textContent = p + '%';
+
+      renderReportSelector();
+      updateCategorySelects();
+      updateStatusBar();
+      updateFullscreenInfo();
+      renderActiveTasksMini();
+      renderPerformance();
+    }
+
+    function generateTaskHTML(tasks) {
+      if (!tasks || tasks.length === 0) {
+        return '<div style="padding:16px; color:var(--muted); text-align:center;">Aucune tâche.</div>';
+      }
+      return tasks.map(t => {
+        const subtasks = t.subtasks || [];
+        const doneSubtasks = subtasks.filter(s => s.done).length;
+        const progress = subtasks.length ? Math.round((doneSubtasks / subtasks.length) * 100) : 0;
+        const statusClass = {
+          todo: 'status-todo',
+          inprogress: 'status-inprogress',
+          done: 'status-done',
+          blocked: 'status-blocked'
+        } [t.status] || 'status-todo';
+        const statusLabel = {
+          todo: 'À faire',
+          inprogress: 'En cours',
+          done: 'Terminée',
+          blocked: 'Bloquée'
+        } [t.status] || t.status;
+        const deadlineBadge = getDeadlineBadge(t.deadline);
+        const isActive = state.activeTaskIds.includes(t.id);
+        const isPrimary = timer.activeTaskId === t.id;
+        return `
+          <div class="task-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}">
+            <button class="task-check" data-action="toggle" aria-label="${t.status === 'done' ? 'Marquer comme non terminée' : 'Marquer comme terminée'}">${t.status === 'done' ? '✓' : ''}</button>
+            <div>
+              <div class="task-title">${escHtml(t.title)}${isActive ? (isPrimary ? ' ★' : ' ⏳') : ''}</div>
+              <div class="task-meta">
+                <span class="status-badge ${statusClass}">${statusLabel}</span>
+                <span>${t.duration}m</span>
+                <span class="priority priority-${t.priority}">${t.priority}</span>
+                <span>${escHtml(t.category) || 'Général'}</span>
+                <span>⏱️ ${formatTimeShort(t.timeSpent || 0)}</span>
+                ${subtasks.length ? `<span>📋 ${doneSubtasks}/${subtasks.length}</span>` : ''}
+                ${deadlineBadge}
+              </div>
+              ${subtasks.length ? `
+                <div class="subtask-list">
+                  ${subtasks.map(s => `
+                    <div class="subtask-row ${s.done ? 'done' : ''}">
+                      <input type="checkbox" ${s.done ? 'checked' : ''} data-subtask-id="${s.id}" data-task-id="${t.id}" />
+                      <span class="subtask-label">${escHtml(s.title)}</span>
+                    </div>
+                  `).join('')}
+                  <div class="progress-bar"><div class="fill" style="width:${progress}%;"></div></div>
+                </div>
+              ` : ''}
+              ${t.notes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">📝 ${escHtml(t.notes)}</div>` : ''}
+            </div>
+            <div class="task-actions">
+              <button class="icon-btn ${isActive ? 'active-timer' : ''}" data-action="toggle-active" title="${isActive ? 'Arrêter le suivi' : 'Suivre'}" aria-label="${isActive ? 'Arrêter le suivi' : 'Suivre cette tâche'}">${isActive ? '⏹' : '▶'}</button>
+              <button class="icon-btn" data-action="focus" title="Verrouiller comme cible" aria-label="Verrouiller comme cible">⊙</button>
+              <button class="icon-btn" data-action="duplicate" title="Dupliquer" aria-label="Dupliquer la tâche">⧉</button>
+              <button class="icon-btn" data-action="edit" title="Modifier" aria-label="Modifier la tâche">✎</button>
+              <button class="icon-btn" data-action="delete" title="Supprimer" aria-label="Supprimer la tâche">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ================================================================
+    // DUPLICATION D'UNE TÂCHE
+    // ================================================================
+    function duplicateTask(id) {
+      const original = state.tasks.find(t => t.id === id);
+      if (!original) return;
+      const newTask = {
+        ...original,
+        id: Date.now().toString(),
+        title: original.title + ' (copie)',
+        status: 'todo',
+        timeSpent: 0,
+        subtasks: original.subtasks.map(s => ({ ...s, id: Date.now().toString() + Math.random() }))
+      };
+      state.tasks.unshift(newTask);
+      save();
+      renderTasks();
+      toast('Tâche dupliquée.');
+    }
+
+    // ================================================================
+    // TIMELINE
+    // ================================================================
+    function renderTimeline() {
+      const logs = state.history[todayStr].completedTasks || [];
+      if (!logs.length) {
+        $('timeline').innerHTML = '<div style="color:var(--muted); font-size:12px; padding:10px;">Journal vide.</div>';
+        return;
+      }
+      const html = logs.map(log => `
+        <div class="slot">
+          <div class="slot-time">${log.time}</div>
+          <div class="dot"></div>
+          <div class="slot-content">
+            <strong>${escHtml(log.title)}</strong>
+            <small>Tâche achevée</small>
+          </div>
+        </div>
+      `).reverse().join('');
+      $('timeline').innerHTML = html;
+    }
+
+    // ================================================================
+    // CHART
+    // ================================================================
+    function renderWeeklyChart() {
+      const chart = $('weeklyChart');
+      chart.innerHTML = '';
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' });
+        const minutes = state.history[dateStr] ? Math.floor(state.history[dateStr].focusSecs / 60) : 0;
+        const heightPct = Math.min((minutes / 240) * 100, 100);
+        const wrap = document.createElement('div');
+        wrap.className = 'chart-bar-wrap';
+        wrap.innerHTML = `
+          <div style="font-size:9px; color:var(--primary);">${minutes > 0 ? minutes+'m' : ''}</div>
+          <div class="chart-bar" style="height:${Math.max(heightPct, 3)}%;"></div>
+          <div class="chart-label">${dayName}</div>
+        `;
+        chart.appendChild(wrap);
+      }
+    }
+
+    // ================================================================
+    // RAPPORT
+    // ================================================================
+    function renderReportSelector() {
+      const container = $('reportTaskSelector');
+      if (!container) return;
+      const tasks = state.tasks;
+      if (!tasks.length) {
+        container.innerHTML = '<div style="color:var(--muted);">Aucune tâche.</div>';
+        return;
+      }
+      container.innerHTML = tasks.map(t => `
+        <label style="display:flex; align-items:center; gap:10px; padding:4px 0; border-bottom:1px solid var(--line); cursor:pointer;">
+          <input type="checkbox" class="report-check" data-id="${t.id}" />
+          <span>${escHtml(t.title)}</span>
+          <span style="margin-left:auto; font-size:10px; color:var(--muted);">${t.status}</span>
+          ${t.deadline ? `<span style="font-size:9px; color:var(--muted);">${new Date(t.deadline).toLocaleDateString('fr-FR')}</span>` : ''}
+        </label>
+      `).join('');
+    }
+
+    function getSelectedTasks() {
+      const checks = document.querySelectorAll('.report-check:checked');
+      const ids = Array.from(checks).map(cb => cb.dataset.id);
+      return state.tasks.filter(t => ids.includes(t.id));
+    }
+
+    function generateReportText(tasks) {
+      if (!tasks.length) return 'Aucune tâche sélectionnée.';
+      let report = '═══════════════════════════════════════\n';
+      report += `  RAPPORT D'EXÉCUTION  —  ${new Date().toLocaleString('fr-FR')}\n`;
+      report += '═══════════════════════════════════════\n\n';
+      tasks.forEach((t, i) => {
+        const subtasks = t.subtasks || [];
+        const doneSub = subtasks.filter(s => s.done).length;
+        const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : (t.status === 'done' ? 100 : 0);
+        report += `[${i+1}] ${t.title}\n`;
+        report += `  Statut      : ${t.status}\n`;
+        report += `  Priorité    : ${t.priority}\n`;
+        report += `  Catégorie   : ${t.category || 'Général'}\n`;
+        report += `  Durée estimée: ${t.duration}m\n`;
+        report += `  Temps passé : ${formatTimeShort(t.timeSpent || 0)}\n`;
+        report += `  Progression : ${progress}% (${doneSub}/${subtasks.length})\n`;
+        if (t.deadline) report += `  Échéance    : ${new Date(t.deadline).toLocaleString('fr-FR')}\n`;
+        if (t.notes) report += `  Notes       : ${t.notes}\n`;
+        if (subtasks.length) {
+          report += `  Sous-tâches :\n`;
+          subtasks.forEach(s => {
+            report += `    - ${s.done ? '✓' : '□'} ${s.title}\n`;
+          });
+        }
+        report += `\n`;
+      });
+      report += '═══════════════════════════════════════\n';
+      report += `Total : ${tasks.length}\n`;
+      const totalTime = tasks.reduce((acc, t) => acc + (t.timeSpent || 0), 0);
+      report += `Temps total : ${formatTimeShort(totalTime)}\n`;
+      report += '═══════════════════════════════════════\n';
+      return report;
+    }
+
+    function generateReport() {
+      const selected = getSelectedTasks();
+      if (!selected.length) { toast('Sélectionnez au moins une tâche.'); return; }
+      $('reportOutput').textContent = generateReportText(selected);
+      toast('Rapport généré.');
+    }
+
+    // ================================================================
+    // EXPORT PDF / CSV
+    // ================================================================
+    function exportPDF() {
+      const selected = getSelectedTasks();
+      if (!selected.length) { toast('Sélectionnez des tâches.'); return; }
+      const text = generateReportText(selected);
+      const container = document.createElement('div');
+      container.style.padding = '20px';
+      container.style.fontFamily = 'monospace';
+      container.style.whiteSpace = 'pre-wrap';
+      container.style.background = '#fff';
+      container.style.color = '#000';
+      container.textContent = text;
+      document.body.appendChild(container);
+
+      if (typeof html2pdf === 'function') {
+        html2pdf().from(container).save('rapport_tempo.pdf').then(() => {
+          document.body.removeChild(container);
+        }).catch(() => {
+          document.body.removeChild(container);
+          toast("Échec de l'export PDF.");
+        });
+      } else {
+        // Repli hors-ligne : ouvre une fenêtre d'impression (Ctrl/Cmd+P → Enregistrer en PDF)
+        document.body.removeChild(container);
+        const win = window.open('', '_blank');
+        if (!win) { toast('Autorisez les popups pour exporter en PDF.'); return; }
+        win.document.write(`<pre style="font-family:monospace; white-space:pre-wrap; padding:20px;">${escHtml(text)}</pre>`);
+        win.document.title = 'Rapport Tempo';
+        win.document.close();
+        win.focus();
+        win.print();
+        toast('Bibliothèque PDF indisponible (hors-ligne) — fenêtre d\'impression ouverte.');
+      }
+    }
+
+    // ================================================================
+    // SAUVEGARDE / RESTAURATION (JSON complet)
+    // ================================================================
+    function backupJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `tempo_pro_backup_${todayStr}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast('Sauvegarde JSON téléchargée.');
+    }
+
+    function restoreJSON(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data || !Array.isArray(data.tasks) || typeof data.history !== 'object') {
+            throw new Error('format invalide');
+          }
+          if (!confirm('Restaurer cette sauvegarde remplacera toutes les données actuelles. Continuer ?')) return;
+          state = data;
+          if (!state.categories || !state.categories.length) {
+            state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
+          }
+          if (!state.activeTaskIds) state.activeTaskIds = [];
+          if (!state.history[todayStr]) state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
+          save();
+          stopTimer();
+          timer.activeTaskId = state.activeTaskIds.length ? (getPrimaryActiveTask()?.id || null) : null;
+          timer.elapsed = 0;
+          timer.notified = false;
+          updateTimerTarget();
+          updateCategorySelects();
+          renderTasks();
+          renderTimeline();
+          renderWeeklyChart();
+          renderPerformance();
+          updateDisplays();
+          toast('Données restaurées.');
+        } catch (err) {
+          toast('Fichier de sauvegarde invalide.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportCSV() {
+      const selected = getSelectedTasks();
+      if (!selected.length) { toast('Sélectionnez des tâches.'); return; }
+      let csv = 'Titre,Statut,Priorité,Catégorie,Durée estimée,Temps passé,Progression,Échéance,Notes\n';
+      selected.forEach(t => {
+        const subtasks = t.subtasks || [];
+        const doneSub = subtasks.filter(s => s.done).length;
+        const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : (t.status === 'done' ? 100 : 0);
+        const deadline = t.deadline ? new Date(t.deadline).toLocaleString('fr-FR') : '';
+        const row = [
+          `"${t.title}"`,
+          t.status,
+          t.priority,
+          t.category || 'Général',
+          t.duration,
+          formatTimeShort(t.timeSpent || 0),
+          progress + '%',
+          `"${deadline}"`,
+          `"${(t.notes || '').replace(/"/g, '""')}"`
+        ];
+        csv += row.join(',') + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'rapport_tempo.csv';
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast('CSV exporté.');
+    }
+
+    // ================================================================
+    // MISE À JOUR CATÉGORIES
+    // ================================================================
+    function updateCategorySelects() {
+      const cats = state.categories || ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
+      ['taskCategory', 'filterCategory', 'editCategory'].forEach(id => {
+        const sel = $(id);
+        if (!sel) return;
+        const current = sel.value;
+        sel.innerHTML = '';
+        cats.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          sel.appendChild(opt);
+        });
+        if (cats.includes(current)) sel.value = current;
+      });
+    }
+
+    // ================================================================
+    // TIMER LOGIC
+    // ================================================================
+    function getCurrentElapsed() {
+      if (!timer.running) return timer.elapsed;
+      return timer.elapsed + (Date.now() - timer.startTime);
+    }
+
+    function getRemainingMs() {
+      updateTimerTarget();
+      const elapsed = getCurrentElapsed();
+      return timer.targetDuration - elapsed;
+    }
+
+    function updateClock() {
+      const remaining = getRemainingMs();
+      const parts = getTimeParts(remaining);
+
+      // Construire l'affichage
+      let timeStr = '';
+      if (parts.days > 0) {
+        timeStr = `${parts.days}j ${String(parts.h).padStart(2, '0')}:${String(parts.m).padStart(2, '0')}:${String(parts.s).padStart(2, '0')}`;
+      } else {
+        timeStr = `${String(parts.h).padStart(2, '0')}:${String(parts.m).padStart(2, '0')}:${String(parts.s).padStart(2, '0')}`;
+      }
+      const msStr = `.${String(parts.ms).padStart(3, '0')}`;
+      const fullStr = `${parts.sign}${timeStr}${msStr}`;
+
+      // Mettre à jour les horloges
+      ['clock', 'focusPageTime', 'fsClock'].forEach(id => {
+        const el = $(id);
+        if (el) {
+          const daysSpan = el.querySelector('.days');
+          const msSpan = el.querySelector('.ms');
+          const mainSpan = el.querySelector('.time-main');
+          // On extrait la partie principale
+          const mainPart = parts.days > 0 ? `${parts.days}j ${String(parts.h).padStart(2, '0')}:${String(parts.m).padStart(2, '0')}:${String(parts.s).padStart(2, '0')}` :
+            `${String(parts.h).padStart(2, '0')}:${String(parts.m).padStart(2, '0')}:${String(parts.s).padStart(2, '0')}`;
+          const signPrefix = parts.sign || '';
+
+          // On insère le contenu dans le span dédié (corrige l'horloge qui ne se
+          // mettait jamais à jour car elle ciblait le mauvais noeud DOM)
+          if (mainSpan) {
+            mainSpan.textContent = signPrefix + mainPart;
+          }
+          if (msSpan) {
+            msSpan.textContent = '.' + String(parts.ms).padStart(3, '0');
+          }
+          if (daysSpan) {
+            daysSpan.textContent = ''; // Les jours sont intégrés dans la partie principale
+          }
+
+          if (remaining < 0) {
+            el.classList.add('negative');
+          } else {
+            el.classList.remove('negative');
+          }
+        }
+      });
+
+      // Mise à jour du mode
+      const modeEl = $('timerMode');
+      if (remaining < 0) {
+        modeEl.textContent = 'DÉPASSÉ';
+        modeEl.className = 'mode overdue';
+      } else if (timer.running) {
+        modeEl.textContent = 'FOCUS ACTIF';
+        modeEl.className = 'mode running';
+      } else {
+        modeEl.textContent = 'FOCUS ACTIF';
+        modeEl.className = 'mode';
+      }
+
+      document.title = `${timeStr} — Tempo`;
+    }
+
+    function updateDisplays() {
+      updateClock();
+      const task = state.tasks.find(t => t.id === timer.activeTaskId);
+      const titleStr = task ? task.title : 'Aucune tâche active';
+      $('activeTaskText').textContent = titleStr;
+      $('focusPageTask').textContent = titleStr;
+      $('fsTask').textContent = titleStr;
+      $('focusToday').textContent = Math.floor(state.history[todayStr].focusSecs / 60) + 'm';
+      $('sessionCount').textContent = state.history[todayStr].sessions;
+      $('statsFocus').textContent = $('focusToday').textContent;
+      $('statsSessions').textContent = state.history[todayStr].sessions;
+      updateStatusBar();
+      updateFullscreenInfo();
+      renderActiveTasksMini();
+    }
+
+    function startTimer() {
+      if (timer.running) return;
+      if (!timer.activeTaskId) {
+        toast('Aucune tâche active. Sélectionnez une tâche à suivre.');
+        return;
+      }
+      timer.running = true;
+      timer.startTime = Date.now();
+      timer.notified = false;
+      $('startBtn').textContent = '⏹ En cours';
+      $('focusPageStart').textContent = '⏹ En cours';
+      $('fsStart').textContent = '⏹ En cours';
+      // Compteur de ticks (100ms) pour créditer le temps réellement écoulé toutes les 5s,
+      // au lieu de comparer deux instants Date.now() qui se recouvraient sur ~1s à chaque cycle.
+      let ticks = 0;
+      timer.interval = setInterval(() => {
+        const remaining = getRemainingMs();
+        if (remaining <= 0 && !timer.notified) {
+          timer.notified = true;
+          playBeep();
+          toast('⏰ Temps écoulé !');
+          sendNotification('Temps écoulé', 'La tâche active est maintenant en dépassement.');
+          vibrate([200, 100, 200]);
+          state.history[todayStr].sessions = (state.history[todayStr].sessions || 0) + 1;
+          save();
+        }
+        ticks++;
+        if (ticks % 50 === 0) {
+          const activeTask = state.tasks.find(t => t.id === timer.activeTaskId);
+          if (activeTask) {
+            activeTask.timeSpent = (activeTask.timeSpent || 0) + 5;
+          }
+          state.history[todayStr].focusSecs += 5;
+          save();
+        }
+        updateDisplays();
+      }, 100);
+    }
+
+    function vibrate(pattern) {
+      try {
+        if ('vibrate' in navigator) navigator.vibrate(pattern);
+      } catch (e) {}
+    }
+
+    function stopTimer() {
+      if (!timer.running) return;
+      timer.running = false;
+      clearInterval(timer.interval);
+      timer.elapsed += Date.now() - timer.startTime;
+      timer.startTime = null;
+      $('startBtn').textContent = '▶ Démarrer';
+      $('focusPageStart').textContent = '▶ Démarrer';
+      $('fsStart').textContent = '▶ Démarrer';
+      save();
+      updateDisplays();
+    }
+
+    function resetTimer() {
+      stopTimer();
+      timer.elapsed = 0;
+      timer.notified = false;
+      const task = state.tasks.find(t => t.id === timer.activeTaskId);
+      if (task) {
+        if (task.deadline) {
+          timer.targetDuration = Math.max(0, new Date(task.deadline).getTime() - Date.now());
+        } else {
+          timer.targetDuration = task.duration * 60 * 1000;
+        }
+      } else {
+        timer.targetDuration = 25 * 60 * 1000;
+      }
+      updateDisplays();
+    }
+
+    function setManualTimer(mins) {
+      stopTimer();
+      timer.activeTaskId = null;
+      timer.targetDuration = mins * 60 * 1000;
+      timer.elapsed = 0;
+      timer.notified = false;
+      updateDisplays();
+      toast(`Timer réglé sur ${mins}m`);
+    }
+
+    function setChronoMode() {
+      stopTimer();
+      timer.activeTaskId = null;
+      timer.targetDuration = 0;
+      timer.elapsed = 0;
+      timer.notified = false;
+      updateDisplays();
+      toast('Mode Chrono libre');
+    }
+
+    function requestNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+    requestNotificationPermission();
+
+    function sendNotification(title, body) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⊙</text></svg>' });
+      }
+    }
+
+    // ================================================================
+    // CRUD TÂCHES
+    // ================================================================
+    function addTask() {
+      const title = $('taskInput').value.trim();
+      if (!title) return;
+      const deadlineInput = $('taskDeadlineInput').value.trim();
+      const deadline = deadlineInput ? parseDeadline(deadlineInput) : null;
+      const newTask = {
+        id: Date.now().toString(),
+        title,
+        duration: +$('taskDuration').value,
+        priority: $('taskPriority').value,
+        category: $('taskCategory').value || 'Général',
+        status: 'todo',
+        subtasks: [],
+        notes: '',
+        timeSpent: 0,
+        deadline: deadline
+      };
+      state.tasks.unshift(newTask);
+      save();
+      renderTasks();
+      $('taskInput').value = '';
+      $('taskDeadlineInput').value = '';
+      toast('Tâche ajoutée.');
+    }
+
+    function deleteTask(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (task && !confirm(`Supprimer définitivement "${task.title}" ?`)) return;
+      state.tasks = state.tasks.filter(t => t.id !== id);
+      state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
+      if (timer.activeTaskId === id) {
+        timer.activeTaskId = getPrimaryActiveTask()?.id || null;
+        timer.notified = false;
+        hideTaskDetails();
+      }
+      save();
+      renderTasks();
+      updateTimerTarget();
+      updateDisplays();
+      toast('Tâche supprimée.');
+    }
+
+    function toggleTaskStatus(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      if (task.status === 'done') {
+        task.status = 'todo';
+      } else {
+        task.status = 'done';
+        state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
+        if (timer.activeTaskId === id) {
+          timer.activeTaskId = getPrimaryActiveTask()?.id || null;
+          timer.notified = false;
+          hideTaskDetails();
+        }
+        const now = new Date();
+        state.history[todayStr].completedTasks.push({
+          title: task.title,
+          time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+        });
+        playBeep();
+        vibrate(120);
+        sendNotification('Tâche terminée', `"${task.title}" est terminée.`);
+        if (timer.activeTaskId === id) {
+          stopTimer();
+        }
+      }
+      save();
+      renderTasks();
+      renderTimeline();
+      updateTimerTarget();
+      updateDisplays();
+    }
+
+    // ================================================================
+    // MODALE ÉDITION
+    // ================================================================
+    let editingTaskId = null;
+
+    function openEditModal(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      editingTaskId = id;
+      $('modalTitle').textContent = 'Modifier la tâche';
+      $('editTitle').value = task.title;
+      $('editDuration').value = task.duration;
+      $('editPriority').value = task.priority;
+      $('editStatus').value = task.status;
+      $('editCategory').value = task.category || 'Général';
+      if (task.deadline) {
+        const d = new Date(task.deadline);
+        const now = Date.now();
+        const diff = d.getTime() - now;
+        if (diff > 0) {
+          const days = Math.floor(diff / 86400000);
+          const hours = Math.floor((diff % 86400000) / 3600000);
+          const mins = Math.floor((diff % 3600000) / 60000);
+          $('editDeadlineInput').value = `${days > 0 ? days+'j ' : ''}${hours > 0 ? hours+'h ' : ''}${mins}min`;
+        } else {
+          $('editDeadlineInput').value = '';
+        }
+      } else {
+        $('editDeadlineInput').value = '';
+      }
+      $('editNotes').value = task.notes || '';
+      renderSubtaskEditor(task.subtasks || []);
+      $('editModal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      $('editModal').classList.add('hidden');
+      editingTaskId = null;
+    }
+
+    function renderSubtaskEditor(subtasks) {
+      const container = $('editSubtaskList');
+      if (!subtasks || !subtasks.length) {
+        container.innerHTML = '<div style="color:var(--muted); font-size:11px;">Aucune sous-tâche.</div>';
+        return;
+      }
+      container.innerHTML = subtasks.map((s, idx) => `
+        <div class="subtask-row-editor">
+          <span>${escHtml(s.title)}</span>
+          <button data-index="${idx}" class="remove-subtask-btn" style="background:transparent; color:var(--danger); border:none; font-size:14px; cursor:pointer;">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function addSubtaskInEditor() {
+      const input = $('editSubtaskInput');
+      const title = input.value.trim();
+      if (!title) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task) return;
+      if (!task.subtasks) task.subtasks = [];
+      task.subtasks.push({ id: Date.now().toString(), title, done: false });
+      save();
+      renderSubtaskEditor(task.subtasks);
+      input.value = '';
+    }
+
+    function removeSubtaskInEditor(index) {
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task || !task.subtasks) return;
+      task.subtasks.splice(index, 1);
+      save();
+      renderSubtaskEditor(task.subtasks);
+    }
+
+    function saveEdit() {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task) return;
+      task.title = $('editTitle').value.trim() || task.title;
+      task.duration = +$('editDuration').value;
+      task.priority = $('editPriority').value;
+      task.status = $('editStatus').value;
+      task.category = $('editCategory').value || 'Général';
+      const deadlineInput = $('editDeadlineInput').value.trim();
+      task.deadline = deadlineInput ? parseDeadline(deadlineInput) : null;
+      task.notes = $('editNotes').value;
+      save();
+      renderTasks();
+      closeEditModal();
+      updateTimerTarget();
+      updateDisplays();
+      toast('Tâche mise à jour.');
+    }
+
+    // ================================================================
+    // ÉVÉNEMENTS
+    // ================================================================
+
+    // Ajout de temps
+    document.querySelectorAll('.add-time-btns .btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const mins = parseInt(this.dataset.add, 10);
+        addTimeToActiveTask(mins);
+      });
+    });
+
+    // Clic sur la tâche principale en mode immersif → basculer les détails
+    $('fsTask').addEventListener('click', toggleTaskDetails);
+
+    // Boutons des détails en mode immersif
+    $('fsDetailsCloseBtn').addEventListener('click', hideTaskDetails);
+
+    $('fsDetailsDoneBtn').addEventListener('click', function() {
+      const id = _fsDetailsTaskId;
+      if (!id) return;
+      toggleTaskStatus(id);
+      hideTaskDetails();
+      if (timer.activeTaskId === id) {
+        timer.activeTaskId = getPrimaryActiveTask()?.id || null;
+        updateTimerTarget();
+        updateDisplays();
+      }
+    });
+
+    $('fsDetailsEditBtn').addEventListener('click', function() {
+      const id = _fsDetailsTaskId;
+      if (!id) return;
+      closeFS();
+      openEditModal(id);
+    });
+
+    // Délégation d'événements pour les actions sur les tâches (dashboard)
+    document.addEventListener('click', function(e) {
+      const checkBtn = e.target.closest('[data-action="toggle"]');
+      if (checkBtn) {
+        const item = checkBtn.closest('.task-item');
+        if (item) toggleTaskStatus(item.dataset.id);
+        return;
+      }
+      const toggleActiveBtn = e.target.closest('[data-action="toggle-active"]');
+      if (toggleActiveBtn) {
+        const item = toggleActiveBtn.closest('.task-item');
+        if (item) {
+          const id = item.dataset.id;
+          toggleTaskActive(id);
+          if (state.activeTaskIds.includes(id) && !timer.activeTaskId) {
+            timer.activeTaskId = id;
+            timer.notified = false;
+            updateTimerTarget();
+            updateDisplays();
+          }
+        }
+        return;
+      }
+      const focusBtn = e.target.closest('[data-action="focus"]');
+      if (focusBtn) {
+        const item = focusBtn.closest('.task-item');
+        if (item) {
+          const id = item.dataset.id;
+          if (!state.activeTaskIds.includes(id)) {
+            state.activeTaskIds.push(id);
+          }
+          timer.activeTaskId = id;
+          timer.notified = false;
+          updateTimerTarget();
+          save();
+          renderTasks();
+          updateDisplays();
+          toast('Cible verrouillée.');
+          document.querySelector('[data-view="dashboard"]').click();
+        }
+        return;
+      }
+      const duplicateBtn = e.target.closest('[data-action="duplicate"]');
+      if (duplicateBtn) {
+        const item = duplicateBtn.closest('.task-item');
+        if (item) {
+          duplicateTask(item.dataset.id);
+        }
+        return;
+      }
+      const delBtn = e.target.closest('[data-action="delete"]');
+      if (delBtn) {
+        const item = delBtn.closest('.task-item');
+        if (item) deleteTask(item.dataset.id);
+        return;
+      }
+      const editBtn = e.target.closest('[data-action="edit"]');
+      if (editBtn) {
+        const item = editBtn.closest('.task-item');
+        if (item) openEditModal(item.dataset.id);
+        return;
+      }
+    });
+
+    document.addEventListener('change', function(e) {
+      if (e.target.matches('[data-subtask-id]')) {
+        const taskId = e.target.dataset.taskId;
+        const subtaskId = e.target.dataset.subtaskId;
+        const task = state.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        const subtask = (task.subtasks || []).find(s => s.id === subtaskId);
+        if (!subtask) return;
+        subtask.done = e.target.checked;
+        const allDone = (task.subtasks || []).every(s => s.done);
+        if (allDone && task.status !== 'done') {
+          if (confirm('Toutes les sous-tâches sont terminées. Marquer la tâche comme terminée ?')) {
+            task.status = 'done';
+            state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== taskId);
+            if (timer.activeTaskId === taskId) {
+              timer.activeTaskId = getPrimaryActiveTask()?.id || null;
+              timer.notified = false;
+              stopTimer();
+              hideTaskDetails();
+            }
+            const now = new Date();
+            state.history[todayStr].completedTasks.push({
+              title: task.title,
+              time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+            });
+            playBeep();
+            vibrate(120);
+            sendNotification('Tâche terminée', `"${task.title}" est terminée.`);
+          }
+        }
+        save();
+        renderTasks();
+        renderTimeline();
+        updateTimerTarget();
+        updateDisplays();
+      }
+    });
+
+    $('addTaskBtn').addEventListener('click', addTask);
+    $('taskInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+    ['startBtn', 'focusPageStart', 'fsStart'].forEach(id => {
+      $(id).addEventListener('click', () => timer.running ? stopTimer() : startTimer());
+    });
+    ['pauseBtn', 'fsPause'].forEach(id => {
+      $(id).addEventListener('click', stopTimer);
+    });
+    $('resetBtn').addEventListener('click', resetTimer);
+
+    const views = ['dashboard', 'tasks', 'focus', 'stats'];
+    const titles = {
+      dashboard: { eye: 'Tableau de bord', h1: 'Opérations du Jour.' },
+      tasks: { eye: 'Base de données', h1: 'Centre de Tâches.' },
+      focus: { eye: 'Deep Work', h1: 'Immersion Active.' },
+      stats: { eye: 'Analytiques', h1: 'Performances.' }
+    };
+
+    document.querySelectorAll('.nav button').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const v = this.dataset.view;
+        document.querySelectorAll('.nav button').forEach(b => { b.classList.remove('active'); b.removeAttribute('aria-current'); });
+        this.classList.add('active');
+        this.setAttribute('aria-current', 'page');
+        views.forEach(name => {
+          const el = $('view' + name.charAt(0).toUpperCase() + name.slice(1));
+          if (el) el.classList.toggle('hidden', name !== v);
+        });
+        $('topbarEyebrow').textContent = titles[v].eye;
+        $('topbarTitle').textContent = titles[v].h1;
+        if (v === 'stats') { renderWeeklyChart();
+          renderReportSelector();
+          renderPerformance(); }
+        if (v === 'tasks') renderTasks();
+        if (v === 'dashboard') renderTasks();
+      });
+    });
+
+    function openFS() {
+      $('focusScreen').classList.add('open');
+      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+      updateFullscreenInfo();
+    }
+
+    function closeFS() {
+      $('focusScreen').classList.remove('open');
+      if (document.fullscreenElement) document.exitFullscreen();
+      hideTaskDetails();
+    }
+    $('focusNowBtn').addEventListener('click', openFS);
+    $('focusPageFull').addEventListener('click', openFS);
+    $('exitFullscreenBtn').addEventListener('click', closeFS);
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && !$('editModal').classList.contains('hidden')) {
+        closeEditModal();
+        return;
+      }
+      if (e.key === 'Escape' && !$('authModal').classList.contains('hidden')) {
+        closeAuthModal();
+        return;
+      }
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        timer.running ? stopTimer() : startTimer();
+      }
+      if (e.key.toLowerCase() === 'r') resetTimer();
+      if (e.key === 'Escape') closeFS();
+      if (e.ctrlKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        if (timer.activeTaskId) {
+          openEditModal(timer.activeTaskId);
+        } else {
+          toast('Aucune tâche active à éditer.');
+        }
+      }
+    });
+
+    $('clearDoneBtn').addEventListener('click', function() {
+      state.tasks = state.tasks.filter(t => t.status !== 'done');
+      state.activeTaskIds = state.activeTaskIds.filter(id => {
+        const t = state.tasks.find(task => task.id === id);
+        return t && t.status !== 'done';
+      });
+      if (timer.activeTaskId) {
+        const stillExists = state.tasks.find(t => t.id === timer.activeTaskId);
+        if (!stillExists) {
+          timer.activeTaskId = getPrimaryActiveTask()?.id || null;
+          timer.notified = false;
+          hideTaskDetails();
+        }
+      }
+      save();
+      renderTasks();
+      updateTimerTarget();
+      updateDisplays();
+      toast('Tâches terminées purgées.');
+    });
+
+    $('clearTimelineBtn').addEventListener('click', function() {
+      state.history[todayStr].completedTasks = [];
+      save();
+      renderTimeline();
+      toast('Journal purgé.');
+    });
+
+    ['filterStatus', 'filterCategory', 'filterDeadline', 'searchInput', 'taskSort'].forEach(id => {
+      const el = $(id);
+      if (el) {
+        el.addEventListener('input', renderTasks);
+        el.addEventListener('change', renderTasks);
+      }
+    });
+
+    $('generateReportBtn').addEventListener('click', generateReport);
+    $('clearSelectionBtn').addEventListener('click', function() {
+      document.querySelectorAll('.report-check').forEach(cb => cb.checked = false);
+      toast('Sélection effacée.');
+    });
+    $('exportPdfBtn').addEventListener('click', exportPDF);
+    $('exportCsvBtn').addEventListener('click', exportCSV);
+    $('backupJsonBtn').addEventListener('click', backupJSON);
+    $('restoreJsonBtn').addEventListener('click', () => $('restoreJsonInput').click());
+    $('restoreJsonInput').addEventListener('change', function() {
+      restoreJSON(this.files[0]);
+      this.value = '';
+    });
+
+    $('modalCloseBtn').addEventListener('click', closeEditModal);
+    $('modalCancelBtn').addEventListener('click', closeEditModal);
+    $('modalSaveBtn').addEventListener('click', saveEdit);
+    // Clic sur le fond sombre de la modale → ferme
+    $('editModal').addEventListener('click', function(e) {
+      if (e.target === this) closeEditModal();
+    });
+    $('editAddSubtaskBtn').addEventListener('click', addSubtaskInEditor);
+    $('editSubtaskInput').addEventListener('keydown', e => { if (e.key === 'Enter') addSubtaskInEditor(); });
+    $('editSubtaskList').addEventListener('click', function(e) {
+      const btn = e.target.closest('.remove-subtask-btn');
+      if (btn) {
+        const idx = parseInt(btn.dataset.index, 10);
+        removeSubtaskInEditor(idx);
+      }
+    });
+
+    $('authModalCloseBtn').addEventListener('click', closeAuthModal);
+    $('authModal').addEventListener('click', function(e) { if (e.target === this) closeAuthModal(); });
+
+    $('authLoginBtn').addEventListener('click', async function() {
+      if (!supa) return;
+      const email = $('authEmail').value.trim();
+      const password = $('authPassword').value;
+      if (!email || !password) { $('authMsg').textContent = 'Email et mot de passe requis.'; return; }
+      $('authMsg').textContent = 'Connexion...';
+      const { error } = await supa.auth.signInWithPassword({ email, password });
+      if (error) { $('authMsg').textContent = error.message; return; }
+      closeAuthModal();
+    });
+
+    $('authSignupBtn').addEventListener('click', async function() {
+      if (!supa) return;
+      const email = $('authEmail').value.trim();
+      const password = $('authPassword').value;
+      if (!email || password.length < 6) { $('authMsg').textContent = 'Email valide + mot de passe de 6 caractères min.'; return; }
+      $('authMsg').textContent = 'Création du compte...';
+      const { data, error } = await supa.auth.signUp({ email, password });
+      if (error) { $('authMsg').textContent = error.message; return; }
+      if (data.session) {
+        closeAuthModal();
+      } else {
+        $('authMsg').textContent = 'Compte créé. Vérifiez votre email pour confirmer, puis connectez-vous.';
+      }
+    });
+
+    $('editAddCategoryBtn').addEventListener('click', function() {
+      const input = $('editNewCategory');
+      const cat = input.value.trim();
+      if (!cat) return;
+      if (!state.categories) state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
+      if (!state.categories.includes(cat)) {
+        state.categories.push(cat);
+        save();
+        updateCategorySelects();
+        $('editCategory').value = cat;
+        input.value = '';
+        toast('Catégorie ajoutée.');
+      } else {
+        toast('Catégorie déjà existante.');
+      }
+    });
+
+    // ================================================================
+    // INITIALISATION
+    // ================================================================
+    $('todayDate').textContent = new Intl.DateTimeFormat('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    }).format(new Date());
+
+    if (!state.categories || state.categories.length === 0) {
+      state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
+      save();
+    }
+    updateCategorySelects();
+
+    if (state.activeTaskIds.length) {
+      const primary = getPrimaryActiveTask();
+      if (primary) {
+        timer.activeTaskId = primary.id;
+      } else {
+        timer.activeTaskId = null;
+        state.activeTaskIds = [];
+      }
+    } else {
+      timer.activeTaskId = null;
+    }
+
+    renderTasks();
+    renderTimeline();
+    renderWeeklyChart();
+    renderPerformance();
+
+    updateTimerTarget();
+    timer.elapsed = 0;
+    timer.notified = false;
+    updateDisplays();
+
+    updateStatusBar();
+    updateFullscreenInfo();
+    initCloudAuth();
+    setInterval(() => {
+      updateStatusBar();
+      updateFullscreenInfo();
+      if (!timer.running) {
+        updateClock();
+        renderActiveTasksMini();
+        renderActiveTasksMiniFS();
+      } else {
+        renderActiveTasksMini();
+        renderActiveTasksMiniFS();
+      }
+    }, 1000);
+
+    console.log('🚀 Tempo PRO — affichage des jours pour les dépassements > 24h.');
+  </script>
+</body>
+</html>
