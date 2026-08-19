@@ -2,8 +2,17 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // Applique le thème avant le premier rendu pour éviter un flash de mauvais thème.
+    (function() {
+      try {
+        var t = localStorage.getItem('tempo_pro_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="theme-color" content="#f4f4f6" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -40,6 +49,29 @@
       --shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
       --transition: 0.2s ease;
     }
+    html[data-theme="light"] {
+      --bg: #f4f4f6;
+      --surface: #ffffff;
+      --surface-2: #f0f0f3;
+      --surface-3: #e4e4e9;
+      --text: #18181b;
+      --text-dim: #52525b;
+      --muted: #93939c;
+      --line: #e2e2e7;
+      --primary: #18181b;
+      --primary-text: #ffffff;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #b45309;
+      --info: #2563eb;
+      --shadow: 0 8px 32px rgba(24, 24, 27, 0.12);
+    }
+    html[data-theme="light"] .btn-primary:hover { box-shadow: 0 4px 16px rgba(24, 24, 27, 0.18); }
+    html[data-theme="light"] .status-todo { background: rgba(24, 24, 27, 0.05); }
+    html[data-theme="light"] .tl-day-cell.today { background: rgba(24, 24, 27, 0.06); }
+    html[data-theme="light"] .tl-day-cell.weekend { background: rgba(24, 24, 27, 0.03); }
+    html[data-theme="light"] .tl-track-bg-cell.weekend { background: rgba(24, 24, 27, 0.03); }
+    html[data-theme="light"] .tl-track-bg-cell.today { background: rgba(24, 24, 27, 0.05); }
     html, body {
       background: var(--bg);
       color: var(--text);
@@ -2366,6 +2398,7 @@
             <select id="workspaceSwitcher" class="field" style="padding:6px 10px; font-size:11px; width:auto;" title="Changer d'espace de travail" aria-label="Changer d'espace de travail"></select>
             <button class="btn-ghost" id="teamManageBtn" style="padding:8px 12px;" title="Gérer l'équipe" aria-label="Gérer l'équipe"><span class="math-icon">⚇︎</span></button>
           </div>
+          <button class="btn-ghost" id="themeToggleBtn" style="padding:8px 12px;" title="Basculer le thème clair/sombre" aria-label="Basculer le thème clair/sombre"><span class="math-icon" id="themeIcon">☀︎</span></button>
           <button class="btn-ghost" id="soundToggleBtn" style="padding:8px 12px;" title="Activer/couper le son" aria-label="Activer/couper le son"><span class="math-icon" id="soundIcon">♪︎</span></button>
           <button class="btn-ghost" id="clockModeBtn" style="padding:8px 12px;" title="Changer l'affichage de l'horloge" aria-label="Changer l'affichage de l'horloge"><span class="math-icon">▤︎</span></button>
           <button class="btn-ghost" id="shortcutsBtn" style="padding:8px 12px;" title="Raccourcis clavier" aria-label="Raccourcis clavier"><span class="math-icon">?</span></button>
@@ -5657,6 +5690,30 @@
       } catch (e) {}
     }
 
+    // ================================================================
+    // THÈME CLAIR / SOMBRE
+    // ================================================================
+    let theme = document.documentElement.getAttribute('data-theme') || 'light';
+
+    function updateThemeUI() {
+      const icon = $('themeIcon');
+      const btn = $('themeToggleBtn');
+      if (icon) icon.textContent = theme === 'light' ? '☀︎' : '☾︎';
+      if (btn) {
+        btn.title = theme === 'light' ? 'Passer au thème sombre' : 'Passer au thème clair';
+        btn.setAttribute('aria-label', btn.title);
+      }
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#f4f4f6' : '#0a0a0a');
+    }
+
+    function toggleTheme() {
+      theme = theme === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('tempo_pro_theme', theme);
+      updateThemeUI();
+    }
+
     function updateSoundUI() {
       const icon = $('soundIcon');
       const btn = $('soundToggleBtn');
@@ -6850,6 +6907,7 @@
     $('shortcutsBtn').addEventListener('click', openShortcutsModal);
     $('shortcutsModalCloseBtn').addEventListener('click', closeShortcutsModal);
     $('shortcutsModal').addEventListener('click', function(e) { if (e.target === this) closeShortcutsModal(); });
+    $('themeToggleBtn').addEventListener('click', toggleTheme);
     $('soundToggleBtn').addEventListener('click', toggleSound);
     $('clockModeBtn').addEventListener('click', toggleClockMode);
     $('goalCard').addEventListener('click', editDailyGoal);
@@ -7121,6 +7179,7 @@
     }
     updateCategorySelects();
     updateGroupBySelectOptions();
+    updateThemeUI();
     updateSoundUI();
     updateClockModeUI();
 
