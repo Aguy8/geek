@@ -217,9 +217,12 @@
     }
 
     /* ===== STATUS BAR ===== */
+    /* Figée en bas du VIEWPORT (et non du bas du contenu de la grille) sur toutes les tailles
+       d'écran, pour rester visible en permanence même sur une page plus longue que l'écran. */
     .status-bar {
-      grid-column: 1 / -1;
-      grid-row: 2 / 3;
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 400;
       background: var(--surface);
       border-top: 1px solid var(--line);
       padding: 6px 24px;
@@ -232,6 +235,11 @@
       gap: 6px;
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.3px;
+    }
+    /* Sur desktop, rien d'autre n'occupe le bas de l'écran : on réserve juste la place
+       nécessaire sous le contenu pour qu'il ne passe pas sous la barre figée. */
+    @media (min-width: 901px) {
+      .main, .sidebar { padding-bottom: calc(var(--status-bar-h, 40px) + 16px); }
     }
     .status-bar .left, .status-bar .right {
       display: flex;
@@ -2383,10 +2391,7 @@
       .grid-2 { grid-template-columns: 1fr; }
       .task-form { grid-template-columns: 1fr 1fr; }
       .status-bar {
-        position: fixed;
-        left: 0; right: 0;
         bottom: var(--mobile-nav-h, 60px);
-        z-index: 400;
         flex-direction: column;
         align-items: flex-start;
         gap: 4px;
@@ -3257,7 +3262,8 @@
       notified: false,
       // 'task' : la durée suit la tâche verrouillée (échéance/durée) ; 'focus'/'pause' : durée fixée manuellement ;
       // 'chrono' : chronomètre libre qui compte le temps écoulé, sans décompte ni tâche requise.
-      mode: 'task'
+      mode: 'task',
+      deadlineBased: false
     };
 
     // ================================================================
@@ -4287,15 +4293,20 @@
     function updateTimerTarget() {
       // Une durée fixée manuellement (Focus/Pause) ou le mode Chrono ne doivent pas
       // être écrasés par la durée de la tâche à chaque tick.
-      if (timer.mode !== 'task') return;
+      if (timer.mode !== 'task') { timer.deadlineBased = false; return; }
       const task = state.tasks.find(t => t.id === timer.activeTaskId);
       if (task) {
         if (task.deadline) {
-          timer.targetDuration = Math.max(0, new Date(task.deadline).getTime() - Date.now());
+          // Pas de Math.max(0, ...) ici : une échéance dépassée doit pouvoir passer en négatif
+          // pour afficher le dépassement (ex. "-2j 07:50:33"), pas rester figée à zéro.
+          timer.deadlineBased = true;
+          timer.targetDuration = new Date(task.deadline).getTime() - Date.now();
         } else {
+          timer.deadlineBased = false;
           timer.targetDuration = task.duration * 60 * 1000;
         }
       } else {
+        timer.deadlineBased = false;
         timer.targetDuration = 25 * 60 * 1000;
       }
     }
@@ -4346,12 +4357,14 @@
     // leur hauteur réelle (variable selon l'appareil / le contenu) pour les empiler
     // proprement plutôt que de deviner une valeur fixe qui casserait sur certains écrans.
     function updateMobileBarOffsets() {
+      const bar = document.querySelector('.status-bar');
+      const barH = bar ? bar.offsetHeight : 0;
+      // Toujours mesurée : sert au padding réservé sous .main/.sidebar sur desktop aussi.
+      document.documentElement.style.setProperty('--status-bar-h', barH + 'px');
       if (window.innerWidth > 900) return;
       const nav = document.querySelector('.sidebar');
-      const bar = document.querySelector('.status-bar');
       if (!nav) return;
       const navH = nav.offsetHeight;
-      const barH = bar ? bar.offsetHeight : 0;
       document.documentElement.style.setProperty('--mobile-nav-h', navH + 'px');
       document.documentElement.style.setProperty('--mobile-bars-h', (navH + barH) + 'px');
     }
@@ -4644,8 +4657,8 @@
       renderReportSelector();
       updateCategorySelects();
       updateStatusBar();
-      updateFullscreenInfo();
-      renderActiveTasksMini();
+      if (!$('viewDashboard').classList.contains('hidden')) renderActiveTasksMini();
+      if ($('focusScreen').classList.contains('open')) updateFullscreenInfo();
       renderPerformance();
       renderCategoryGrid();
       renderPeopleRow();
@@ -5744,10 +5757,12 @@
 
     function getRemainingMs() {
       updateTimerTarget();
-      const elapsed = getCurrentElapsed();
       // Chrono libre : un vrai chronomètre qui compte le temps écoulé, pas un compte à rebours.
-      if (timer.mode === 'chrono') return elapsed;
-      return timer.targetDuration - elapsed;
+      if (timer.mode === 'chrono') return getCurrentElapsed();
+      // Tâche à échéance : targetDuration est déjà "temps restant jusqu'à l'échéance", recalculé
+      // en direct à chaque appel — soustraire l'écoulé de session compterait le temps deux fois.
+      if (timer.deadlineBased) return timer.targetDuration;
+      return timer.targetDuration - getCurrentElapsed();
     }
 
     // ================================================================
@@ -5871,8 +5886,11 @@
       $('statsSessions').textContent = state.history[todayStr].sessions;
       renderGoalProgress();
       updateStatusBar();
-      updateFullscreenInfo();
-      renderActiveTasksMini();
+      // Ces deux listes ne sont reconstruites que si leur zone est visible : pendant un focus
+      // actif, ce rendu tourne 10x/seconde (tick de 100ms), donc les rebâtir sans arrêt même
+      // sur un autre onglet mobile gaspillait du temps CPU pile au moment où l'utilisateur tape.
+      if (!$('viewDashboard').classList.contains('hidden')) renderActiveTasksMini();
+      if ($('focusScreen').classList.contains('open')) updateFullscreenInfo();
     }
 
     function startTimer() {
@@ -7476,16 +7494,13 @@
     window.addEventListener('orientationchange', () => setTimeout(updateMobileBarOffsets, 300));
     setInterval(() => {
       updateStatusBar();
-      updateFullscreenInfo();
       checkUpcomingDeadlines();
-      if (!timer.running) {
-        updateClock();
-        renderActiveTasksMini();
-        renderActiveTasksMiniFS();
-      } else {
-        renderActiveTasksMini();
-        renderActiveTasksMiniFS();
-      }
+      if (!timer.running) updateClock();
+      // Ne reconstruit ces mini-listes que si leur zone est réellement visible à l'écran :
+      // les rebâtir chaque seconde alors que l'utilisateur consulte un autre onglet mobile
+      // ne fait que consommer du temps CPU pour rien, au moment même où un tap peut arriver.
+      if (!$('viewDashboard').classList.contains('hidden')) renderActiveTasksMini();
+      if ($('focusScreen').classList.contains('open')) updateFullscreenInfo();
     }, 1000);
 
     console.log('Tempo PRO — affichage des jours pour les dépassements > 24h.');
