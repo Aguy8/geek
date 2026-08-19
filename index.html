@@ -124,6 +124,7 @@
       max-width: 1400px;
       margin: 0 auto;
       width: 100%;
+      min-width: 0;
       grid-row: 1 / 2;
     }
 
@@ -523,6 +524,113 @@
       color: var(--muted);
       font-size: 11px;
     }
+
+    /* ===== VUE TIMELINE (GANTT) ===== */
+    .tl-wrapper {
+      overflow-x: auto;
+      min-width: 0;
+      max-width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .tl-toprow {
+      display: flex;
+      min-width: max-content;
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+    }
+    .tl-label-cell {
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      width: 180px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    .tl-days-header { display: flex; }
+    .tl-day-cell {
+      width: 36px;
+      flex-shrink: 0;
+      text-align: center;
+      padding: 6px 0;
+      border-right: 1px solid var(--line);
+      box-sizing: border-box;
+    }
+    .tl-day-cell .tl-day-num { display: block; font-size: 12px; color: var(--text-dim); }
+    .tl-day-cell .tl-day-dow { display: block; font-size: 9px; color: var(--muted); text-transform: uppercase; }
+    .tl-day-cell.today { background: rgba(255,255,255,0.06); }
+    .tl-day-cell.today .tl-day-num { color: var(--text); font-weight: 700; }
+    .tl-day-cell.weekend { background: rgba(255,255,255,0.02); }
+    .tl-body { position: relative; min-width: max-content; }
+    .tl-group-header {
+      display: flex;
+      align-items: center;
+      height: 28px;
+      padding: 0 12px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--line);
+      box-sizing: border-box;
+      position: sticky;
+      left: 0;
+      width: fit-content;
+      min-width: 100%;
+    }
+    .tl-row {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      box-sizing: border-box;
+    }
+    .tl-row:last-child { border-bottom: 0; }
+    .tl-row-track { position: relative; display: flex; }
+    .tl-track-bg-cell {
+      width: 36px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--line);
+      box-sizing: border-box;
+    }
+    .tl-track-bg-cell.weekend { background: rgba(255,255,255,0.02); }
+    .tl-track-bg-cell.today { background: rgba(255,255,255,0.05); }
+    .tl-bar {
+      position: absolute;
+      top: 6px;
+      height: 28px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #0a0a0a;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    .tl-bar.done { opacity: 0.45; text-decoration: line-through; }
+    #timelineConnectors { position: absolute; top: 0; pointer-events: none; }
 
     /* ===== FOCUS WIDGET ===== */
     .focus-widget {
@@ -2114,6 +2222,7 @@
         <button class="active" data-view="dashboard" aria-current="page"><span class="icon math-icon">∑︎</span> Dashboard</button>
         <button data-view="tasks"><span class="icon math-icon">✓︎</span> Tâches</button>
         <button data-view="board"><span class="icon math-icon">◫︎</span> Kanban</button>
+        <button data-view="timeline"><span class="icon math-icon">▭︎</span> Timeline</button>
         <button data-view="calendar"><span class="icon math-icon">▦︎</span> Calendrier</button>
         <button data-view="focus"><span class="icon math-icon">⊙︎</span> Focus</button>
         <button data-view="stats"><span class="icon math-icon">∫︎</span> Analytiques</button>
@@ -2332,6 +2441,26 @@
         <div class="board-columns" id="boardColumns"></div>
       </section>
 
+      <!-- VUE TIMELINE -->
+      <section class="view-panel hidden" id="viewTimeline">
+        <div class="card" style="padding:14px 20px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn-ghost" id="tlPrevBtn" style="padding:6px 10px;" aria-label="Semaine précédente"><span class="math-icon">◁</span></button>
+            <span id="timelineRangeLabel" style="font-size:12px; font-weight:600; min-width:170px; text-align:center; display:inline-block;"></span>
+            <button class="btn-ghost" id="tlNextBtn" style="padding:6px 10px;" aria-label="Semaine suivante"><span class="math-icon">▷</span></button>
+            <button class="btn-ghost" id="tlTodayBtn" style="padding:6px 12px; font-size:11px;">Aujourd'hui</button>
+          </div>
+          <span style="font-size:11px; color:var(--muted);">Tâches avec une échéance ou une date de début.</span>
+        </div>
+        <div class="tl-wrapper" id="timelineWrapper">
+          <div class="tl-toprow">
+            <div class="tl-label-cell"></div>
+            <div class="tl-days-header" id="timelineHeaderRow"></div>
+          </div>
+          <div class="tl-body" id="timelineBody"></div>
+        </div>
+      </section>
+
       <!-- VUE CALENDRIER -->
       <section class="view-panel hidden" id="viewCalendar">
         <div class="grid-2">
@@ -2541,6 +2670,13 @@
           </select>
         </div>
         <div class="task-panel-field-row">
+          <label>Début</label>
+          <div>
+            <button type="button" class="field date-picker-btn" id="editStartDateBtn" data-picker="editStartDate" data-placeholder="Date de début" title="Date de début (pour la vue Timeline)">Date de début</button>
+            <input type="hidden" id="editStartDate" />
+          </div>
+        </div>
+        <div class="task-panel-field-row">
           <label>Échéance</label>
           <div style="display:flex; flex-direction:column; gap:6px;">
             <input type="text" class="field" id="editDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
@@ -2711,7 +2847,7 @@
         <div class="shortcut-row"><span>Nouvelle tâche</span><span class="kbd">N</span></div>
         <div class="shortcut-row"><span>Rechercher une tâche</span><span class="kbd">/</span></div>
         <div class="shortcut-row"><span>Mode Immersif (plein écran)</span><span class="kbd">F</span></div>
-        <div class="shortcut-row"><span>Dashboard / Tâches / Kanban / Calendrier / Focus / Analytiques</span><span class="kbd">1–6</span></div>
+        <div class="shortcut-row"><span>Dashboard / Tâches / Kanban / Timeline / Calendrier / Focus / Analytiques</span><span class="kbd">1–7</span></div>
         <div class="shortcut-row"><span>Fermer une fenêtre / le mode immersif</span><span class="kbd">Échap</span></div>
         <div class="shortcut-row"><span>Afficher ces raccourcis</span><span class="kbd">?</span></div>
       </div>
@@ -2979,19 +3115,19 @@
     // SÉLECTEUR DE DATE/HEURE (calendrier custom, aligné à la charte visuelle)
     // ================================================================
     const DP_MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-    const dp = { inputId: null, btnId: null, relatedId: null, viewYear: 0, viewMonth: 0, selectedDay: null };
+    const dp = { inputId: null, btnId: null, relatedId: null, placeholder: null, viewYear: 0, viewMonth: 0, selectedDay: null };
 
-    function formatDeadlineButtonLabel(iso) {
-      if (!iso) return 'Date précise';
+    function formatDeadlineButtonLabel(iso, placeholder) {
+      if (!iso) return placeholder || 'Date précise';
       return new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
-    function setDatePickerField(inputId, btnId, iso) {
+    function setDatePickerField(inputId, btnId, iso, placeholder) {
       $(inputId).value = iso || '';
       const btn = $(btnId);
-      const label = formatDeadlineButtonLabel(iso);
+      const label = formatDeadlineButtonLabel(iso, placeholder);
       btn.textContent = label;
-      btn.title = iso ? `Échéance : ${label}` : "Choisir une date et heure d'échéance précises";
+      btn.title = iso ? label : (placeholder ? `Choisir : ${placeholder.toLowerCase()}` : "Choisir une date et heure d'échéance précises");
       btn.classList.toggle('has-value', !!iso);
     }
 
@@ -2999,6 +3135,7 @@
       dp.inputId = btn.dataset.picker;
       dp.btnId = btn.id;
       dp.relatedId = btn.dataset.related;
+      dp.placeholder = btn.dataset.placeholder || null;
       const current = $(dp.inputId).value;
       const base = current ? new Date(current) : new Date();
       dp.viewYear = base.getFullYear();
@@ -3016,6 +3153,7 @@
       dp.inputId = null;
       dp.btnId = null;
       dp.relatedId = null;
+      dp.placeholder = null;
     }
 
     function positionDatePicker(btn) {
@@ -3060,13 +3198,13 @@
       const hour = Math.min(23, Math.max(0, parseInt($('dpHour').value, 10) || 0));
       const minute = Math.min(59, Math.max(0, parseInt($('dpMinute').value, 10) || 0));
       const finalDate = new Date(dp.selectedDay.getFullYear(), dp.selectedDay.getMonth(), dp.selectedDay.getDate(), hour, minute);
-      setDatePickerField(dp.inputId, dp.btnId, finalDate.toISOString());
+      setDatePickerField(dp.inputId, dp.btnId, finalDate.toISOString(), dp.placeholder);
       if (dp.relatedId) $(dp.relatedId).value = '';
       closeDatePicker();
     }
 
     function clearDatePickerValue() {
-      if (dp.inputId) setDatePickerField(dp.inputId, dp.btnId, null);
+      if (dp.inputId) setDatePickerField(dp.inputId, dp.btnId, null, dp.placeholder);
       closeDatePicker();
     }
 
@@ -4148,9 +4286,10 @@
       renderCategoryGrid();
       renderPeopleRow();
       renderHomeHeader();
-      // Idem : ne reconstruit la grille du calendrier / le tableau Kanban que si on les regarde.
+      // Idem : ne reconstruit la grille du calendrier / le tableau Kanban / la timeline que si on les regarde.
       if (!$('viewCalendar').classList.contains('hidden')) renderCalendarView();
       if (!$('viewBoard').classList.contains('hidden')) renderBoard();
+      if (!$('viewTimeline').classList.contains('hidden')) renderTimelineView();
     }
 
     // ================================================================
@@ -5207,7 +5346,8 @@
         comments: [],
         activity: [],
         customFieldValues: {},
-        dependsOn: []
+        dependsOn: [],
+        startDate: null
       };
       logActivity(newTask, 'Tâche créée.');
       state.tasks.unshift(newTask);
@@ -5412,6 +5552,160 @@
     }
 
     // ================================================================
+    // VUE TIMELINE (GANTT)
+    // ================================================================
+    const TL_DAY_W = 36;
+    const TL_ROW_H = 40;
+    const TL_LABEL_W = 180;
+    const TL_GROUP_H = 28;
+    const TL_DAYS_VISIBLE = 21;
+    let timelineWindowStart = null;
+
+    function initTimelineState() {
+      if (timelineWindowStart) return;
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - 3);
+      timelineWindowStart = d;
+    }
+
+    // Bornes (à la journée près) d'une tâche sur la timeline : la date de début si définie,
+    // sinon l'échéance sert aussi de départ ; l'échéance sert de fin, sinon la date de début.
+    function timelineTaskRange(task) {
+      if (!task.deadline && !task.startDate) return null;
+      const startSrc = task.startDate ? new Date(task.startDate) : new Date(task.deadline);
+      const endSrc = task.deadline ? new Date(task.deadline) : new Date(task.startDate);
+      const start = new Date(startSrc.getFullYear(), startSrc.getMonth(), startSrc.getDate());
+      let end = new Date(endSrc.getFullYear(), endSrc.getMonth(), endSrc.getDate());
+      if (end < start) end = new Date(start);
+      return { start, end };
+    }
+
+    function tlDayOffset(date, from) {
+      return Math.round((date.getTime() - from.getTime()) / 86400000);
+    }
+
+    function renderTimelineView() {
+      initTimelineState();
+      const headerRow = $('timelineHeaderRow');
+      const body = $('timelineBody');
+      if (!headerRow || !body) return;
+
+      const days = [];
+      for (let i = 0; i < TL_DAYS_VISIBLE; i++) {
+        const d = new Date(timelineWindowStart);
+        d.setDate(d.getDate() + i);
+        days.push(d);
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dow = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+
+      $('timelineRangeLabel').textContent =
+        `${days[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} – ${days[days.length - 1].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+      headerRow.innerHTML = days.map(d => {
+        const isToday = d.getTime() === today.getTime();
+        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+        return `<div class="tl-day-cell ${isToday ? 'today' : ''} ${isWeekend ? 'weekend' : ''}">
+          <span class="tl-day-num">${d.getDate()}</span>
+          <span class="tl-day-dow">${dow[d.getDay()]}</span>
+        </div>`;
+      }).join('');
+
+      const bgCellsHTML = days.map(d => {
+        const isToday = d.getTime() === today.getTime();
+        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+        return `<div class="tl-track-bg-cell ${isToday ? 'today' : ''} ${isWeekend ? 'weekend' : ''}"></div>`;
+      }).join('');
+
+      const tasksByCat = {};
+      state.tasks.forEach(t => {
+        const range = timelineTaskRange(t);
+        if (!range) return;
+        const cat = t.category || 'Général';
+        if (!tasksByCat[cat]) tasksByCat[cat] = [];
+        tasksByCat[cat].push({ task: t, range });
+      });
+
+      const orderedCats = (state.categories || []).filter(c => tasksByCat[c] && tasksByCat[c].length);
+      Object.keys(tasksByCat).forEach(c => { if (!orderedCats.includes(c)) orderedCats.push(c); });
+
+      if (!orderedCats.length) {
+        body.innerHTML = '<div class="task-panel-empty" style="padding:24px; text-align:center;">Aucune tâche avec une échéance ou une date de début à afficher sur cette période.</div>';
+        return;
+      }
+
+      let bodyHTML = '';
+      let cumulativeTop = 0;
+      const posById = {}; // task.id -> { y, left, right, visible }
+
+      orderedCats.forEach(cat => {
+        bodyHTML += `<div class="tl-group-header">${escHtml(cat)}</div>`;
+        cumulativeTop += TL_GROUP_H;
+        tasksByCat[cat].forEach(({ task, range }) => {
+          const offsetStart = tlDayOffset(range.start, timelineWindowStart);
+          const offsetEnd = tlDayOffset(range.end, timelineWindowStart);
+          const clampedStart = Math.max(0, offsetStart);
+          const clampedEnd = Math.min(TL_DAYS_VISIBLE - 1, offsetEnd);
+          const visible = offsetEnd >= 0 && offsetStart < TL_DAYS_VISIBLE && clampedEnd >= clampedStart;
+          const barLeft = clampedStart * TL_DAY_W;
+          const barWidth = Math.max(TL_DAY_W - 4, (clampedEnd - clampedStart + 1) * TL_DAY_W - 4);
+          posById[task.id] = {
+            y: cumulativeTop + TL_ROW_H / 2,
+            left: barLeft,
+            right: barLeft + barWidth,
+            visible
+          };
+          const hasDeps = task.dependsOn && task.dependsOn.length;
+          bodyHTML += `
+            <div class="tl-row" style="height:${TL_ROW_H}px;">
+              <div class="tl-label-cell" data-open-task="${task.id}" title="${escHtml(task.title)}">${escHtml(task.title)}</div>
+              <div class="tl-row-track">
+                ${bgCellsHTML}
+                ${visible ? `<div class="tl-bar ${task.status === 'done' ? 'done' : ''}" data-open-task="${task.id}" style="left:${barLeft}px; width:${barWidth}px; background:${categoryColor(cat)};" title="${escHtml(task.title)}">${hasDeps ? '<span class="math-icon">⛓︎</span>' : ''}${escHtml(task.title)}</div>` : ''}
+              </div>
+            </div>
+          `;
+          cumulativeTop += TL_ROW_H;
+        });
+      });
+
+      body.innerHTML = bodyHTML;
+
+      // Connecteurs de dépendances : tracés à partir des mêmes coordonnées que les barres
+      // (pas de mesure DOM), donc ils défilent avec le contenu sans recalcul au scroll.
+      let svgLines = '';
+      state.tasks.forEach(task => {
+        if (!task.dependsOn || !task.dependsOn.length) return;
+        const to = posById[task.id];
+        if (!to || !to.visible) return;
+        task.dependsOn.forEach(depId => {
+          const from = posById[depId];
+          if (!from || !from.visible) return;
+          const x1 = from.right, y1 = from.y, x2 = to.left, y2 = to.y;
+          const midX = (x1 + x2) / 2;
+          svgLines += `<path d="M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}" stroke="#777" stroke-width="1.5" fill="none" marker-end="url(#tlArrow)" opacity="0.7" />`;
+        });
+      });
+      const svgWidth = TL_DAYS_VISIBLE * TL_DAY_W;
+      const connectorsDiv = document.createElement('div');
+      connectorsDiv.id = 'timelineConnectors';
+      connectorsDiv.style.left = TL_LABEL_W + 'px';
+      connectorsDiv.innerHTML = `
+        <svg width="${svgWidth}" height="${cumulativeTop}">
+          <defs><marker id="tlArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#777" /></marker></defs>
+          ${svgLines}
+        </svg>
+      `;
+      body.appendChild(connectorsDiv);
+
+      body.querySelectorAll('[data-open-task]').forEach(el => {
+        el.addEventListener('click', () => openEditModal(el.getAttribute('data-open-task')));
+      });
+    }
+
+    // ================================================================
     // MODALE ÉDITION
     // ================================================================
     let editingTaskId = null;
@@ -5429,6 +5723,7 @@
       // reste vide et ne sert qu'à saisir un nouvel ajustement rapide si besoin.
       $('editDeadlineInput').value = '';
       setDatePickerField('editDeadlineDate', 'editDeadlineDateBtn', task.deadline || null);
+      setDatePickerField('editStartDate', 'editStartDateBtn', task.startDate || null, 'Date de début');
       $('editNotes').value = task.notes || '';
       if ($('editRepeat')) $('editRepeat').value = task.repeat || 'none';
       if ($('editAssignee')) $('editAssignee').value = task.assignee || '';
@@ -5495,6 +5790,7 @@
       task.status = $('editStatus').value;
       task.category = $('editCategory').value || 'Général';
       task.deadline = resolveDeadline('editDeadlineDate', 'editDeadlineInput');
+      task.startDate = $('editStartDate').value || null;
       task.notes = $('editNotes').value;
       if ($('editRepeat')) task.repeat = $('editRepeat').value;
       if (activeWorkspaceId && $('editAssignee')) task.assignee = $('editAssignee').value || null;
@@ -5981,11 +6277,12 @@
     });
     $('resetBtn').addEventListener('click', resetTimer);
 
-    const views = ['dashboard', 'tasks', 'board', 'calendar', 'focus', 'stats'];
+    const views = ['dashboard', 'tasks', 'board', 'timeline', 'calendar', 'focus', 'stats'];
     const titles = {
       dashboard: { eye: 'Tableau de bord', h1: 'Opérations du Jour.' },
       tasks: { eye: 'Base de données', h1: 'Centre de Tâches.' },
       board: { eye: 'Vue Kanban', h1: 'Tableau.' },
+      timeline: { eye: 'Vue Gantt', h1: 'Timeline.' },
       calendar: { eye: 'Vue chronologique', h1: 'Calendrier.' },
       focus: { eye: 'Deep Work', h1: 'Immersion Active.' },
       stats: { eye: 'Analytiques', h1: 'Performances.' }
@@ -6009,8 +6306,27 @@
         if (v === 'tasks') renderTasks();
         if (v === 'dashboard') renderTasks();
         if (v === 'board') renderBoard();
+        if (v === 'timeline') renderTimelineView();
         if (v === 'calendar') renderCalendarView();
       });
+    });
+
+    $('tlPrevBtn').addEventListener('click', () => {
+      initTimelineState();
+      timelineWindowStart.setDate(timelineWindowStart.getDate() - 7);
+      renderTimelineView();
+    });
+    $('tlNextBtn').addEventListener('click', () => {
+      initTimelineState();
+      timelineWindowStart.setDate(timelineWindowStart.getDate() + 7);
+      renderTimelineView();
+    });
+    $('tlTodayBtn').addEventListener('click', () => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - 3);
+      timelineWindowStart = d;
+      renderTimelineView();
     });
 
     $('calPrevBtn').addEventListener('click', () => {
@@ -6159,7 +6475,7 @@
       if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) {
         $('focusScreen').classList.contains('open') ? closeFS() : openFS();
       }
-      if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
+      if (['1', '2', '3', '4', '5', '6', '7'].includes(e.key)) {
         switchToView(views[+e.key - 1]);
       }
     });
