@@ -336,6 +336,8 @@
       transition: var(--transition);
       text-align: left;
       width: 100%;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
     }
     .category-tile:hover { border-color: var(--text-dim); }
     .category-tile .cat-icon {
@@ -354,6 +356,7 @@
     .category-tile .cat-name {
       font-size: 12px;
       font-weight: 600;
+      color: var(--text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1452,6 +1455,117 @@
     }
     .modal-close:hover { color: var(--text); }
     .modal .field { margin-bottom: 10px; }
+
+    /* ===== PANNEAU DE DÉTAIL DE TÂCHE ===== */
+    .task-panel-overlay {
+      align-items: stretch;
+      justify-content: flex-end;
+      padding: 0;
+    }
+    .task-panel {
+      background: var(--surface);
+      border-left: 1px solid var(--line);
+      width: 460px;
+      max-width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      animation: taskPanelSlideIn 0.22s ease;
+    }
+    @keyframes taskPanelSlideIn {
+      from { transform: translateX(24px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .task-panel-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 2;
+    }
+    .task-panel-title-input {
+      width: 100%;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid transparent;
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      padding: 2px 0;
+    }
+    .task-panel-title-input:focus { border-bottom-color: var(--line); }
+    .task-panel-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .task-panel-field-row {
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+    .task-panel-field-row label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+    .task-panel-field-row .field { margin-bottom: 0; }
+    .task-panel-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+    .comment-item {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+    }
+    .comment-item:last-child { margin-bottom: 0; }
+    .comment-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .comment-text { font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+    .comment-delete {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .comment-delete:hover { color: var(--danger); }
+    .activity-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .activity-item:last-child { border-bottom: 0; }
+    .activity-item time { color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+    .task-panel-empty { font-size: 11px; color: var(--muted); }
     .grid-2col {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1502,6 +1616,7 @@
       display: flex;
       gap: 6px;
     }
+    .category-add-row select { flex: 1; }
 
     /* ===== SÉLECTEUR DE DATE/HEURE ===== */
     .date-picker-btn {
@@ -1892,6 +2007,9 @@
       .category-grid { grid-template-columns: 1fr; }
 
       .board-columns { grid-template-columns: repeat(4, 85vw); scroll-snap-type: x mandatory; }
+
+      .task-panel-field-row { grid-template-columns: 74px 1fr; }
+      .task-panel-body { padding: 16px; }
 
       .cal-day { min-height: 40px; padding: 4px; border-radius: 6px; }
       .cal-day-num { font-size: 10px; }
@@ -2339,53 +2457,87 @@
   </div>
 
   <!-- MODALE ÉDITION -->
-  <div class="modal-overlay hidden" id="editModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 id="modalTitle">Modifier la tâche</h2>
-        <button class="modal-close" id="modalCloseBtn">&times;</button>
+  <!-- PANNEAU DE DÉTAIL DE TÂCHE -->
+  <div class="modal-overlay task-panel-overlay hidden" id="editModal">
+    <div class="task-panel">
+      <div class="task-panel-header">
+        <div style="flex:1; min-width:0;">
+          <div class="eyebrow" id="modalTitle" style="font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">Détails de la tâche</div>
+          <input type="text" class="task-panel-title-input" id="editTitle" placeholder="Titre" />
+        </div>
+        <button class="modal-close" id="modalCloseBtn" aria-label="Fermer">&times;</button>
       </div>
-      <div>
-        <input type="text" class="field" id="editTitle" placeholder="Titre" />
-        <div class="grid-2col">
-          <select class="field" id="editDuration">
-            <option value="15">15m</option><option value="25">25m</option><option value="45">45m</option><option value="60">1h</option>
+      <div class="task-panel-body">
+        <div class="task-panel-field-row">
+          <label for="editStatus">Statut</label>
+          <select class="field" id="editStatus">
+            <option value="todo">À faire</option><option value="inprogress">En cours</option><option value="done">Terminée</option><option value="blocked">Bloquée</option>
           </select>
+        </div>
+        <div class="task-panel-field-row">
+          <label for="editAssignee">Assigné</label>
+          <select class="field hidden" id="editAssignee" title="Assigner à">
+            <option value="">Non assigné</option>
+          </select>
+        </div>
+        <div class="task-panel-field-row">
+          <label>Échéance</label>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <input type="text" class="field" id="editDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
+            <button type="button" class="field date-picker-btn" id="editDeadlineDateBtn" data-picker="editDeadlineDate" data-related="editDeadlineInput" title="Ou choisir une date et heure d'échéance précises">Date précise</button>
+            <input type="hidden" id="editDeadlineDate" />
+          </div>
+        </div>
+        <div class="task-panel-field-row">
+          <label for="editPriority">Priorité</label>
           <select class="field" id="editPriority">
             <option value="high">Critique</option><option value="medium">Normale</option><option value="low">Basse</option>
           </select>
         </div>
-        <div class="grid-2col">
-          <select class="field" id="editStatus">
-            <option value="todo">À faire</option><option value="inprogress">En cours</option><option value="done">Terminée</option><option value="blocked">Bloquée</option>
-          </select>
+        <div class="task-panel-field-row">
+          <label>Catégorie</label>
           <div class="category-add-row">
-            <select class="field" id="editCategory" style="flex:1;"></select>
+            <select class="field" id="editCategory"></select>
             <input type="text" class="field" id="editNewCategory" placeholder="Nouvelle catégorie" style="flex:1;" />
             <button class="btn-ghost" id="editAddCategoryBtn" style="padding:4px 10px;" aria-label="Ajouter une catégorie"><span class="math-icon">+</span></button>
           </div>
         </div>
-        <input type="text" class="field" id="editDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
-        <button type="button" class="field date-picker-btn" id="editDeadlineDateBtn" data-picker="editDeadlineDate" data-related="editDeadlineInput" title="Ou choisir une date et heure d'échéance précises">Date précise</button>
-        <input type="hidden" id="editDeadlineDate" />
-        <select class="field" id="editRepeat" title="Répéter">
-          <option value="none">Ne pas répéter</option>
-          <option value="daily">Répéter chaque jour</option>
-          <option value="weekly">Répéter chaque semaine</option>
-        </select>
-        <select class="field hidden" id="editAssignee" title="Assigner à">
-          <option value="">Non assigné</option>
-        </select>
-        <textarea class="field" id="editNotes" placeholder="Notes" rows="2"></textarea>
-        <div style="margin:10px 0;">
-          <label style="font-weight:600; font-size:12px; color:var(--text-dim);">Sous-tâches</label>
-          <div class="subtask-editor">
-            <input type="text" class="field" id="editSubtaskInput" placeholder="Ajouter" />
-            <button class="btn-ghost" id="editAddSubtaskBtn" style="padding:4px 12px;"><span class="math-icon">+</span></button>
-          </div>
-          <div class="subtask-list-editor" id="editSubtaskList"></div>
+        <div class="task-panel-field-row">
+          <label for="editDuration">Durée</label>
+          <select class="field" id="editDuration">
+            <option value="15">15m</option><option value="25">25m</option><option value="45">45m</option><option value="60">1h</option>
+          </select>
         </div>
-        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+        <div class="task-panel-field-row">
+          <label for="editRepeat">Répéter</label>
+          <select class="field" id="editRepeat" title="Répéter">
+            <option value="none">Ne pas répéter</option>
+            <option value="daily">Répéter chaque jour</option>
+            <option value="weekly">Répéter chaque semaine</option>
+          </select>
+        </div>
+
+        <div class="task-panel-section-title">Description</div>
+        <textarea class="field" id="editNotes" placeholder="Notes" rows="3"></textarea>
+
+        <div class="task-panel-section-title">Sous-tâches</div>
+        <div class="subtask-editor">
+          <input type="text" class="field" id="editSubtaskInput" placeholder="Ajouter" />
+          <button class="btn-ghost" id="editAddSubtaskBtn" style="padding:4px 12px;"><span class="math-icon">+</span></button>
+        </div>
+        <div class="subtask-list-editor" id="editSubtaskList"></div>
+
+        <div class="task-panel-section-title">Commentaires</div>
+        <div id="commentList"></div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" class="field" id="commentInput" placeholder="Ajouter un commentaire..." style="flex:1;" />
+          <button class="btn btn-primary" id="addCommentBtn" style="white-space:nowrap;">Envoyer</button>
+        </div>
+
+        <div class="task-panel-section-title">Activité</div>
+        <div id="activityList"></div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:6px; padding-bottom:4px;">
           <button class="btn-ghost" id="modalCancelBtn">Annuler</button>
           <button class="btn btn-primary" id="modalSaveBtn">Enregistrer</button>
         </div>
@@ -4951,8 +5103,11 @@
         timeSpent: 0,
         deadline: deadline,
         repeat: $('taskRepeat')?.value || 'none',
-        assignee: (activeWorkspaceId && $('taskAssignee')?.value) || null
+        assignee: (activeWorkspaceId && $('taskAssignee')?.value) || null,
+        comments: [],
+        activity: []
       };
+      logActivity(newTask, 'Tâche créée.');
       state.tasks.unshift(newTask);
       save();
       renderTasks();
@@ -4993,8 +5148,10 @@
       if (!task) return;
       if (task.status === 'done') {
         task.status = 'todo';
+        logActivity(task, 'Statut : Terminée → À faire.');
       } else {
         task.status = 'done';
+        logActivity(task, 'Statut : → Terminée.');
         state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
         if (timer.activeTaskId === id) {
           timer.activeTaskId = getPrimaryActiveTask()?.id || null;
@@ -5031,9 +5188,12 @@
       { status: 'done', label: 'Terminée', color: 'var(--success)' }
     ];
 
+    const KANBAN_STATUS_LABELS = { todo: 'À faire', inprogress: 'En cours', done: 'Terminée', blocked: 'Bloquée' };
+
     function moveTaskToStatus(id, newStatus) {
       const task = state.tasks.find(t => t.id === id);
       if (!task || task.status === newStatus) return;
+      logActivity(task, `Statut : ${KANBAN_STATUS_LABELS[task.status] || task.status} → ${KANBAN_STATUS_LABELS[newStatus] || newStatus}.`);
       if (newStatus === 'done') {
         state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
         if (timer.activeTaskId === id) {
@@ -5152,7 +5312,6 @@
       const task = state.tasks.find(t => t.id === id);
       if (!task) return;
       editingTaskId = id;
-      $('modalTitle').textContent = 'Modifier la tâche';
       $('editTitle').value = task.title;
       $('editDuration').value = task.duration;
       $('editPriority').value = task.priority;
@@ -5166,6 +5325,8 @@
       if ($('editRepeat')) $('editRepeat').value = task.repeat || 'none';
       if ($('editAssignee')) $('editAssignee').value = task.assignee || '';
       renderSubtaskEditor(task.subtasks || []);
+      renderCommentList(task);
+      renderActivityList(task);
       $('editModal').classList.remove('hidden');
     }
 
@@ -5213,6 +5374,10 @@
       if (!editingTaskId) return;
       const task = state.tasks.find(t => t.id === editingTaskId);
       if (!task) return;
+      const before = {
+        title: task.title, priority: task.priority, status: task.status,
+        category: task.category, assignee: task.assignee || null
+      };
       task.title = $('editTitle').value.trim() || task.title;
       task.duration = +$('editDuration').value;
       task.priority = $('editPriority').value;
@@ -5222,12 +5387,104 @@
       task.notes = $('editNotes').value;
       if ($('editRepeat')) task.repeat = $('editRepeat').value;
       if (activeWorkspaceId && $('editAssignee')) task.assignee = $('editAssignee').value || null;
+
+      if (before.title !== task.title) logActivity(task, `Titre modifié : « ${before.title} » → « ${task.title} ».`);
+      if (before.status !== task.status) logActivity(task, `Statut : ${KANBAN_STATUS_LABELS[before.status] || before.status} → ${KANBAN_STATUS_LABELS[task.status] || task.status}.`);
+      if (before.priority !== task.priority) logActivity(task, `Priorité : ${before.priority} → ${task.priority}.`);
+      if (before.category !== task.category) logActivity(task, `Catégorie : ${before.category} → ${task.category}.`);
+      if ((before.assignee || null) !== (task.assignee || null)) {
+        const newLabel = task.assignee ? (memberEmailFor(task.assignee) || 'un membre') : 'personne';
+        logActivity(task, `Assigné à ${newLabel}.`);
+      }
       save();
       renderTasks();
       closeEditModal();
       updateTimerTarget();
       updateDisplays();
       toast('Tâche mise à jour.');
+    }
+
+    // ================================================================
+    // COMMENTAIRES & ACTIVITÉ (panneau de détail de tâche)
+    // ================================================================
+    function formatPanelTimestamp(iso) {
+      const d = new Date(iso);
+      return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
+    }
+
+    function currentAuthorLabel() {
+      return (cloudUser && cloudUser.email) ? cloudUser.email : 'Vous';
+    }
+
+    function logActivity(task, text) {
+      if (!task.activity) task.activity = [];
+      task.activity.unshift({ id: Date.now().toString() + Math.random().toString(36).slice(2), text, at: new Date().toISOString() });
+    }
+
+    function renderActivityList(task) {
+      const list = $('activityList');
+      if (!list) return;
+      const activity = task.activity || [];
+      if (!activity.length) {
+        list.innerHTML = '<div class="task-panel-empty">Aucune activité enregistrée.</div>';
+        return;
+      }
+      list.innerHTML = activity.map(a => `
+        <div class="activity-item">
+          <span>${escHtml(a.text)}</span>
+          <time>${formatPanelTimestamp(a.at)}</time>
+        </div>
+      `).join('');
+    }
+
+    function renderCommentList(task) {
+      const list = $('commentList');
+      if (!list) return;
+      const comments = task.comments || [];
+      if (!comments.length) {
+        list.innerHTML = '<div class="task-panel-empty">Aucun commentaire.</div>';
+        return;
+      }
+      list.innerHTML = comments.map(c => `
+        <div class="comment-item">
+          <div class="comment-meta">
+            <span>${escHtml(c.author)} · ${formatPanelTimestamp(c.at)}</span>
+            <button type="button" class="comment-delete" data-comment-id="${c.id}" aria-label="Supprimer le commentaire">✕</button>
+          </div>
+          <div class="comment-text">${escHtml(c.text)}</div>
+        </div>
+      `).join('');
+      list.querySelectorAll('[data-comment-id]').forEach(btn => {
+        btn.addEventListener('click', () => deleteComment(btn.getAttribute('data-comment-id')));
+      });
+    }
+
+    function addComment() {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task) return;
+      const input = $('commentInput');
+      const text = input.value.trim();
+      if (!text) return;
+      if (!task.comments) task.comments = [];
+      task.comments.push({
+        id: Date.now().toString() + Math.random().toString(36).slice(2),
+        author: currentAuthorLabel(),
+        text,
+        at: new Date().toISOString()
+      });
+      input.value = '';
+      save();
+      renderCommentList(task);
+    }
+
+    function deleteComment(commentId) {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task || !task.comments) return;
+      task.comments = task.comments.filter(c => c.id !== commentId);
+      save();
+      renderCommentList(task);
     }
 
     // ================================================================
@@ -5664,6 +5921,8 @@
         removeSubtaskInEditor(idx);
       }
     });
+    $('addCommentBtn').addEventListener('click', addComment);
+    $('commentInput').addEventListener('keydown', e => { if (e.key === 'Enter') addComment(); });
 
     $('authModalCloseBtn').addEventListener('click', closeAuthModal);
     $('authModal').addEventListener('click', function(e) { if (e.target === this) closeAuthModal(); });
