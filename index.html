@@ -1691,6 +1691,10 @@
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <div id="authStatus"></div>
+          <div id="workspaceBar" class="hidden" style="display:flex; align-items:center; gap:6px;">
+            <select id="workspaceSwitcher" class="field" style="padding:6px 10px; font-size:11px; width:auto;" title="Changer d'espace de travail" aria-label="Changer d'espace de travail"></select>
+            <button class="btn-ghost" id="teamManageBtn" style="padding:8px 12px;" title="Gérer l'équipe" aria-label="Gérer l'équipe"><span class="math-icon">⚇︎</span></button>
+          </div>
           <button class="btn-ghost" id="soundToggleBtn" style="padding:8px 12px;" title="Activer/couper le son" aria-label="Activer/couper le son"><span class="math-icon" id="soundIcon">♪︎</span></button>
           <button class="btn-ghost" id="clockModeBtn" style="padding:8px 12px;" title="Changer l'affichage de l'horloge" aria-label="Changer l'affichage de l'horloge"><span class="math-icon">▤︎</span></button>
           <button class="btn-ghost" id="shortcutsBtn" style="padding:8px 12px;" title="Raccourcis clavier" aria-label="Raccourcis clavier"><span class="math-icon">?</span></button>
@@ -1772,6 +1776,9 @@
                   <option value="none">Ne pas répéter</option>
                   <option value="daily">Répéter chaque jour</option>
                   <option value="weekly">Répéter chaque semaine</option>
+                </select>
+                <select id="taskAssignee" class="field hidden" title="Assigner à">
+                  <option value="">Non assigné</option>
                 </select>
                 <button class="btn btn-primary" id="addTaskBtn"><span class="math-icon">+</span> Créer</button>
               </div>
@@ -2071,6 +2078,9 @@
           <option value="daily">Répéter chaque jour</option>
           <option value="weekly">Répéter chaque semaine</option>
         </select>
+        <select class="field hidden" id="editAssignee" title="Assigner à">
+          <option value="">Non assigné</option>
+        </select>
         <textarea class="field" id="editNotes" placeholder="Notes" rows="2"></textarea>
         <div style="margin:10px 0;">
           <label style="font-weight:600; font-size:12px; color:var(--text-dim);">Sous-tâches</label>
@@ -2128,6 +2138,17 @@
         </div>
         <div id="authMsg" style="font-size:11px; color:var(--text-dim); margin-top:10px; min-height:14px;"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODALE GESTION D'ÉQUIPE -->
+  <div class="modal-overlay hidden" id="workspaceModal">
+    <div class="modal" style="max-width:460px;">
+      <div class="modal-header">
+        <h2>Gestion d'équipe</h2>
+        <button class="modal-close" id="workspaceModalCloseBtn" aria-label="Fermer">&times;</button>
+      </div>
+      <div id="workspaceModalBody"></div>
     </div>
   </div>
 
@@ -2655,6 +2676,12 @@
     let applyingRemoteState = false;
     let realtimeChannel = null;
 
+    // Espace actif : null = espace personnel, sinon id d'un espace d'équipe (public.workspaces)
+    let activeWorkspaceId = localStorage.getItem('tempo_pro_active_workspace') || null;
+    let myWorkspaces = []; // [{id, name, owner_id, role}]
+    let currentWorkspaceMembers = []; // [{user_id, email, role, joined_at}]
+    let pendingWorkspaceInvites = []; // invitations en attente (vue propriétaire) ou reçues (vue invité)
+
     function scheduleCloudSave() {
       if (!supa || !cloudUser || applyingRemoteState) return;
       clearTimeout(cloudSaveTimeout);
@@ -2664,11 +2691,18 @@
     async function pushStateToCloud() {
       if (!supa || !cloudUser) return;
       try {
-        await supa.from('tempo_pro_state').upsert({
-          user_id: cloudUser.id,
-          state: { ...state, _client: CLIENT_ID },
-          updated_at: new Date().toISOString()
-        });
+        if (activeWorkspaceId) {
+          await supa.from('workspace_state').update({
+            state: { ...state, _client: CLIENT_ID },
+            updated_at: new Date().toISOString()
+          }).eq('workspace_id', activeWorkspaceId);
+        } else {
+          await supa.from('tempo_pro_state').upsert({
+            user_id: cloudUser.id,
+            state: { ...state, _client: CLIENT_ID },
+            updated_at: new Date().toISOString()
+          });
+        }
       } catch (e) {
         console.warn('Synchronisation cloud échouée', e);
       }
@@ -2676,6 +2710,15 @@
 
     async function pullStateFromCloud() {
       if (!supa || !cloudUser) return null;
+      if (activeWorkspaceId) {
+        const { data, error } = await supa
+          .from('workspace_state')
+          .select('state, updated_at')
+          .eq('workspace_id', activeWorkspaceId)
+          .maybeSingle();
+        if (error) { console.warn(error); return null; }
+        return data;
+      }
       const { data, error } = await supa
         .from('tempo_pro_state')
         .select('state, updated_at')
@@ -2716,6 +2759,21 @@
     function subscribeRealtime() {
       if (!supa || !cloudUser) return;
       if (realtimeChannel) supa.removeChannel(realtimeChannel);
+      if (activeWorkspaceId) {
+        realtimeChannel = supa.channel('workspace_state_' + activeWorkspaceId)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'workspace_state',
+            filter: `workspace_id=eq.${activeWorkspaceId}`
+          }, payload => {
+            const incoming = payload.new;
+            if (!incoming || !incoming.state) return;
+            if (incoming.state._client === CLIENT_ID) return; // écho de notre propre écriture
+            applyRemoteState(incoming.state);
+            toast('Données mises à jour depuis un autre appareil.');
+          })
+          .subscribe();
+        return;
+      }
       realtimeChannel = supa.channel('tempo_state_' + cloudUser.id)
         .on('postgres_changes', {
           event: '*', schema: 'public', table: 'tempo_pro_state',
@@ -2733,15 +2791,269 @@
     async function onAuthReady(user) {
       cloudUser = user;
       updateAuthUI();
+      await fetchMyWorkspaces();
+      await acceptPendingInvites();
+      renderWorkspaceSwitcher();
       const remote = await pullStateFromCloud();
       if (remote && remote.state && Array.isArray(remote.state.tasks)) {
         applyRemoteState(remote.state);
         toast('Données cloud chargées.');
-      } else {
+      } else if (!activeWorkspaceId) {
         await pushStateToCloud();
         toast('Compte connecté — données synchronisées.');
       }
       subscribeRealtime();
+      if (activeWorkspaceId) await fetchWorkspaceMembers(activeWorkspaceId);
+      updateAssigneeFieldsVisibility();
+    }
+
+    // ================================================================
+    // ESPACES D'ÉQUIPE (multi-utilisateur)
+    // ================================================================
+    async function fetchMyWorkspaces() {
+      if (!supa || !cloudUser) { myWorkspaces = []; return myWorkspaces; }
+      const { data, error } = await supa
+        .from('workspace_members')
+        .select('role, workspaces(id, name, owner_id)')
+        .eq('user_id', cloudUser.id);
+      if (error) { console.warn(error); return myWorkspaces; }
+      myWorkspaces = (data || [])
+        .filter(r => r.workspaces)
+        .map(r => ({ id: r.workspaces.id, name: r.workspaces.name, owner_id: r.workspaces.owner_id, role: r.role }));
+      // L'espace actif n'existe plus (retiré, supprimé...) : retour à l'espace personnel.
+      if (activeWorkspaceId && !myWorkspaces.some(w => w.id === activeWorkspaceId)) {
+        activeWorkspaceId = null;
+        localStorage.removeItem('tempo_pro_active_workspace');
+      }
+      return myWorkspaces;
+    }
+
+    async function fetchWorkspaceMembers(workspaceId) {
+      if (!supa || !workspaceId) { currentWorkspaceMembers = []; return currentWorkspaceMembers; }
+      const { data, error } = await supa.rpc('get_workspace_members', { ws_id: workspaceId });
+      if (error) { console.warn(error); currentWorkspaceMembers = []; return currentWorkspaceMembers; }
+      currentWorkspaceMembers = data || [];
+      return currentWorkspaceMembers;
+    }
+
+    async function fetchPendingInvites(workspaceId) {
+      if (!supa || !workspaceId) { pendingWorkspaceInvites = []; return pendingWorkspaceInvites; }
+      const { data, error } = await supa
+        .from('workspace_invites')
+        .select('id, email, role, status, created_at')
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      if (error) { console.warn(error); pendingWorkspaceInvites = []; return pendingWorkspaceInvites; }
+      pendingWorkspaceInvites = data || [];
+      return pendingWorkspaceInvites;
+    }
+
+    async function acceptPendingInvites() {
+      if (!supa || !cloudUser || !cloudUser.email) return;
+      const { data, error } = await supa
+        .from('workspace_invites')
+        .select('id, workspace_id, workspaces(name)')
+        .eq('status', 'pending')
+        .ilike('email', cloudUser.email);
+      if (error || !data || !data.length) return;
+      let accepted = 0;
+      for (const inv of data) {
+        const { error: rpcErr } = await supa.rpc('accept_workspace_invite', { invite_id: inv.id });
+        if (!rpcErr) accepted++;
+      }
+      if (accepted) {
+        await fetchMyWorkspaces();
+        toast(accepted === 1 ? 'Vous avez rejoint un espace d\'équipe.' : `Vous avez rejoint ${accepted} espaces d'équipe.`);
+      }
+    }
+
+    function renderWorkspaceSwitcher() {
+      const bar = $('workspaceBar');
+      const sel = $('workspaceSwitcher');
+      if (!bar || !sel) return;
+      if (!cloudUser) { bar.classList.add('hidden'); return; }
+      bar.classList.remove('hidden');
+      const current = sel.value;
+      sel.innerHTML = '<option value="">Espace personnel</option>' +
+        myWorkspaces.map(w => `<option value="${w.id}">${escHtml(w.name)}</option>`).join('') +
+        '<option value="__create__">+ Créer un espace d\'équipe…</option>';
+      sel.value = activeWorkspaceId && myWorkspaces.some(w => w.id === activeWorkspaceId) ? activeWorkspaceId : '';
+    }
+
+    async function switchWorkspace(id) {
+      if (activeWorkspaceId === id) return;
+      activeWorkspaceId = id || null;
+      if (activeWorkspaceId) localStorage.setItem('tempo_pro_active_workspace', activeWorkspaceId);
+      else localStorage.removeItem('tempo_pro_active_workspace');
+      const remote = await pullStateFromCloud();
+      if (remote && remote.state && Array.isArray(remote.state.tasks)) {
+        applyRemoteState(remote.state);
+      }
+      subscribeRealtime();
+      if (activeWorkspaceId) await fetchWorkspaceMembers(activeWorkspaceId);
+      else currentWorkspaceMembers = [];
+      updateAssigneeFieldsVisibility();
+      renderWorkspaceSwitcher();
+      toast(activeWorkspaceId ? 'Espace d\'équipe activé.' : 'Espace personnel activé.');
+    }
+
+    async function createWorkspace(name) {
+      if (!supa || !cloudUser || !name || !name.trim()) return;
+      const { data, error } = await supa.from('workspaces').insert({ name: name.trim(), owner_id: cloudUser.id }).select().single();
+      if (error) { toast('Erreur : ' + error.message); return; }
+      await fetchMyWorkspaces();
+      renderWorkspaceSwitcher();
+      await switchWorkspace(data.id);
+      renderWorkspaceModal();
+    }
+
+    async function inviteToWorkspace(workspaceId, email) {
+      if (!supa || !cloudUser || !email || !email.trim()) return;
+      const { error } = await supa.from('workspace_invites').insert({
+        workspace_id: workspaceId,
+        email: email.trim().toLowerCase(),
+        invited_by: cloudUser.id
+      });
+      if (error) { toast('Erreur : ' + error.message); return; }
+      toast('Invitation envoyée.');
+      await fetchPendingInvites(workspaceId);
+      renderWorkspaceModal();
+    }
+
+    async function revokeInvite(inviteId, workspaceId) {
+      if (!supa) return;
+      const { error } = await supa.from('workspace_invites').update({ status: 'revoked' }).eq('id', inviteId);
+      if (error) { toast('Erreur : ' + error.message); return; }
+      await fetchPendingInvites(workspaceId);
+      renderWorkspaceModal();
+    }
+
+    async function removeWorkspaceMember(workspaceId, userId) {
+      if (!supa) return;
+      const { error } = await supa.from('workspace_members').delete().eq('workspace_id', workspaceId).eq('user_id', userId);
+      if (error) { toast('Erreur : ' + error.message); return; }
+      await fetchWorkspaceMembers(workspaceId);
+      renderWorkspaceModal();
+      toast('Membre retiré.');
+    }
+
+    async function leaveWorkspace(workspaceId) {
+      if (!supa || !cloudUser) return;
+      const { error } = await supa.from('workspace_members').delete().eq('workspace_id', workspaceId).eq('user_id', cloudUser.id);
+      if (error) { toast('Erreur : ' + error.message); return; }
+      await fetchMyWorkspaces();
+      if (activeWorkspaceId === workspaceId) await switchWorkspace(null);
+      renderWorkspaceSwitcher();
+      closeWorkspaceModal();
+      toast('Vous avez quitté l\'espace d\'équipe.');
+    }
+
+    function updateAssigneeFieldsVisibility() {
+      const isTeam = !!activeWorkspaceId;
+      const opts = '<option value="">Non assigné</option>' +
+        currentWorkspaceMembers.map(m => `<option value="${m.user_id}">${escHtml(m.email)}</option>`).join('');
+      ['taskAssignee', 'editAssignee'].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        const current = el.value;
+        el.innerHTML = opts;
+        if (Array.from(el.options).some(o => o.value === current)) el.value = current;
+        el.classList.toggle('hidden', !isTeam);
+      });
+    }
+
+    function memberEmailFor(userId) {
+      const m = currentWorkspaceMembers.find(m => m.user_id === userId);
+      return m ? m.email : null;
+    }
+
+    function openWorkspaceModal() {
+      if (!cloudUser) { toast('Connectez-vous pour gérer vos espaces d\'équipe.'); return; }
+      renderWorkspaceModal();
+      $('workspaceModal').classList.remove('hidden');
+    }
+    function closeWorkspaceModal() {
+      $('workspaceModal').classList.add('hidden');
+    }
+
+    async function renderWorkspaceModal() {
+      const body = $('workspaceModalBody');
+      if (!body) return;
+      const ws = myWorkspaces.find(w => w.id === activeWorkspaceId);
+      let html = `
+        <div style="margin-bottom:16px;">
+          <label style="font-weight:600; font-size:12px; color:var(--text-dim);">Créer un nouvel espace d'équipe</label>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <input type="text" class="field" id="newWorkspaceName" placeholder="Nom de l'équipe (ex. Marketing)" style="flex:1;" />
+            <button class="btn btn-primary" id="newWorkspaceCreateBtn" style="white-space:nowrap;">Créer</button>
+          </div>
+        </div>
+      `;
+      if (!ws) {
+        html += `<div style="font-size:12px; color:var(--muted);">Sélectionnez un espace d'équipe dans le menu en haut de l'écran pour en gérer les membres.</div>`;
+        body.innerHTML = html;
+        $('newWorkspaceCreateBtn').addEventListener('click', () => createWorkspace($('newWorkspaceName').value));
+        return;
+      }
+      const isOwner = ws.owner_id === cloudUser.id;
+      await fetchWorkspaceMembers(ws.id);
+      if (isOwner) await fetchPendingInvites(ws.id);
+      html += `
+        <div style="margin-bottom:14px;">
+          <label style="font-weight:600; font-size:12px; color:var(--text-dim);">Membres de « ${escHtml(ws.name)} »</label>
+          <div style="margin-top:6px; display:grid; gap:6px;">
+            ${currentWorkspaceMembers.map(m => `
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--line); border-radius:6px;">
+                <span style="font-size:12px;">${escHtml(m.email)}${m.user_id === cloudUser.id ? ' (vous)' : ''}</span>
+                <span style="display:flex; align-items:center; gap:8px;">
+                  <span class="status-badge ${m.role === 'owner' ? 'priority-high' : 'status-todo'}">${m.role === 'owner' ? 'Propriétaire' : 'Membre'}</span>
+                  ${isOwner && m.user_id !== cloudUser.id ? `<button class="icon-btn" data-remove-member="${m.user_id}" title="Retirer" aria-label="Retirer ce membre">✕︎</button>` : ''}
+                  ${!isOwner && m.user_id === cloudUser.id ? `<button class="icon-btn" data-leave-workspace="${ws.id}" title="Quitter" aria-label="Quitter cet espace">⏏︎</button>` : ''}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      if (isOwner) {
+        html += `
+          <div style="margin-bottom:14px;">
+            <label style="font-weight:600; font-size:12px; color:var(--text-dim);">Inviter par email</label>
+            <div style="display:flex; gap:8px; margin-top:6px;">
+              <input type="email" class="field" id="inviteEmailInput" placeholder="email@exemple.com" style="flex:1;" />
+              <button class="btn btn-primary" id="inviteSendBtn" style="white-space:nowrap;">Inviter</button>
+            </div>
+          </div>
+          ${pendingWorkspaceInvites.length ? `
+            <div style="margin-bottom:6px;">
+              <label style="font-weight:600; font-size:12px; color:var(--text-dim);">Invitations en attente</label>
+              <div style="margin-top:6px; display:grid; gap:6px;">
+                ${pendingWorkspaceInvites.map(inv => `
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--line); border-radius:6px;">
+                    <span style="font-size:12px; color:var(--text-dim);">${escHtml(inv.email)}</span>
+                    <button class="icon-btn" data-revoke-invite="${inv.id}" title="Annuler l'invitation" aria-label="Annuler l'invitation">✕︎</button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        `;
+      }
+      body.innerHTML = html;
+      $('newWorkspaceCreateBtn').addEventListener('click', () => createWorkspace($('newWorkspaceName').value));
+      if (isOwner) {
+        $('inviteSendBtn').addEventListener('click', () => inviteToWorkspace(ws.id, $('inviteEmailInput').value));
+        body.querySelectorAll('[data-remove-member]').forEach(btn => {
+          btn.addEventListener('click', () => removeWorkspaceMember(ws.id, btn.getAttribute('data-remove-member')));
+        });
+        body.querySelectorAll('[data-revoke-invite]').forEach(btn => {
+          btn.addEventListener('click', () => revokeInvite(btn.getAttribute('data-revoke-invite'), ws.id));
+        });
+      }
+      body.querySelectorAll('[data-leave-workspace]').forEach(btn => {
+        btn.addEventListener('click', () => leaveWorkspace(btn.getAttribute('data-leave-workspace')));
+      });
     }
 
     function updateAuthUI() {
@@ -2775,8 +3087,14 @@
           await onAuthReady(session.user);
         } else if (event === 'SIGNED_OUT') {
           cloudUser = null;
+          activeWorkspaceId = null;
+          myWorkspaces = [];
+          currentWorkspaceMembers = [];
+          localStorage.removeItem('tempo_pro_active_workspace');
           if (realtimeChannel) { supa.removeChannel(realtimeChannel); realtimeChannel = null; }
           updateAuthUI();
+          renderWorkspaceSwitcher();
+          updateAssigneeFieldsVisibility();
         }
       });
     }
@@ -3322,6 +3640,7 @@
                 <span><span class="math-icon">◷︎</span> ${formatTimeShort(t.timeSpent || 0)}</span>
                 ${subtasks.length ? `<span><span class="math-icon">≡︎</span> ${doneSubtasks}/${subtasks.length}</span>` : ''}
                 ${t.repeat && t.repeat !== 'none' ? `<span><span class="math-icon">⟳︎</span> ${t.repeat === 'daily' ? 'Quotidienne' : 'Hebdomadaire'}</span>` : ''}
+                ${t.assignee && memberEmailFor(t.assignee) ? `<span><span class="math-icon">⚇︎</span> ${escHtml(memberEmailFor(t.assignee))}</span>` : ''}
                 ${deadlineBadge}
               </div>
               ${subtasks.length ? `
@@ -4180,7 +4499,8 @@
         notes: '',
         timeSpent: 0,
         deadline: deadline,
-        repeat: $('taskRepeat')?.value || 'none'
+        repeat: $('taskRepeat')?.value || 'none',
+        assignee: (activeWorkspaceId && $('taskAssignee')?.value) || null
       };
       state.tasks.unshift(newTask);
       save();
@@ -4188,6 +4508,7 @@
       $('taskInput').value = '';
       $('taskDeadlineInput').value = '';
       setDatePickerField('taskDeadlineDate', 'taskDeadlineDateBtn', null);
+      if ($('taskAssignee')) $('taskAssignee').value = '';
       toast('Tâche ajoutée.');
     }
 
@@ -4270,6 +4591,7 @@
       setDatePickerField('editDeadlineDate', 'editDeadlineDateBtn', task.deadline || null);
       $('editNotes').value = task.notes || '';
       if ($('editRepeat')) $('editRepeat').value = task.repeat || 'none';
+      if ($('editAssignee')) $('editAssignee').value = task.assignee || '';
       renderSubtaskEditor(task.subtasks || []);
       $('editModal').classList.remove('hidden');
     }
@@ -4326,6 +4648,7 @@
       task.deadline = resolveDeadline('editDeadlineDate', 'editDeadlineInput');
       task.notes = $('editNotes').value;
       if ($('editRepeat')) task.repeat = $('editRepeat').value;
+      if (activeWorkspaceId && $('editAssignee')) task.assignee = $('editAssignee').value || null;
       save();
       renderTasks();
       closeEditModal();
@@ -4605,6 +4928,19 @@
     $('clockModeBtn').addEventListener('click', toggleClockMode);
     $('goalCard').addEventListener('click', editDailyGoal);
 
+    $('teamManageBtn').addEventListener('click', openWorkspaceModal);
+    $('workspaceModalCloseBtn').addEventListener('click', closeWorkspaceModal);
+    $('workspaceModal').addEventListener('click', function(e) { if (e.target === this) closeWorkspaceModal(); });
+    $('workspaceSwitcher').addEventListener('change', function() {
+      const val = this.value;
+      if (val === '__create__') {
+        this.value = activeWorkspaceId || '';
+        openWorkspaceModal();
+        return;
+      }
+      switchWorkspace(val || null);
+    });
+
 
     function switchToView(name) {
       const btn = document.querySelector(`.nav button[data-view="${name}"]`);
@@ -4626,6 +4962,10 @@
       }
       if (e.key === 'Escape' && !$('shortcutsModal').classList.contains('hidden')) {
         closeShortcutsModal();
+        return;
+      }
+      if (e.key === 'Escape' && !$('workspaceModal').classList.contains('hidden')) {
+        closeWorkspaceModal();
         return;
       }
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
