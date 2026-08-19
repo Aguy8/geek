@@ -2788,9 +2788,9 @@
             <div class="flip-unit" data-unit="s2"><div class="flip-card-face">0</div></div>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:16px 0;">
-            <button class="btn-ghost" onclick="setManualTimer(25)"><span class="math-icon">⊙︎</span> Focus 25m</button>
-            <button class="btn-ghost" onclick="setManualTimer(5)"><span class="math-icon">⏸︎</span> Pause 5m</button>
-            <button class="btn-ghost" onclick="setManualTimer(15)"><span class="math-icon">⏸︎</span> Pause 15m</button>
+            <button class="btn-ghost" onclick="setManualTimer(25, 'focus')"><span class="math-icon">⊙︎</span> Focus 25m</button>
+            <button class="btn-ghost" onclick="setManualTimer(5, 'pause')"><span class="math-icon">⏸︎</span> Pause 5m</button>
+            <button class="btn-ghost" onclick="setManualTimer(15, 'pause')"><span class="math-icon">⏸︎</span> Pause 15m</button>
             <button class="btn-ghost" onclick="setChronoMode()"><span class="math-icon">∞</span> Chrono Libre</button>
           </div>
           <div class="timer-controls">
@@ -3254,7 +3254,10 @@
       interval: null,
       targetDuration: 25 * 60 * 1000,
       activeTaskId: null,
-      notified: false
+      notified: false,
+      // 'task' : la durée suit la tâche verrouillée (échéance/durée) ; 'focus'/'pause' : durée fixée manuellement ;
+      // 'chrono' : chronomètre libre qui compte le temps écoulé, sans décompte ni tâche requise.
+      mode: 'task'
     };
 
     // ================================================================
@@ -3734,6 +3737,7 @@
       if (!state.history[todayStr]) state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
       stopTimer();
+      timer.mode = 'task';
       timer.activeTaskId = state.activeTaskIds.length ? (getPrimaryActiveTask()?.id || null) : null;
       timer.elapsed = 0;
       timer.notified = false;
@@ -4159,6 +4163,7 @@
       if (idx === -1) {
         state.activeTaskIds.push(id);
         if (state.activeTaskIds.length === 1) {
+          timer.mode = 'task';
           timer.activeTaskId = id;
         }
       } else {
@@ -4241,6 +4246,7 @@
 
     function setPrimaryTask(id) {
       if (!state.activeTaskIds.includes(id)) return;
+      timer.mode = 'task';
       timer.activeTaskId = id;
       timer.notified = false;
       if (_fsDetailsVisible && _fsDetailsTaskId !== id) {
@@ -4279,6 +4285,9 @@
     // TIMER TARGET
     // ================================================================
     function updateTimerTarget() {
+      // Une durée fixée manuellement (Focus/Pause) ou le mode Chrono ne doivent pas
+      // être écrasés par la durée de la tâche à chaque tick.
+      if (timer.mode !== 'task') return;
       const task = state.tasks.find(t => t.id === timer.activeTaskId);
       if (task) {
         if (task.deadline) {
@@ -5605,6 +5614,7 @@
           if (!state.history[todayStr]) state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
           save();
           stopTimer();
+          timer.mode = 'task';
           timer.activeTaskId = state.activeTaskIds.length ? (getPrimaryActiveTask()?.id || null) : null;
           timer.elapsed = 0;
           timer.notified = false;
@@ -5735,6 +5745,8 @@
     function getRemainingMs() {
       updateTimerTarget();
       const elapsed = getCurrentElapsed();
+      // Chrono libre : un vrai chronomètre qui compte le temps écoulé, pas un compte à rebours.
+      if (timer.mode === 'chrono') return elapsed;
       return timer.targetDuration - elapsed;
     }
 
@@ -5830,15 +5842,13 @@
 
       // Mise à jour du mode
       const modeEl = $('timerMode');
+      const modeLabels = { task: 'FOCUS ACTIF', focus: 'FOCUS ACTIF', pause: 'PAUSE', chrono: 'CHRONO LIBRE' };
       if (remaining < 0) {
         modeEl.textContent = 'DÉPASSÉ';
         modeEl.className = 'mode overdue';
-      } else if (timer.running) {
-        modeEl.textContent = 'FOCUS ACTIF';
-        modeEl.className = 'mode running';
       } else {
-        modeEl.textContent = 'FOCUS ACTIF';
-        modeEl.className = 'mode';
+        modeEl.textContent = modeLabels[timer.mode] || 'FOCUS ACTIF';
+        modeEl.className = timer.running ? 'mode running' : 'mode';
       }
 
       document.title = `${timeStr} — Tempo`;
@@ -5847,7 +5857,11 @@
     function updateDisplays() {
       updateClock();
       const task = state.tasks.find(t => t.id === timer.activeTaskId);
-      const titleStr = task ? task.title : 'Aucune tâche active';
+      let titleStr;
+      if (task) titleStr = task.title;
+      else if (timer.mode === 'pause') titleStr = 'Pause';
+      else if (timer.mode === 'chrono') titleStr = 'Chrono libre';
+      else titleStr = 'Aucune tâche active';
       $('activeTaskText').textContent = titleStr;
       $('focusPageTask').textContent = titleStr;
       $('fsTask').textContent = titleStr;
@@ -5863,7 +5877,9 @@
 
     function startTimer() {
       if (timer.running) return;
-      if (!timer.activeTaskId) {
+      // Seul le mode "tâche" (verrouillée via ⊙) exige une tâche active ; Focus/Pause/Chrono
+      // manuels peuvent démarrer sans tâche rattachée (pause déjeuner, chrono libre, etc.).
+      if (timer.mode === 'task' && !timer.activeTaskId) {
         toast('Aucune tâche active. Sélectionnez une tâche à suivre.');
         return;
       }
@@ -5883,7 +5899,8 @@
       let ticks = 0;
       timer.interval = setInterval(() => {
         const remaining = getRemainingMs();
-        if (remaining <= 0 && !timer.notified) {
+        // En mode Chrono, on ne décompte rien : pas d'alarme de fin de temps.
+        if (timer.mode !== 'chrono' && remaining <= 0 && !timer.notified) {
           timer.notified = true;
           playBeep();
           toast('Temps écoulé !');
@@ -5969,37 +5986,30 @@
       stopTimer();
       timer.elapsed = 0;
       timer.notified = false;
-      const task = state.tasks.find(t => t.id === timer.activeTaskId);
-      if (task) {
-        if (task.deadline) {
-          timer.targetDuration = Math.max(0, new Date(task.deadline).getTime() - Date.now());
-        } else {
-          timer.targetDuration = task.duration * 60 * 1000;
-        }
-      } else {
-        timer.targetDuration = 25 * 60 * 1000;
-      }
+      updateTimerTarget();
       updateDisplays();
     }
 
-    function setManualTimer(mins) {
+    function setManualTimer(mins, mode) {
       stopTimer();
+      timer.mode = mode || 'focus';
       timer.activeTaskId = null;
       timer.targetDuration = mins * 60 * 1000;
       timer.elapsed = 0;
       timer.notified = false;
       updateDisplays();
-      toast(`Timer réglé sur ${mins}m`);
+      toast(timer.mode === 'pause' ? `Pause réglée sur ${mins}m` : `Timer réglé sur ${mins}m`);
     }
 
     function setChronoMode() {
       stopTimer();
+      timer.mode = 'chrono';
       timer.activeTaskId = null;
       timer.targetDuration = 0;
       timer.elapsed = 0;
       timer.notified = false;
       updateDisplays();
-      toast('Mode Chrono libre');
+      toast('Mode Chrono libre — le temps s\'écoule librement.');
     }
 
     function requestNotificationPermission() {
@@ -6886,6 +6896,7 @@
           const id = item.dataset.id;
           toggleTaskActive(id);
           if (state.activeTaskIds.includes(id) && !timer.activeTaskId) {
+            timer.mode = 'task';
             timer.activeTaskId = id;
             timer.notified = false;
             updateTimerTarget();
@@ -6902,6 +6913,7 @@
           if (!state.activeTaskIds.includes(id)) {
             state.activeTaskIds.push(id);
           }
+          timer.mode = 'task';
           timer.activeTaskId = id;
           timer.notified = false;
           updateTimerTarget();
