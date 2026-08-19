@@ -409,6 +409,118 @@
       color: var(--muted);
     }
 
+    /* ===== VUE KANBAN ===== */
+    .board-columns {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(240px, 1fr));
+      gap: 14px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      scroll-snap-type: x proximity;
+    }
+    .board-column {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+      scroll-snap-align: start;
+    }
+    .board-column-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .board-column-header h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .board-column-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .board-column-count {
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface-2);
+      padding: 1px 7px;
+      border-radius: 10px;
+    }
+    .board-cards {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-height: 60px;
+      transition: var(--transition);
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+    .board-cards.drag-over { background: var(--surface-2); }
+    .board-card {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: grab;
+      transition: var(--transition);
+    }
+    .board-card:hover { border-color: var(--text-dim); }
+    .board-card.dragging { opacity: 0.4; }
+    .board-card-title {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .board-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .board-card-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+    }
+    .board-card-move { display: flex; gap: 4px; }
+    .board-card-move button {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--text-dim);
+      width: 22px;
+      height: 22px;
+      border-radius: 5px;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .board-card-move button:disabled { opacity: 0.25; cursor: default; }
+    .board-card-move button:not(:disabled):hover { color: var(--text); border-color: var(--text-dim); }
+    .board-empty {
+      padding: 20px 10px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
     /* ===== FOCUS WIDGET ===== */
     .focus-widget {
       padding: 32px 24px;
@@ -1779,6 +1891,8 @@
       .home-stats { flex-wrap: wrap; gap: 10px 16px; }
       .category-grid { grid-template-columns: 1fr; }
 
+      .board-columns { grid-template-columns: repeat(4, 85vw); scroll-snap-type: x mandatory; }
+
       .cal-day { min-height: 40px; padding: 4px; border-radius: 6px; }
       .cal-day-num { font-size: 10px; }
       .cal-days, .cal-weekdays { gap: 3px; }
@@ -1821,6 +1935,7 @@
       <nav class="nav">
         <button class="active" data-view="dashboard" aria-current="page"><span class="icon math-icon">∑︎</span> Dashboard</button>
         <button data-view="tasks"><span class="icon math-icon">✓︎</span> Tâches</button>
+        <button data-view="board"><span class="icon math-icon">◫︎</span> Kanban</button>
         <button data-view="calendar"><span class="icon math-icon">▦︎</span> Calendrier</button>
         <button data-view="focus"><span class="icon math-icon">⊙︎</span> Focus</button>
         <button data-view="stats"><span class="icon math-icon">∫︎</span> Analytiques</button>
@@ -2032,6 +2147,11 @@
           </div>
           <div class="task-list" id="fullTaskList" style="max-height:60vh;"></div>
         </div>
+      </section>
+
+      <!-- VUE KANBAN -->
+      <section class="view-panel hidden" id="viewBoard">
+        <div class="board-columns" id="boardColumns"></div>
       </section>
 
       <!-- VUE CALENDRIER -->
@@ -2342,7 +2462,7 @@
         <div class="shortcut-row"><span>Nouvelle tâche</span><span class="kbd">N</span></div>
         <div class="shortcut-row"><span>Rechercher une tâche</span><span class="kbd">/</span></div>
         <div class="shortcut-row"><span>Mode Immersif (plein écran)</span><span class="kbd">F</span></div>
-        <div class="shortcut-row"><span>Dashboard / Tâches / Calendrier / Focus / Analytiques</span><span class="kbd">1–5</span></div>
+        <div class="shortcut-row"><span>Dashboard / Tâches / Kanban / Calendrier / Focus / Analytiques</span><span class="kbd">1–6</span></div>
         <div class="shortcut-row"><span>Fermer une fenêtre / le mode immersif</span><span class="kbd">Échap</span></div>
         <div class="shortcut-row"><span>Afficher ces raccourcis</span><span class="kbd">?</span></div>
       </div>
@@ -3777,8 +3897,9 @@
       renderCategoryGrid();
       renderPeopleRow();
       renderHomeHeader();
-      // Idem : ne reconstruit la grille du calendrier que si on la regarde.
+      // Idem : ne reconstruit la grille du calendrier / le tableau Kanban que si on les regarde.
       if (!$('viewCalendar').classList.contains('hidden')) renderCalendarView();
+      if (!$('viewBoard').classList.contains('hidden')) renderBoard();
     }
 
     // ================================================================
@@ -4901,6 +5022,128 @@
     }
 
     // ================================================================
+    // VUE KANBAN
+    // ================================================================
+    const BOARD_COLUMNS = [
+      { status: 'todo', label: 'À faire', color: 'var(--text-dim)' },
+      { status: 'inprogress', label: 'En cours', color: 'var(--info)' },
+      { status: 'blocked', label: 'Bloquée', color: 'var(--danger)' },
+      { status: 'done', label: 'Terminée', color: 'var(--success)' }
+    ];
+
+    function moveTaskToStatus(id, newStatus) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task || task.status === newStatus) return;
+      if (newStatus === 'done') {
+        state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
+        if (timer.activeTaskId === id) {
+          timer.activeTaskId = getPrimaryActiveTask()?.id || null;
+          timer.notified = false;
+          hideTaskDetails();
+        }
+        const now = new Date();
+        state.history[todayStr].completedTasks.push({
+          title: task.title,
+          time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+        });
+        playBeep();
+        vibrate(120);
+        sendNotification('Tâche terminée', `"${task.title}" est terminée.`);
+        spawnNextRecurrence(task);
+        if (timer.activeTaskId === id) stopTimer();
+      }
+      task.status = newStatus;
+      save();
+      renderBoard();
+      renderTasks();
+      renderTimeline();
+      updateTimerTarget();
+      updateDisplays();
+    }
+
+    function boardCardHTML(t) {
+      const colIdx = BOARD_COLUMNS.findIndex(c => c.status === t.status);
+      const deadlineBadge = getDeadlineBadge(t.deadline);
+      const assigneeEmail = t.assignee ? memberEmailFor(t.assignee) : null;
+      return `
+        <div class="board-card" draggable="true" data-id="${t.id}">
+          <div class="board-card-title">${escHtml(t.title)}</div>
+          <div class="board-card-meta">
+            <span class="priority priority-${t.priority}">${t.priority}</span>
+            <span>${escHtml(t.category) || 'Général'}</span>
+            ${deadlineBadge}
+            ${assigneeEmail ? `<span><span class="math-icon">⚇︎</span> ${escHtml(assigneeEmail.split('@')[0])}</span>` : ''}
+          </div>
+          <div class="board-card-actions">
+            <div class="board-card-move">
+              <button type="button" data-move="-1" data-id="${t.id}" ${colIdx <= 0 ? 'disabled' : ''} title="Colonne précédente" aria-label="Déplacer vers la colonne précédente"><span class="math-icon">◁</span></button>
+              <button type="button" data-move="1" data-id="${t.id}" ${colIdx >= BOARD_COLUMNS.length - 1 ? 'disabled' : ''} title="Colonne suivante" aria-label="Déplacer vers la colonne suivante"><span class="math-icon">▷</span></button>
+            </div>
+            <button type="button" class="icon-btn" data-edit="${t.id}" title="Modifier" aria-label="Modifier la tâche"><span class="math-icon">✎︎</span></button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBoard() {
+      const container = $('boardColumns');
+      if (!container) return;
+      container.innerHTML = BOARD_COLUMNS.map(col => {
+        const tasks = state.tasks.filter(t => t.status === col.status);
+        return `
+          <div class="board-column">
+            <div class="board-column-header">
+              <h3><span class="board-column-dot" style="background:${col.color};"></span> ${col.label}</h3>
+              <span class="board-column-count">${tasks.length}</span>
+            </div>
+            <div class="board-cards" data-status="${col.status}">
+              ${tasks.length ? tasks.map(boardCardHTML).join('') : '<div class="board-empty">Aucune tâche.</div>'}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Boutons ◁ / ▷ : déplacement au clic/tap, fonctionne partout (y compris tactile).
+      container.querySelectorAll('[data-move]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const task = state.tasks.find(t => t.id === btn.getAttribute('data-id'));
+          if (!task) return;
+          const idx = BOARD_COLUMNS.findIndex(c => c.status === task.status);
+          const newIdx = idx + (+btn.getAttribute('data-move'));
+          if (newIdx < 0 || newIdx >= BOARD_COLUMNS.length) return;
+          moveTaskToStatus(task.id, BOARD_COLUMNS[newIdx].status);
+        });
+      });
+      container.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-edit')));
+      });
+
+      // Glisser-déposer à la souris : amélioration progressive pour le bureau,
+      // les boutons ◁/▷ ci-dessus restent le moyen fiable sur tactile.
+      container.querySelectorAll('.board-card').forEach(card => {
+        card.addEventListener('dragstart', e => {
+          card.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      });
+      container.querySelectorAll('.board-cards').forEach(zone => {
+        zone.addEventListener('dragover', e => {
+          e.preventDefault();
+          zone.classList.add('drag-over');
+        });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+        zone.addEventListener('drop', e => {
+          e.preventDefault();
+          zone.classList.remove('drag-over');
+          const id = e.dataTransfer.getData('text/plain');
+          if (id) moveTaskToStatus(id, zone.getAttribute('data-status'));
+        });
+      });
+    }
+
+    // ================================================================
     // MODALE ÉDITION
     // ================================================================
     let editingTaskId = null;
@@ -5186,10 +5429,11 @@
     });
     $('resetBtn').addEventListener('click', resetTimer);
 
-    const views = ['dashboard', 'tasks', 'calendar', 'focus', 'stats'];
+    const views = ['dashboard', 'tasks', 'board', 'calendar', 'focus', 'stats'];
     const titles = {
       dashboard: { eye: 'Tableau de bord', h1: 'Opérations du Jour.' },
       tasks: { eye: 'Base de données', h1: 'Centre de Tâches.' },
+      board: { eye: 'Vue Kanban', h1: 'Tableau.' },
       calendar: { eye: 'Vue chronologique', h1: 'Calendrier.' },
       focus: { eye: 'Deep Work', h1: 'Immersion Active.' },
       stats: { eye: 'Analytiques', h1: 'Performances.' }
@@ -5212,6 +5456,7 @@
           renderPerformance(); }
         if (v === 'tasks') renderTasks();
         if (v === 'dashboard') renderTasks();
+        if (v === 'board') renderBoard();
         if (v === 'calendar') renderCalendarView();
       });
     });
@@ -5347,7 +5592,7 @@
       if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) {
         $('focusScreen').classList.contains('open') ? closeFS() : openFS();
       }
-      if (['1', '2', '3', '4', '5'].includes(e.key)) {
+      if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
         switchToView(views[+e.key - 1]);
       }
     });
