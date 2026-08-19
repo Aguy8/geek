@@ -1,5 +1,5 @@
-const CACHE_NAME = 'tempo-pro-v2';
-const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png'];
+const CACHE_NAME = 'tempo-pro-v3';
+const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './vendor/supabase.js', './vendor/html2pdf.bundle.min.js'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
