@@ -2557,6 +2557,10 @@
               <option value="priority">Grouper par priorité</option>
               <option value="assignee">Grouper par assigné</option>
             </select>
+            <label style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
+              <input type="checkbox" id="hideDoneToggle" />
+              Masquer terminées
+            </label>
             <button class="btn btn-danger" id="clearDoneBtn"><span class="math-icon">⌧︎</span> Purger Terminées</button>
           </div>
           <div class="task-list" id="fullTaskList" style="max-height:60vh;"></div>
@@ -4364,8 +4368,10 @@
       const filterDeadline = $('filterDeadline')?.value || 'all';
       const search = $('searchInput')?.value?.toLowerCase() || '';
       const sortBy = $('taskSort')?.value || 'deadline';
+      const hideDone = $('hideDoneToggle')?.checked || false;
 
       const filtered = allTasks.filter(t => {
+        if (hideDone && t.status === 'done') return false;
         if (filterStatus !== 'all' && t.status !== filterStatus) return false;
         if (filterCat !== 'all' && t.category !== filterCat) return false;
         if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
@@ -4699,7 +4705,30 @@
     const collapsedGroups = new Set();
     const GROUP_PRIORITY_LABELS = { high: 'Critique', medium: 'Normale', low: 'Basse' };
 
+    // Les champs personnalisés de type « liste déroulante » (ex. Service) sont eux
+    // aussi groupables : leur valeur de groupBy est préfixée "cf:<id du champ>".
+    function updateGroupBySelectOptions() {
+      const sel = $('groupBySelect');
+      if (!sel) return;
+      const current = sel.value;
+      const selectFields = (state.customFields || []).filter(f => f.type === 'select');
+      let html = `
+        <option value="none">Pas de groupement</option>
+        <option value="category">Grouper par catégorie</option>
+        <option value="status">Grouper par statut</option>
+        <option value="priority">Grouper par priorité</option>
+        <option value="assignee">Grouper par assigné</option>
+      `;
+      html += selectFields.map(f => `<option value="cf:${f.id}">Grouper par ${escHtml(f.name)}</option>`).join('');
+      sel.innerHTML = html;
+      if (Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+    }
+
     function taskGroupKey(task, groupBy) {
+      if (groupBy.indexOf('cf:') === 0) {
+        const fieldId = groupBy.slice(3);
+        return (task.customFieldValues && task.customFieldValues[fieldId]) || '';
+      }
       if (groupBy === 'status') return task.status;
       if (groupBy === 'priority') return task.priority;
       if (groupBy === 'assignee') return task.assignee || '';
@@ -4707,6 +4736,7 @@
     }
 
     function groupLabelFor(groupBy, key) {
+      if (groupBy.indexOf('cf:') === 0) return key || 'Non renseigné';
       if (groupBy === 'status') return KANBAN_STATUS_LABELS[key] || key;
       if (groupBy === 'priority') return GROUP_PRIORITY_LABELS[key] || key;
       if (groupBy === 'assignee') return key ? (memberEmailFor(key) || 'Membre') : 'Non assigné';
@@ -4734,6 +4764,10 @@
         orderedKeys = known.concat(seenOrder.filter(k => !known.includes(k)));
       } else if (groupBy === 'assignee') {
         const known = (currentWorkspaceMembers || []).map(m => m.user_id);
+        orderedKeys = known.concat(seenOrder.filter(k => !known.includes(k) && k !== '')).concat(['']);
+      } else if (groupBy.indexOf('cf:') === 0) {
+        const field = (state.customFields || []).find(f => 'cf:' + f.id === groupBy);
+        const known = field ? (field.options || []) : [];
         orderedKeys = known.concat(seenOrder.filter(k => !known.includes(k) && k !== '')).concat(['']);
       } else {
         orderedKeys = seenOrder;
@@ -4795,7 +4829,9 @@
     function addTaskInGroup(groupBy, key, title) {
       if (!title || !title.trim()) return;
       const overrides = { title: title.trim() };
-      if (groupBy === 'priority') overrides.priority = key;
+      if (groupBy.indexOf('cf:') === 0) {
+        overrides.customFieldValues = { [groupBy.slice(3)]: key || '' };
+      } else if (groupBy === 'priority') overrides.priority = key;
       else if (groupBy === 'category') overrides.category = key || 'Général';
       else if (groupBy === 'status') overrides.status = key;
       else if (groupBy === 'assignee') overrides.assignee = key || null;
@@ -6365,6 +6401,7 @@
       $('newFieldName').value = '';
       $('newFieldOptions').value = '';
       renderCustomFieldDefList();
+      updateGroupBySelectOptions();
       if (editingTaskId) {
         const task = state.tasks.find(t => t.id === editingTaskId);
         if (task) renderCustomFieldsForTask(task);
@@ -6377,6 +6414,8 @@
       state.tasks.forEach(t => { if (t.customFieldValues) delete t.customFieldValues[fieldId]; });
       save();
       renderCustomFieldDefList();
+      updateGroupBySelectOptions();
+      renderTasks();
       if (editingTaskId) {
         const task = state.tasks.find(t => t.id === editingTaskId);
         if (task) renderCustomFieldsForTask(task);
@@ -6962,7 +7001,7 @@
       toast('Journal purgé.');
     });
 
-    ['filterStatus', 'filterCategory', 'filterPriority', 'filterDeadline', 'searchInput', 'taskSort', 'groupBySelect'].forEach(id => {
+    ['filterStatus', 'filterCategory', 'filterPriority', 'filterDeadline', 'searchInput', 'taskSort', 'groupBySelect', 'hideDoneToggle'].forEach(id => {
       const el = $(id);
       if (el) {
         el.addEventListener('input', renderTasks);
@@ -7064,7 +7103,24 @@
       state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
       save();
     }
+    // Un champ « Service » (liste déroulante, entièrement personnalisable ensuite via
+    // Champs personnalisés) est proposé une seule fois pour permettre un groupement
+    // par département dès le départ. L'utilisateur peut le renommer ou le supprimer.
+    if (!state.serviceFieldSeeded) {
+      state.serviceFieldSeeded = true;
+      if (!state.customFields) state.customFields = [];
+      if (!state.customFields.some(f => f.name.toLowerCase() === 'service')) {
+        state.customFields.push({
+          id: 'svc-' + Date.now().toString(36),
+          name: 'Service',
+          type: 'select',
+          options: ['Marketing', 'Logistique', 'Finance', 'Ventes', 'RH', 'IT']
+        });
+      }
+      save();
+    }
     updateCategorySelects();
+    updateGroupBySelectOptions();
     updateSoundUI();
     updateClockModeUI();
 
