@@ -1,5 +1,5 @@
-const CACHE_NAME = 'tempo-pro-v1';
-const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE_NAME = 'tempo-pro-v2';
+const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
