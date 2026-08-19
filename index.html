@@ -1566,6 +1566,66 @@
     .activity-item:last-child { border-bottom: 0; }
     .activity-item time { color: var(--muted); white-space: nowrap; flex-shrink: 0; }
     .task-panel-empty { font-size: 11px; color: var(--muted); }
+    .dependency-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .dependency-chip .dep-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      text-align: left;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dependency-chip .dep-title:hover { color: var(--text-dim); }
+    .dependency-chip .dep-remove {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .dependency-chip .dep-remove:hover { color: var(--danger); }
+    .custom-field-def-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .custom-field-def-row .cf-type { color: var(--muted); font-size: 10px; }
+    .custom-field-def-row button {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .custom-field-def-row button:hover { color: var(--danger); }
     .grid-2col {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -2517,6 +2577,12 @@
           </select>
         </div>
 
+        <div class="task-panel-section-title" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Champs personnalisés</span>
+          <button type="button" class="btn-ghost" id="manageCustomFieldsBtn" style="padding:2px 8px; font-size:10px; text-transform:none; letter-spacing:0; font-weight:600;">Gérer</button>
+        </div>
+        <div id="customFieldsContainer"></div>
+
         <div class="task-panel-section-title">Description</div>
         <textarea class="field" id="editNotes" placeholder="Notes" rows="3"></textarea>
 
@@ -2526,6 +2592,12 @@
           <button class="btn-ghost" id="editAddSubtaskBtn" style="padding:4px 12px;"><span class="math-icon">+</span></button>
         </div>
         <div class="subtask-list-editor" id="editSubtaskList"></div>
+
+        <div class="task-panel-section-title">Dépendances</div>
+        <div id="dependencyList"></div>
+        <select class="field" id="dependencySelect">
+          <option value="">+ Ajouter une dépendance...</option>
+        </select>
 
         <div class="task-panel-section-title">Commentaires</div>
         <div id="commentList"></div>
@@ -2540,6 +2612,31 @@
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:6px; padding-bottom:4px;">
           <button class="btn-ghost" id="modalCancelBtn">Annuler</button>
           <button class="btn btn-primary" id="modalSaveBtn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE GESTION DES CHAMPS PERSONNALISÉS -->
+  <div class="modal-overlay hidden" id="customFieldsModal">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <h2>Champs personnalisés</h2>
+        <button class="modal-close" id="customFieldsModalCloseBtn" aria-label="Fermer">&times;</button>
+      </div>
+      <div>
+        <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">Ces champs apparaissent sur toutes les tâches (ex. Heures estimées, Coût, Fonction...).</p>
+        <div id="customFieldDefList" style="margin-bottom:16px;"></div>
+        <div style="border-top:1px solid var(--line); padding-top:14px;">
+          <label style="font-weight:600; font-size:12px; color:var(--text-dim);">Nouveau champ</label>
+          <input type="text" class="field" id="newFieldName" placeholder="Nom du champ (ex. Heures estimées)" style="margin-top:8px; margin-bottom:8px;" />
+          <select class="field" id="newFieldType" style="margin-bottom:8px;">
+            <option value="text">Texte</option>
+            <option value="number">Nombre</option>
+            <option value="select">Liste déroulante</option>
+          </select>
+          <input type="text" class="field hidden" id="newFieldOptions" placeholder="Options séparées par des virgules" style="margin-bottom:8px;" />
+          <button class="btn btn-primary" id="addCustomFieldBtn" style="width:100%;">Ajouter le champ</button>
         </div>
       </div>
     </div>
@@ -2699,6 +2796,7 @@
     }
     if (!state.activeTaskIds) state.activeTaskIds = [];
     if (!state.dailyGoalMin) state.dailyGoalMin = 120;
+    if (!state.customFields) state.customFields = [];
 
     // Préférence son/vibration (par appareil, non synchronisée dans le cloud)
     let soundEnabled = localStorage.getItem('tempo_pro_sound_pref') !== '0';
@@ -3186,6 +3284,7 @@
         state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
       }
       if (!state.dailyGoalMin) state.dailyGoalMin = 120;
+      if (!state.customFields) state.customFields = [];
       if (!state.history) state.history = {};
       if (!state.history[todayStr]) state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
@@ -4244,6 +4343,7 @@
                 ${subtasks.length ? `<span><span class="math-icon">≡︎</span> ${doneSubtasks}/${subtasks.length}</span>` : ''}
                 ${t.repeat && t.repeat !== 'none' ? `<span><span class="math-icon">⟳︎</span> ${t.repeat === 'daily' ? 'Quotidienne' : 'Hebdomadaire'}</span>` : ''}
                 ${t.assignee && memberEmailFor(t.assignee) ? `<span><span class="math-icon">⚇︎</span> ${escHtml(memberEmailFor(t.assignee))}</span>` : ''}
+                ${hasIncompleteDependencies(t) ? `<span class="status-badge priority-high"><span class="math-icon">⛓︎</span> En attente</span>` : ''}
                 ${deadlineBadge}
               </div>
               ${subtasks.length ? `
@@ -5105,7 +5205,9 @@
         repeat: $('taskRepeat')?.value || 'none',
         assignee: (activeWorkspaceId && $('taskAssignee')?.value) || null,
         comments: [],
-        activity: []
+        activity: [],
+        customFieldValues: {},
+        dependsOn: []
       };
       logActivity(newTask, 'Tâche créée.');
       state.tasks.unshift(newTask);
@@ -5150,6 +5252,7 @@
         task.status = 'todo';
         logActivity(task, 'Statut : Terminée → À faire.');
       } else {
+        const blocked = hasIncompleteDependencies(task);
         task.status = 'done';
         logActivity(task, 'Statut : → Terminée.');
         state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
@@ -5170,6 +5273,7 @@
         if (timer.activeTaskId === id) {
           stopTimer();
         }
+        if (blocked) toast('Tâche terminée — dépendances non terminées.');
       }
       save();
       renderTasks();
@@ -5194,7 +5298,9 @@
       const task = state.tasks.find(t => t.id === id);
       if (!task || task.status === newStatus) return;
       logActivity(task, `Statut : ${KANBAN_STATUS_LABELS[task.status] || task.status} → ${KANBAN_STATUS_LABELS[newStatus] || newStatus}.`);
+      let blockedWarning = false;
       if (newStatus === 'done') {
+        blockedWarning = hasIncompleteDependencies(task);
         state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
         if (timer.activeTaskId === id) {
           timer.activeTaskId = getPrimaryActiveTask()?.id || null;
@@ -5213,6 +5319,7 @@
         if (timer.activeTaskId === id) stopTimer();
       }
       task.status = newStatus;
+      if (blockedWarning) toast('Tâche terminée — dépendances non terminées.');
       save();
       renderBoard();
       renderTasks();
@@ -5233,6 +5340,7 @@
             <span>${escHtml(t.category) || 'Général'}</span>
             ${deadlineBadge}
             ${assigneeEmail ? `<span><span class="math-icon">⚇︎</span> ${escHtml(assigneeEmail.split('@')[0])}</span>` : ''}
+            ${hasIncompleteDependencies(t) ? `<span class="status-badge priority-high"><span class="math-icon">⛓︎</span> En attente</span>` : ''}
           </div>
           <div class="board-card-actions">
             <div class="board-card-move">
@@ -5327,6 +5435,9 @@
       renderSubtaskEditor(task.subtasks || []);
       renderCommentList(task);
       renderActivityList(task);
+      renderCustomFieldsForTask(task);
+      renderDependencyList(task);
+      renderDependencySelect(task);
       $('editModal').classList.remove('hidden');
     }
 
@@ -5388,6 +5499,17 @@
       if ($('editRepeat')) task.repeat = $('editRepeat').value;
       if (activeWorkspaceId && $('editAssignee')) task.assignee = $('editAssignee').value || null;
 
+      if (!task.customFieldValues) task.customFieldValues = {};
+      $('customFieldsContainer').querySelectorAll('[data-cf-id]').forEach(el => {
+        const fid = el.getAttribute('data-cf-id');
+        const field = (state.customFields || []).find(f => f.id === fid);
+        let v = el.value;
+        if (field && field.type === 'number') v = v === '' ? null : +v;
+        if (v === '' || v === null || v === undefined) delete task.customFieldValues[fid];
+        else task.customFieldValues[fid] = v;
+      });
+
+      const dependencyWarning = (before.status !== 'done' && task.status === 'done' && hasIncompleteDependencies(task));
       if (before.title !== task.title) logActivity(task, `Titre modifié : « ${before.title} » → « ${task.title} ».`);
       if (before.status !== task.status) logActivity(task, `Statut : ${KANBAN_STATUS_LABELS[before.status] || before.status} → ${KANBAN_STATUS_LABELS[task.status] || task.status}.`);
       if (before.priority !== task.priority) logActivity(task, `Priorité : ${before.priority} → ${task.priority}.`);
@@ -5401,7 +5523,7 @@
       closeEditModal();
       updateTimerTarget();
       updateDisplays();
-      toast('Tâche mise à jour.');
+      toast(dependencyWarning ? 'Tâche mise à jour — dépendances non terminées.' : 'Tâche mise à jour.');
     }
 
     // ================================================================
@@ -5485,6 +5607,179 @@
       task.comments = task.comments.filter(c => c.id !== commentId);
       save();
       renderCommentList(task);
+    }
+
+    // ================================================================
+    // CHAMPS PERSONNALISÉS
+    // ================================================================
+    const CUSTOM_FIELD_TYPE_LABELS = { text: 'Texte', number: 'Nombre', select: 'Liste' };
+
+    function openCustomFieldsModal() {
+      renderCustomFieldDefList();
+      $('customFieldsModal').classList.remove('hidden');
+    }
+    function closeCustomFieldsModal() {
+      $('customFieldsModal').classList.add('hidden');
+    }
+
+    function renderCustomFieldDefList() {
+      const container = $('customFieldDefList');
+      if (!container) return;
+      const fields = state.customFields || [];
+      if (!fields.length) {
+        container.innerHTML = '<div class="task-panel-empty">Aucun champ personnalisé pour le moment.</div>';
+        return;
+      }
+      container.innerHTML = fields.map(f => `
+        <div class="custom-field-def-row">
+          <span>${escHtml(f.name)} <span class="cf-type">(${CUSTOM_FIELD_TYPE_LABELS[f.type] || f.type})</span></span>
+          <button type="button" data-remove-field="${f.id}" aria-label="Supprimer le champ ${escHtml(f.name)}">✕</button>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-remove-field]').forEach(btn => {
+        btn.addEventListener('click', () => removeCustomFieldDef(btn.getAttribute('data-remove-field')));
+      });
+    }
+
+    function addCustomFieldDef() {
+      const name = $('newFieldName').value.trim();
+      if (!name) { toast('Donnez un nom au champ.'); return; }
+      const type = $('newFieldType').value;
+      const field = { id: Date.now().toString() + Math.random().toString(36).slice(2), name, type };
+      if (type === 'select') {
+        const opts = $('newFieldOptions').value.split(',').map(s => s.trim()).filter(Boolean);
+        if (!opts.length) { toast('Ajoutez au moins une option (séparées par des virgules).'); return; }
+        field.options = opts;
+      }
+      if (!state.customFields) state.customFields = [];
+      state.customFields.push(field);
+      save();
+      $('newFieldName').value = '';
+      $('newFieldOptions').value = '';
+      renderCustomFieldDefList();
+      if (editingTaskId) {
+        const task = state.tasks.find(t => t.id === editingTaskId);
+        if (task) renderCustomFieldsForTask(task);
+      }
+      toast('Champ ajouté.');
+    }
+
+    function removeCustomFieldDef(fieldId) {
+      state.customFields = (state.customFields || []).filter(f => f.id !== fieldId);
+      state.tasks.forEach(t => { if (t.customFieldValues) delete t.customFieldValues[fieldId]; });
+      save();
+      renderCustomFieldDefList();
+      if (editingTaskId) {
+        const task = state.tasks.find(t => t.id === editingTaskId);
+        if (task) renderCustomFieldsForTask(task);
+      }
+      toast('Champ supprimé.');
+    }
+
+    function renderCustomFieldsForTask(task) {
+      const container = $('customFieldsContainer');
+      if (!container) return;
+      const fields = state.customFields || [];
+      if (!fields.length) {
+        container.innerHTML = '<div class="task-panel-empty">Aucun champ. Cliquez sur « Gérer » pour en créer.</div>';
+        return;
+      }
+      const values = task.customFieldValues || {};
+      container.innerHTML = fields.map(f => {
+        const val = values[f.id];
+        let inputHtml;
+        if (f.type === 'select') {
+          inputHtml = `<select class="field" data-cf-id="${f.id}">
+            <option value="">—</option>
+            ${(f.options || []).map(o => `<option value="${escHtml(o)}" ${val === o ? 'selected' : ''}>${escHtml(o)}</option>`).join('')}
+          </select>`;
+        } else if (f.type === 'number') {
+          inputHtml = `<input type="number" class="field" data-cf-id="${f.id}" value="${val != null ? val : ''}" />`;
+        } else {
+          inputHtml = `<input type="text" class="field" data-cf-id="${f.id}" value="${val != null ? escHtml(String(val)) : ''}" />`;
+        }
+        return `
+          <div class="task-panel-field-row">
+            <label>${escHtml(f.name)}</label>
+            ${inputHtml}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ================================================================
+    // DÉPENDANCES ENTRE TÂCHES
+    // ================================================================
+    function hasIncompleteDependencies(task) {
+      return (task.dependsOn || []).some(id => {
+        const dep = state.tasks.find(t => t.id === id);
+        return dep && dep.status !== 'done';
+      });
+    }
+
+    function renderDependencySelect(task) {
+      const sel = $('dependencySelect');
+      if (!sel) return;
+      const dependsOn = task.dependsOn || [];
+      const candidates = state.tasks.filter(t => t.id !== task.id && !dependsOn.includes(t.id));
+      sel.innerHTML = '<option value="">+ Ajouter une dépendance...</option>' +
+        candidates.map(t => `<option value="${t.id}">${escHtml(t.title)}</option>`).join('');
+    }
+
+    function renderDependencyList(task) {
+      const list = $('dependencyList');
+      if (!list) return;
+      const dependsOn = task.dependsOn || [];
+      if (!dependsOn.length) {
+        list.innerHTML = '<div class="task-panel-empty">Aucune dépendance.</div>';
+        return;
+      }
+      list.innerHTML = dependsOn.map(depId => {
+        const dep = state.tasks.find(t => t.id === depId);
+        if (!dep) return '';
+        const done = dep.status === 'done';
+        return `
+          <div class="dependency-chip">
+            <button type="button" class="dep-title" data-open-dep="${dep.id}">
+              <span class="status-badge ${done ? 'status-done' : 'status-todo'}" style="padding:1px 6px; font-size:9px;">${done ? '✓' : '○'}</span>
+              <span>${escHtml(dep.title)}</span>
+            </button>
+            <button type="button" class="dep-remove" data-remove-dep="${dep.id}" aria-label="Retirer la dépendance">✕</button>
+          </div>
+        `;
+      }).join('');
+      list.querySelectorAll('[data-open-dep]').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-open-dep')));
+      });
+      list.querySelectorAll('[data-remove-dep]').forEach(btn => {
+        btn.addEventListener('click', () => removeDependency(btn.getAttribute('data-remove-dep')));
+      });
+    }
+
+    function addDependency(depId) {
+      if (!editingTaskId || !depId || depId === editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task) return;
+      if (!task.dependsOn) task.dependsOn = [];
+      if (task.dependsOn.includes(depId)) return;
+      task.dependsOn.push(depId);
+      const dep = state.tasks.find(t => t.id === depId);
+      logActivity(task, `Dépendance ajoutée : « ${dep ? dep.title : ''} ».`);
+      save();
+      renderDependencyList(task);
+      renderDependencySelect(task);
+      renderTasks();
+    }
+
+    function removeDependency(depId) {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task || !task.dependsOn) return;
+      task.dependsOn = task.dependsOn.filter(id => id !== depId);
+      save();
+      renderDependencyList(task);
+      renderDependencySelect(task);
+      renderTasks();
     }
 
     // ================================================================
@@ -5783,6 +6078,17 @@
       switchWorkspace(val || null);
     });
 
+    $('manageCustomFieldsBtn').addEventListener('click', openCustomFieldsModal);
+    $('customFieldsModalCloseBtn').addEventListener('click', closeCustomFieldsModal);
+    $('customFieldsModal').addEventListener('click', function(e) { if (e.target === this) closeCustomFieldsModal(); });
+    $('newFieldType').addEventListener('change', function() {
+      $('newFieldOptions').classList.toggle('hidden', this.value !== 'select');
+    });
+    $('addCustomFieldBtn').addEventListener('click', addCustomFieldDef);
+    $('dependencySelect').addEventListener('change', function() {
+      if (this.value) { addDependency(this.value); this.value = ''; }
+    });
+
 
     function switchToView(name) {
       const btn = document.querySelector(`.nav button[data-view="${name}"]`);
@@ -5792,6 +6098,10 @@
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && !$('datePickerPopover').classList.contains('hidden')) {
         closeDatePicker();
+        return;
+      }
+      if (e.key === 'Escape' && !$('customFieldsModal').classList.contains('hidden')) {
+        closeCustomFieldsModal();
         return;
       }
       if (e.key === 'Escape' && !$('editModal').classList.contains('hidden')) {
