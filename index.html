@@ -1785,6 +1785,100 @@
       padding-top: 14px;
       border-top: 1px solid var(--line);
     }
+    .task-panel-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .task-panel-tab-btn {
+      background: transparent;
+      border: 0;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: var(--transition);
+    }
+    .task-panel-tab-btn:hover { color: var(--text); }
+    .task-panel-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ===== ONGLET SUIVI (niveaux d'avancement) ===== */
+    .tracking-level-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 4px;
+      cursor: pointer;
+      border-radius: 6px;
+      position: relative;
+    }
+    .tracking-level-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 13px;
+      top: 30px;
+      bottom: -4px;
+      width: 2px;
+      background: var(--line);
+    }
+    .tracking-level-item.done:not(:last-child)::after { background: var(--success); }
+    .tracking-level-item:hover { background: var(--surface-2); }
+    .tracking-level-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      border: 2px solid var(--line);
+      color: var(--muted);
+      background: var(--surface);
+    }
+    .tracking-level-item.done .tracking-level-dot { background: var(--success); border-color: var(--success); color: #0a0a0a; }
+    .tracking-level-item.current .tracking-level-dot { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+    .tracking-level-name {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      background: transparent;
+      border: 0;
+      padding: 5px 6px;
+      border-radius: 4px;
+      font-family: 'Inter', sans-serif;
+    }
+    .tracking-level-name:focus { background: var(--surface-3); outline: none; }
+    .tracking-level-item.current .tracking-level-name { font-weight: 700; }
+    .tracking-level-remove {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: var(--transition);
+    }
+    .tracking-level-item:hover .tracking-level-remove { opacity: 1; }
+    .tracking-level-remove:hover { color: var(--danger); }
+    .tracking-badge {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--surface-3);
+      border-radius: 4px;
+      padding: 1px 6px;
+      white-space: nowrap;
+    }
     .comment-item {
       background: var(--bg);
       border: 1px solid var(--line);
@@ -3074,6 +3168,11 @@
         <button class="modal-close" id="modalCloseBtn" aria-label="Fermer">&times;</button>
       </div>
       <div class="task-panel-body">
+        <div class="task-panel-tabs" id="taskPanelTabs">
+          <button type="button" class="task-panel-tab-btn active" data-panel-tab="details">Détails</button>
+          <button type="button" class="task-panel-tab-btn" data-panel-tab="suivi">Suivi</button>
+        </div>
+        <div id="taskPanelTabDetails">
         <div class="task-panel-field-row">
           <label for="editStatus">Statut</label>
           <select class="field" id="editStatus">
@@ -3162,6 +3261,14 @@
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:6px; padding-bottom:4px;">
           <button class="btn-ghost" id="modalCancelBtn">Annuler</button>
           <button class="btn btn-primary" id="modalSaveBtn">Enregistrer</button>
+        </div>
+        </div>
+
+        <div id="taskPanelTabSuivi" class="hidden">
+          <div class="task-panel-section-title">Suivi d'avancement</div>
+          <div style="font-size:11px; color:var(--text-dim); margin:-6px 0 12px;">Cliquez sur le rond d'un niveau pour le marquer comme étape courante. Le nom se modifie directement dans le champ.</div>
+          <div id="trackingLevelsList"></div>
+          <button type="button" class="btn-ghost" id="addTrackingLevelBtn" style="margin-top:10px;"><span class="math-icon">+</span> Ajouter un niveau</button>
         </div>
       </div>
     </div>
@@ -5471,6 +5578,14 @@
       toast('Section ajoutée.');
     }
 
+    function trackingBadgeHTML(t) {
+      if (!t.trackingLevels || !t.trackingLevels.length) return '';
+      const cur = t.trackingCurrent != null ? t.trackingCurrent : -1;
+      const label = cur >= 0 ? escHtml(t.trackingLevels[cur]) : 'Pas commencé';
+      const count = cur >= 0 ? cur + 1 : 0;
+      return `<span class="tracking-badge" title="Suivi d'avancement">${label} · ${count}/${t.trackingLevels.length}</span>`;
+    }
+
     function generateTaskHTML(tasks) {
       if (!tasks || tasks.length === 0) {
         return '<div style="padding:16px; color:var(--muted); text-align:center;">Aucune tâche.</div>';
@@ -5509,6 +5624,7 @@
                 ${t.repeat && t.repeat !== 'none' ? `<span><span class="math-icon">⟳︎</span> ${t.repeat === 'daily' ? 'Quotidienne' : 'Hebdomadaire'}</span>` : ''}
                 ${t.assignee && memberEmailFor(t.assignee) ? `<span><span class="math-icon">⚇︎</span> ${escHtml(memberEmailFor(t.assignee))}</span>` : ''}
                 ${hasIncompleteDependencies(t) ? `<span class="status-badge priority-high"><span class="math-icon">⛓︎</span> En attente</span>` : ''}
+                ${trackingBadgeHTML(t)}
                 ${deadlineBadge}
               </div>
               ${subtasks.length ? `
@@ -6906,6 +7022,10 @@
       renderCustomFieldsForTask(task);
       renderDependencyList(task);
       renderDependencySelect(task);
+      renderTrackingLevels(task);
+      document.querySelectorAll('.task-panel-tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-panel-tab') === 'details'));
+      $('taskPanelTabDetails').classList.remove('hidden');
+      $('taskPanelTabSuivi').classList.add('hidden');
       $('editModal').classList.remove('hidden');
     }
 
@@ -7226,6 +7346,106 @@
       list.querySelectorAll('[data-remove-dep]').forEach(btn => {
         btn.addEventListener('click', () => removeDependency(btn.getAttribute('data-remove-dep')));
       });
+    }
+
+    // ================================================================
+    // SUIVI D'AVANCEMENT (niveaux renommables, propres à chaque tâche)
+    // ================================================================
+    function renderTrackingLevels(task) {
+      const container = $('trackingLevelsList');
+      if (!container) return;
+      const levels = task.trackingLevels || [];
+      if (!levels.length) {
+        container.innerHTML = '<div class="task-panel-empty">Aucun niveau. Ajoutez votre première étape ci-dessous.</div>';
+        return;
+      }
+      const current = task.trackingCurrent != null ? task.trackingCurrent : -1;
+      container.innerHTML = levels.map((name, i) => {
+        const isDone = current >= 0 && i < current;
+        const isCurrent = i === current;
+        const cls = ['tracking-level-item'];
+        if (isDone) cls.push('done');
+        if (isCurrent) cls.push('current');
+        return `
+          <div class="${cls.join(' ')}" data-idx="${i}">
+            <span class="tracking-level-dot">${isDone ? '✓' : i + 1}</span>
+            <input type="text" class="tracking-level-name" data-idx="${i}" value="${escHtml(name)}" />
+            <button type="button" class="tracking-level-remove" data-idx="${i}" aria-label="Supprimer ce niveau">✕</button>
+          </div>
+        `;
+      }).join('');
+      // Seul le rond numéroté déclenche le changement d'étape courante : la zone de texte
+      // occupe presque toute la largeur de la ligne, un clic sur toute la ligne serait
+      // presque toujours intercepté par le champ de saisie du nom.
+      container.querySelectorAll('.tracking-level-dot').forEach(dot => {
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(dot.closest('.tracking-level-item').getAttribute('data-idx'), 10);
+          setTrackingCurrent(idx);
+        });
+      });
+      container.querySelectorAll('.tracking-level-name').forEach(input => {
+        const commit = () => renameTrackingLevel(parseInt(input.getAttribute('data-idx'), 10), input.value);
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+      });
+      container.querySelectorAll('.tracking-level-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteTrackingLevel(parseInt(btn.getAttribute('data-idx'), 10));
+        });
+      });
+    }
+
+    function addTrackingLevel() {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task) return;
+      if (!task.trackingLevels) task.trackingLevels = [];
+      task.trackingLevels.push('Niveau ' + (task.trackingLevels.length + 1));
+      logActivity(task, `Niveau de suivi ajouté : « ${task.trackingLevels[task.trackingLevels.length - 1]} ».`);
+      save();
+      renderTrackingLevels(task);
+      renderTasks();
+    }
+
+    function renameTrackingLevel(idx, name) {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task || !task.trackingLevels || !task.trackingLevels[idx]) return;
+      const trimmed = name.trim();
+      if (!trimmed || trimmed === task.trackingLevels[idx]) { renderTrackingLevels(task); return; }
+      task.trackingLevels[idx] = trimmed;
+      save();
+      renderTrackingLevels(task);
+      renderTasks();
+    }
+
+    function deleteTrackingLevel(idx) {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task || !task.trackingLevels) return;
+      task.trackingLevels.splice(idx, 1);
+      if (task.trackingCurrent != null && task.trackingCurrent >= 0) {
+        if (task.trackingCurrent === idx) task.trackingCurrent = -1;
+        else if (task.trackingCurrent > idx) task.trackingCurrent -= 1;
+      }
+      save();
+      renderTrackingLevels(task);
+      renderTasks();
+    }
+
+    function setTrackingCurrent(idx) {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task) return;
+      // Recliquer sur le niveau déjà courant le désélectionne (retour à "pas commencé").
+      const wasCurrent = task.trackingCurrent === idx;
+      task.trackingCurrent = wasCurrent ? -1 : idx;
+      if (!wasCurrent) logActivity(task, `Suivi : étape « ${task.trackingLevels[idx]} ».`);
+      save();
+      renderTrackingLevels(task);
+      renderTasks();
     }
 
     function addDependency(depId) {
@@ -7818,6 +8038,17 @@
     });
     $('addCommentBtn').addEventListener('click', addComment);
     $('commentInput').addEventListener('keydown', e => { if (e.key === 'Enter') addComment(); });
+
+    document.querySelectorAll('.task-panel-tab-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.task-panel-tab-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const tab = this.getAttribute('data-panel-tab');
+        $('taskPanelTabDetails').classList.toggle('hidden', tab !== 'details');
+        $('taskPanelTabSuivi').classList.toggle('hidden', tab !== 'suivi');
+      });
+    });
+    $('addTrackingLevelBtn').addEventListener('click', addTrackingLevel);
 
     $('authModalCloseBtn').addEventListener('click', closeAuthModal);
     $('authModal').addEventListener('click', function(e) { if (e.target === this) closeAuthModal(); });
