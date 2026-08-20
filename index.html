@@ -3167,7 +3167,8 @@
             </div>
           </div>
           <div style="margin-top:16px;">
-            <div class="perf-title" style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Détail par tâche terminée</div>
+            <div class="perf-title" style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Détail par tâche terminée</div>
+            <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px; line-height:1.5;" id="perfTaskListNote"></div>
             <div class="perf-list" id="perfTaskList"></div>
           </div>
         </div>
@@ -4019,14 +4020,35 @@
       return `dans ${mins}m`;
     }
 
-    function getDeadlineBadge(deadline) {
-      if (!deadline) return '';
-      const status = getDeadlineStatus(deadline);
-      const label = getDeadlineLabel(deadline);
+    function getDeadlineLabelForTask(task) {
+      // Pour une tâche terminée, comparer "maintenant" à l'échéance ferait grandir un
+      // faux « en retard » indéfiniment après coup : on compare plutôt à la date réelle
+      // de fin (complétée), figée une fois pour toutes au moment où la tâche a été cochée.
+      if (task.status !== 'done') return getDeadlineLabel(task.deadline);
+      if (!task.completedAt) return 'terminée';
+      const diff = task.completedAt - new Date(task.deadline).getTime();
+      const abs = Math.abs(diff);
+      const days = Math.floor(abs / 86400000);
+      const hours = Math.floor((abs % 86400000) / 3600000);
+      const mins = Math.floor((abs % 3600000) / 60000);
+      const fmt = days > 0 ? `${days}j ${hours}h` : hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+      if (diff > 60000) return `terminée en retard de ${fmt}`;
+      if (diff < -60000) return `terminée en avance de ${fmt}`;
+      return 'terminée à temps';
+    }
+
+    function getDeadlineBadge(task) {
+      if (!task.deadline) return '';
+      const label = getDeadlineLabelForTask(task);
       let cls = 'task-deadline';
-      if (status === 'overdue') cls += ' overdue';
-      else if (status === 'today' || status === 'week') cls += ' soon';
-      else cls += ' ok';
+      if (task.status === 'done') {
+        cls += (task.completedAt && task.completedAt - new Date(task.deadline).getTime() > 60000) ? ' overdue' : ' ok';
+      } else {
+        const status = getDeadlineStatus(task.deadline);
+        if (status === 'overdue') cls += ' overdue';
+        else if (status === 'today' || status === 'week') cls += ' soon';
+        else cls += ' ok';
+      }
       return `<span class="${cls}">${label}</span>`;
     }
 
@@ -4657,7 +4679,7 @@
         <div class="detail-row"><span class="label">Catégorie</span><span class="value">${escHtml(task.category) || 'Général'}</span></div>
         <div class="detail-row"><span class="label">Durée estimée</span><span class="value">${task.duration}m</span></div>
         <div class="detail-row"><span class="label">Temps passé</span><span class="value">${formatTimeShort(task.timeSpent || 0)}</span></div>
-        ${task.deadline ? `<div class="detail-row"><span class="label">Échéance</span><span class="value">${new Date(task.deadline).toLocaleString('fr-FR')} (${getDeadlineLabel(task.deadline)})</span></div>` : ''}
+        ${task.deadline ? `<div class="detail-row"><span class="label">Échéance</span><span class="value">${new Date(task.deadline).toLocaleString('fr-FR')} (${getDeadlineLabelForTask(task)})</span></div>` : ''}
         ${task.notes ? `<div class="detail-row"><span class="label">Notes</span><span class="value">${escHtml(task.notes)}</span></div>` : ''}
         ${subtasks.length ? `
           <div class="detail-row" style="flex-direction:column; align-items:stretch; gap:6px;">
@@ -5010,8 +5032,13 @@
     // PERFORMANCE / ANALYTIQUES
     // ================================================================
     function computePerformance() {
-      const doneTasks = state.tasks.filter(t => t.status === 'done' && t.timeSpent > 0);
-      if (!doneTasks.length) return null;
+      // Cette mesure compare le temps estimé au temps réellement suivi au chrono : elle ne
+      // peut donc porter que sur les tâches qui ont été chronométrées au moins une fois.
+      // Une tâche cochée « terminée » sans jamais avoir été lancée n'a pas de temps réel
+      // à comparer (timeSpent = 0) et n'apparaît volontairement pas dans ce calcul.
+      const allDone = state.tasks.filter(t => t.status === 'done');
+      const doneTasks = allDone.filter(t => t.timeSpent > 0);
+      if (!doneTasks.length) return { count: 0, totalDone: allDone.length, tasks: [] };
       const totalEst = doneTasks.reduce((sum, t) => sum + t.duration * 60 * 1000, 0);
       const totalReal = doneTasks.reduce((sum, t) => sum + (t.timeSpent || 0) * 1000, 0);
       const avgEst = totalEst / doneTasks.length;
@@ -5020,6 +5047,7 @@
       const accuracy = totalEst > 0 ? (1 - Math.abs(totalReal - totalEst) / totalEst) * 100 : 0;
       return {
         count: doneTasks.length,
+        totalDone: allDone.length,
         avgEst,
         avgReal,
         avgDiff,
@@ -5042,14 +5070,20 @@
         renderCategoryBreakdown();
       }
       const perf = computePerformance();
-      if (!perf) {
+      if (!perf.count) {
         $('perfAvgEst').textContent = '--';
         $('perfAvgReal').textContent = '--';
         $('perfAvgDiff').textContent = '--';
         $('perfAccuracy').textContent = '--';
         $('perfTaskList').innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucune tâche terminée avec temps enregistré.</div>';
+        $('perfTaskListNote').textContent = perf.totalDone
+          ? `${perf.totalDone} tâche(s) marquée(s) terminée(s), mais aucune n'a été suivie avec le chrono (bouton ▶ / Focus) — sans ce suivi, il n'y a pas de temps réel à comparer.`
+          : '';
         return;
       }
+      $('perfTaskListNote').textContent = perf.totalDone > perf.count
+        ? `${perf.count} sur ${perf.totalDone} tâche(s) terminée(s) ont un temps réellement suivi au chrono ; les autres ont été cochées terminées sans jamais être lancées, elles n'apparaissent donc pas ci-dessous.`
+        : '';
       $('perfAvgEst').textContent = formatDuration(perf.avgEst);
       $('perfAvgReal').textContent = formatDuration(perf.avgReal);
       const diffEl = $('perfAvgDiff');
@@ -5861,7 +5895,7 @@
           done: 'Terminée',
           blocked: 'Bloquée'
         } [t.status] || t.status;
-        const deadlineBadge = getDeadlineBadge(t.deadline);
+        const deadlineBadge = getDeadlineBadge(t);
         const isActive = state.activeTaskIds.includes(t.id);
         const isPrimary = timer.activeTaskId === t.id;
         return `
@@ -7011,10 +7045,12 @@
       if (!task) return;
       if (task.status === 'done') {
         task.status = 'todo';
+        task.completedAt = null;
         logActivity(task, 'Statut : Terminée → À faire.');
       } else {
         const blocked = hasIncompleteDependencies(task);
         task.status = 'done';
+        task.completedAt = Date.now();
         logActivity(task, 'Statut : → Terminée.');
         state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
         if (timer.activeTaskId === id) {
@@ -7061,6 +7097,7 @@
       logActivity(task, `Statut : ${KANBAN_STATUS_LABELS[task.status] || task.status} → ${KANBAN_STATUS_LABELS[newStatus] || newStatus}.`);
       let blockedWarning = false;
       if (newStatus === 'done') {
+        task.completedAt = Date.now();
         blockedWarning = hasIncompleteDependencies(task);
         state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
         if (timer.activeTaskId === id) {
@@ -7079,6 +7116,7 @@
         spawnNextRecurrence(task);
         if (timer.activeTaskId === id) stopTimer();
       }
+      if (task.status === 'done' && newStatus !== 'done') task.completedAt = null;
       task.status = newStatus;
       if (blockedWarning) toast('Tâche terminée — dépendances non terminées.');
       save();
@@ -7091,7 +7129,7 @@
 
     function boardCardHTML(t) {
       const colIdx = BOARD_COLUMNS.findIndex(c => c.status === t.status);
-      const deadlineBadge = getDeadlineBadge(t.deadline);
+      const deadlineBadge = getDeadlineBadge(t);
       const assigneeEmail = t.assignee ? memberEmailFor(t.assignee) : null;
       return `
         <div class="board-card" draggable="true" data-id="${t.id}">
@@ -8064,6 +8102,7 @@
         if (allDone && task.status !== 'done') {
           if (confirm('Toutes les sous-tâches sont terminées. Marquer la tâche comme terminée ?')) {
             task.status = 'done';
+            task.completedAt = Date.now();
             state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== taskId);
             if (timer.activeTaskId === taskId) {
               timer.activeTaskId = getPrimaryActiveTask()?.id || null;
