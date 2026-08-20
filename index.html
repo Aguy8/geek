@@ -3109,9 +3109,10 @@
           <div class="chart-container" id="weeklyChart"></div>
         </div>
         <div class="card" style="padding:20px; margin-bottom:20px;">
-          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+          <div class="card-header" style="padding:0 0 4px 0; border:none;">
             <h2>Assiduité (12 dernières semaines)</h2>
           </div>
+          <div style="font-size:11px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Un carré par jour : plus il est foncé, plus le temps de concentration cumulé ce jour-là a été important.</div>
           <div class="heatmap-wrap">
             <div class="heatmap-grid" id="activityHeatmap"></div>
             <div class="heatmap-legend">
@@ -3126,9 +3127,10 @@
           </div>
         </div>
         <div class="card" style="padding:20px; margin-bottom:20px;">
-          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+          <div class="card-header" style="padding:0 0 4px 0; border:none;">
             <h2>Répartition du temps par catégorie</h2>
           </div>
+          <div style="font-size:11px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Part du temps de concentration passé sur chaque catégorie, tout historique confondu.</div>
           <div class="cat-donut-wrap">
             <div class="cat-donut-box">
               <div class="cat-donut" id="categoryDonut"></div>
@@ -3138,29 +3140,30 @@
           </div>
         </div>
         <div class="card" style="padding:20px; margin-bottom:20px;">
-          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+          <div class="card-header" style="padding:0 0 4px 0; border:none;">
             <h2>Performance d'exécution</h2>
           </div>
+          <div style="font-size:11px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Compare la durée estimée à la durée réellement passée sur les tâches terminées, pour mesurer la fiabilité de vos estimations.</div>
           <div class="perf-grid" id="perfGrid">
             <div class="perf-card">
               <div class="perf-title">Temps moyen estimé</div>
               <div class="perf-value" id="perfAvgEst">--</div>
-              <div class="perf-sub">par tâche</div>
+              <div class="perf-sub">par tâche, d'après la durée saisie</div>
             </div>
             <div class="perf-card">
               <div class="perf-title">Temps moyen réel</div>
               <div class="perf-value" id="perfAvgReal">--</div>
-              <div class="perf-sub">par tâche</div>
+              <div class="perf-sub">par tâche, temps réellement suivi</div>
             </div>
             <div class="perf-card">
               <div class="perf-title">Écart moyen</div>
               <div class="perf-value" id="perfAvgDiff">--</div>
-              <div class="perf-sub">estimé vs réel</div>
+              <div class="perf-sub">temps estimé moins temps réel</div>
             </div>
             <div class="perf-card">
               <div class="perf-title">Précision</div>
               <div class="perf-value" id="perfAccuracy">--</div>
-              <div class="perf-sub">% de conformité</div>
+              <div class="perf-sub">part des tâches proches de l'estimation</div>
             </div>
           </div>
           <div style="margin-top:16px;">
@@ -5289,7 +5292,7 @@
         btn.addEventListener('click', () => {
           switchToView('tasks');
           const filterCat = $('filterCategory');
-          if (filterCat) { filterCat.value = btn.getAttribute('data-category'); renderTasks(); }
+          if (filterCat) { filterCat.value = btn.getAttribute('data-category'); syncFakeSelect('filterCategory'); renderTasks(); }
         });
       });
       const addBtn = $('addCategoryTileBtn');
@@ -6520,6 +6523,7 @@
           sel.appendChild(opt);
         });
         if (Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+        syncFakeSelect(id);
       });
     }
 
@@ -8593,6 +8597,10 @@
       const famField = (state.customFields || []).find(f => f.id.indexOf('svc-') === 0);
       if (famField) { state.familyFieldId = famField.id; save(); }
     }
+    enhanceToolbarSelect('filterStatus');
+    enhanceToolbarSelect('filterCategory');
+    enhanceToolbarSelect('filterPriority');
+    enhanceToolbarSelect('filterDeadline');
     enhanceToolbarSelect('taskSort');
     enhanceToolbarSelect('groupBySelect');
     const groupBySelectWrap = $('groupBySelect') && $('groupBySelect').closest('.select-wrap');
