@@ -1146,6 +1146,7 @@
     }
     .field:focus { border-color: var(--text-dim); }
     .field::placeholder { color: var(--muted); }
+    input[type="checkbox"] { accent-color: var(--primary); }
     .task-list {
       padding: 12px 20px 20px;
       display: grid;
@@ -1808,25 +1809,27 @@
 
     /* ===== ONGLET SUIVI (niveaux d'avancement) ===== */
     .tracking-level-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 4px;
-      cursor: pointer;
+      padding: 6px 4px 12px;
       border-radius: 6px;
       position: relative;
     }
     .tracking-level-item:not(:last-child)::after {
       content: '';
       position: absolute;
-      left: 13px;
+      left: 17px;
       top: 30px;
-      bottom: -4px;
+      bottom: 0;
       width: 2px;
       background: var(--line);
     }
     .tracking-level-item.done:not(:last-child)::after { background: var(--success); }
-    .tracking-level-item:hover { background: var(--surface-2); }
+    .tracking-level-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: 6px;
+    }
+    .tracking-level-head:hover { background: var(--surface-2); }
     .tracking-level-dot {
       width: 24px;
       height: 24px;
@@ -1840,6 +1843,7 @@
       border: 2px solid var(--line);
       color: var(--muted);
       background: var(--surface);
+      cursor: pointer;
     }
     .tracking-level-item.done .tracking-level-dot { background: var(--success); border-color: var(--success); color: #0a0a0a; }
     .tracking-level-item.current .tracking-level-dot { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
@@ -1868,8 +1872,78 @@
       opacity: 0;
       transition: var(--transition);
     }
-    .tracking-level-item:hover .tracking-level-remove { opacity: 1; }
+    .tracking-level-head:hover .tracking-level-remove { opacity: 1; }
     .tracking-level-remove:hover { color: var(--danger); }
+    .tracking-level-notes {
+      margin: 6px 0 0 34px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .tracking-note {
+      position: relative;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 34px 8px 10px;
+    }
+    .tracking-note-ts {
+      position: absolute;
+      top: 7px;
+      right: 8px;
+      font-size: 9px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .tracking-note-text {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      padding-right: 46px;
+    }
+    .tracking-note-remove {
+      position: absolute;
+      bottom: 6px;
+      right: 8px;
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 2px;
+      opacity: 0;
+      transition: var(--transition);
+    }
+    .tracking-note:hover .tracking-note-remove { opacity: 1; }
+    .tracking-note-remove:hover { color: var(--danger); }
+    .tracking-note-add-row {
+      display: flex;
+      gap: 6px;
+    }
+    .tracking-note-input {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+    }
+    .tracking-note-input:focus { outline: none; border-color: var(--primary); }
+    .tracking-note-add-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text-dim);
+      padding: 0 10px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .tracking-note-add-btn:hover { color: var(--text); border-color: var(--text-dim); }
     .tracking-badge {
       font-size: 9px;
       font-weight: 700;
@@ -2282,6 +2356,35 @@
     .inline-dropdown-item:hover { background: var(--surface-2); }
     .inline-dropdown-item.active { background: var(--surface-3); font-weight: 600; }
     .inline-dropdown-item .dd-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    /* Select maison (remplace le <select> natif, non stylable une fois ouvert) */
+    .select-wrap { position: relative; display: inline-flex; }
+    select.select-native-hidden { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+    .select-fake {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: auto;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+    .select-fake:hover { border-color: var(--text-dim); }
+    .select-fake-chevron { font-size: 9px; color: var(--muted); transform: scaleY(0.8); }
+    .select-wrap.important .select-fake {
+      border-color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 12%, var(--bg));
+      color: var(--primary);
+      font-weight: 700;
+      box-shadow: 0 0 0 1px var(--primary) inset;
+    }
+    .select-wrap.important .select-fake-chevron { color: var(--primary); }
     .dd-dot.dot-todo { background: var(--muted); }
     .dd-dot.dot-inprogress { background: var(--warning); }
     .dd-dot.dot-blocked { background: var(--danger); }
@@ -2774,6 +2877,7 @@
                   <option value="Personnel">Personnel</option>
                   <option value="Urgent">Urgent</option>
                 </select>
+                <select id="taskFamily" class="field" title="Famille"></select>
                 <input type="text" class="field" id="taskDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
                 <button type="button" class="field date-picker-btn" id="taskDeadlineDateBtn" data-picker="taskDeadlineDate" data-related="taskDeadlineInput" title="Ou choisir une date et heure d'échéance précises">Date précise</button>
                 <input type="hidden" id="taskDeadlineDate" />
@@ -2813,6 +2917,12 @@
                 <button class="btn-ghost" id="manageCategoriesBtn" style="padding:4px 10px; font-size:10px;">Gérer</button>
               </div>
               <div class="category-grid" id="categoryGrid"></div>
+            </div>
+            <div class="card hidden" id="familyCard" style="margin-bottom:20px;">
+              <div class="card-header">
+                <h2>Familles</h2>
+              </div>
+              <div class="category-grid" id="familyGrid"></div>
             </div>
             <div class="card">
               <div class="card-header">
@@ -3215,6 +3325,14 @@
           </div>
         </div>
         <div class="task-panel-field-row">
+          <label>Famille</label>
+          <div class="category-add-row">
+            <select class="field" id="editFamily"></select>
+            <input type="text" class="field" id="editNewFamily" placeholder="Nouvelle famille" style="flex:1;" />
+            <button class="btn-ghost" id="editAddFamilyBtn" style="padding:4px 10px;" aria-label="Ajouter une famille"><span class="math-icon">+</span></button>
+          </div>
+        </div>
+        <div class="task-panel-field-row">
           <label for="editDuration">Durée</label>
           <select class="field" id="editDuration">
             <option value="15">15m</option><option value="25">25m</option><option value="45">45m</option><option value="60">1h</option>
@@ -3266,7 +3384,7 @@
 
         <div id="taskPanelTabSuivi" class="hidden">
           <div class="task-panel-section-title">Suivi d'avancement</div>
-          <div style="font-size:11px; color:var(--text-dim); margin:-6px 0 12px;">Cliquez sur le rond d'un niveau pour le marquer comme étape courante. Le nom se modifie directement dans le champ.</div>
+          <div style="font-size:11px; color:var(--text-dim); margin:6px 0 14px; line-height:1.5;">Chaque niveau a un titre et un journal de notes horodatées. Cliquez sur le rond d'un niveau pour le marquer comme étape courante.</div>
           <div id="trackingLevelsList"></div>
           <button type="button" class="btn-ghost" id="addTrackingLevelBtn" style="margin-top:10px;"><span class="math-icon">+</span> Ajouter un niveau</button>
         </div>
@@ -3345,6 +3463,11 @@
     <div id="inlineDropdownList"></div>
   </div>
 
+  <!-- POPOVER MENU DÉROULANT MAISON POUR LES SELECTS DE LA BARRE D'OUTILS (Trier / Grouper...) -->
+  <div class="inline-dropdown-popover hidden" id="toolbarDropdownPopover">
+    <div id="toolbarDropdownList"></div>
+  </div>
+
   <!-- POPOVER DE CHOIX DE COULEUR DE CATÉGORIE (palette maison, pas le sélecteur natif) -->
   <div class="color-swatch-popover hidden" id="categoryColorPopover">
     <div class="color-swatch-grid" id="categoryColorGrid"></div>
@@ -3408,7 +3531,10 @@
     <div class="fs-top">
       <div>
         <div class="eyebrow" style="font-size:10px; color:var(--muted); letter-spacing:2px;">MODE DEEP WORK</div>
-        <div class="fs-task" id="fsTask">En attente...</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="fs-task" id="fsTask">En attente...</div>
+          <button type="button" class="mini-pin-btn hidden" id="fsPinBtn" title="Épingler cette tâche sur le grand chrono" aria-label="Épingler cette tâche"><span class="math-icon">📌︎</span></button>
+        </div>
       </div>
       <button class="btn-ghost" id="exitFullscreenBtn"><span class="math-icon">✕︎</span> Quitter</button>
     </div>
@@ -4001,6 +4127,8 @@
       timer.notified = false;
       updateTimerTarget();
       updateCategorySelects();
+      updateFamilySelects();
+      updateGroupBySelectOptions();
       renderTasks();
       renderTimeline();
       renderWeeklyChart();
@@ -4779,7 +4907,7 @@
             <span class="${timeCls}">${timeStr}</span>
             ${label ? `<span style="font-size:9px; color:var(--muted);">${label}</span>` : ''}
             ${isPrimary ? '<span class="mini-badge">★︎</span>' : ''}
-            <button type="button" class="mini-pin-btn ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePinTask('${t.id}')" title="${isPinned ? 'Désépingler (revenir à la tâche la plus imminente)' : 'Épingler cette tâche sur le grand chrono'}" aria-label="${isPinned ? 'Désépingler' : 'Épingler cette tâche'}"><span class="math-icon">⊙︎</span></button>
+            <button type="button" class="mini-pin-btn ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePinTask('${t.id}')" title="${isPinned ? 'Désépingler (revenir à la tâche la plus imminente)' : 'Épingler cette tâche sur le grand chrono'}" aria-label="${isPinned ? 'Désépingler' : 'Épingler cette tâche'}"><span class="math-icon">📌︎</span></button>
           </div>
         `;
       });
@@ -4818,7 +4946,7 @@
             <span class="${timeCls}">${timeStr}</span>
             ${label ? `<span style="font-size:10px; color:var(--muted); margin-left:4px;">${label}</span>` : ''}
             ${isPrimary ? '<span class="mini-badge">★︎</span>' : ''}
-            <button type="button" class="mini-pin-btn ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePinTask('${t.id}')" title="${isPinned ? 'Désépingler (revenir à la tâche la plus imminente)' : 'Épingler cette tâche sur le grand chrono'}" aria-label="${isPinned ? 'Désépingler' : 'Épingler cette tâche'}"><span class="math-icon">⊙︎</span></button>
+            <button type="button" class="mini-pin-btn ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePinTask('${t.id}')" title="${isPinned ? 'Désépingler (revenir à la tâche la plus imminente)' : 'Épingler cette tâche sur le grand chrono'}" aria-label="${isPinned ? 'Désépingler' : 'Épingler cette tâche'}"><span class="math-icon">📌︎</span></button>
           </div>
         `;
       });
@@ -5166,6 +5294,55 @@
       });
       const addBtn = $('addCategoryTileBtn');
       if (addBtn) addBtn.addEventListener('click', addCategoryByPrompt);
+      renderFamilyGrid();
+    }
+
+    function renderFamilyGrid() {
+      const grid = $('familyGrid');
+      const card = $('familyCard');
+      if (!grid || !card) return;
+      const field = getFamilyField();
+      const options = field ? (field.options || []) : [];
+      if (!options.length) { card.classList.add('hidden'); return; }
+      card.classList.remove('hidden');
+      const counts = {};
+      state.tasks.forEach(t => {
+        if (t.status === 'done') return;
+        const v = field && t.customFieldValues ? t.customFieldValues[field.id] : '';
+        if (v) counts[v] = (counts[v] || 0) + 1;
+      });
+      grid.innerHTML = options.map(name => {
+        const n = counts[name] || 0;
+        const bg = categoryColor(name);
+        const fg = contrastTextColor(bg);
+        return `
+        <button type="button" class="category-tile" data-family="${escHtml(name)}" style="background:${bg}; color:${fg};">
+          <span class="cat-info">
+            <span class="cat-name">${escHtml(name)}</span>
+            <span class="cat-count">${n} active${n === 1 ? '' : 's'}</span>
+          </span>
+        </button>
+      `;
+      }).join('') + `
+        <button type="button" class="category-tile add-tile" id="addFamilyTileBtn">
+          <span class="math-icon">+</span>&nbsp;Créer
+        </button>
+      `;
+      grid.querySelectorAll('.category-tile[data-family]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          switchToView('tasks');
+          if (state.familyFieldId && $('groupBySelect')) {
+            $('groupBySelect').value = 'cf:' + state.familyFieldId;
+            syncFakeSelect('groupBySelect');
+            renderTasks();
+          }
+        });
+      });
+      const addFamBtn = $('addFamilyTileBtn');
+      if (addFamBtn) addFamBtn.addEventListener('click', () => {
+        const name = prompt('Nom de la nouvelle famille :');
+        if (name && name.trim()) { addFamilyOption(name.trim()); renderFamilyGrid(); }
+      });
     }
 
     function addCategoryByPrompt() {
@@ -5373,6 +5550,7 @@
       html += selectFields.map(f => `<option value="cf:${f.id}">Grouper par ${escHtml(f.name)}</option>`).join('');
       sel.innerHTML = html;
       if (Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+      syncFakeSelect('groupBySelect');
     }
 
     function taskGroupKey(task, groupBy) {
@@ -5536,6 +5714,78 @@
       pop.style.top = top + 'px';
     }
 
+    // Menu déroulant maison pour les <select> de la barre d'outils (Trier, Grouper...) :
+    // le <select> natif reste la source de vérité (valeur, events "change" déjà branchés
+    // ailleurs dans le code), on l'habille juste d'un bouton + menu à la charte au-dessus.
+    let toolbarDropdownSelectId = null;
+
+    function enhanceToolbarSelect(id) {
+      const sel = $(id);
+      if (!sel || sel.parentNode.classList.contains('select-wrap')) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'select-wrap';
+      sel.parentNode.insertBefore(wrap, sel);
+      wrap.appendChild(sel);
+      sel.classList.add('select-native-hidden');
+      sel.setAttribute('tabindex', '-1');
+      sel.setAttribute('aria-hidden', 'true');
+      const fake = document.createElement('button');
+      fake.type = 'button';
+      fake.className = 'select-fake';
+      fake.id = id + 'Fake';
+      wrap.appendChild(fake);
+      sel._syncFake = function() {
+        const opt = sel.options[sel.selectedIndex];
+        fake.innerHTML = `<span class="select-fake-label">${escHtml(opt ? opt.textContent : '')}</span><span class="math-icon select-fake-chevron">⌄</span>`;
+      };
+      sel._syncFake();
+      fake.addEventListener('click', () => openToolbarDropdown(id));
+    }
+
+    function syncFakeSelect(id) {
+      const sel = $(id);
+      if (sel && sel._syncFake) sel._syncFake();
+    }
+
+    function openToolbarDropdown(id) {
+      const sel = $(id);
+      const fake = $(id + 'Fake');
+      if (!sel || !fake) return;
+      toolbarDropdownSelectId = id;
+      const options = Array.from(sel.options).map(o => ({ value: o.value, label: o.textContent }));
+      $('toolbarDropdownList').innerHTML = options.map(o => `
+        <button type="button" class="inline-dropdown-item ${o.value === sel.value ? 'active' : ''}" data-value="${escHtml(o.value)}">${escHtml(o.label)}</button>
+      `).join('');
+      positionToolbarDropdown(fake, options.length);
+      $('toolbarDropdownPopover').classList.remove('hidden');
+    }
+
+    function closeToolbarDropdown() {
+      $('toolbarDropdownPopover').classList.add('hidden');
+      toolbarDropdownSelectId = null;
+    }
+
+    function positionToolbarDropdown(btn, itemCount) {
+      const pop = $('toolbarDropdownPopover');
+      const rect = btn.getBoundingClientRect();
+      const popWidth = Math.max(rect.width, 170);
+      pop.style.minWidth = popWidth + 'px';
+      const shown = Math.min(itemCount || 4, 8);
+      const estHeight = shown * 33 + 8;
+      let left = rect.left;
+      let top = rect.bottom + 4;
+      if (left + popWidth > window.innerWidth - 8) left = window.innerWidth - popWidth - 8;
+      if (left < 8) left = 8;
+      if (top + estHeight > window.innerHeight - 8) {
+        top = rect.top - estHeight - 4;
+        if (top < 8) top = 8;
+      }
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+      pop.style.maxHeight = '270px';
+      pop.style.overflowY = 'auto';
+    }
+
     function addTaskInGroup(groupBy, key, title) {
       if (!title || !title.trim()) return;
       const overrides = { title: title.trim() };
@@ -5581,7 +5831,9 @@
     function trackingBadgeHTML(t) {
       if (!t.trackingLevels || !t.trackingLevels.length) return '';
       const cur = t.trackingCurrent != null ? t.trackingCurrent : -1;
-      const label = cur >= 0 ? escHtml(t.trackingLevels[cur]) : 'Pas commencé';
+      const lvl = cur >= 0 ? t.trackingLevels[cur] : null;
+      const name = lvl ? (typeof lvl === 'string' ? lvl : lvl.name) : '';
+      const label = cur >= 0 ? escHtml(name) : 'Pas commencé';
       const count = cur >= 0 ? cur + 1 : 0;
       return `<span class="tracking-badge" title="Suivi d'avancement">${label} · ${count}/${t.trackingLevels.length}</span>`;
     }
@@ -6272,6 +6524,68 @@
     }
 
     // ================================================================
+    // FAMILLE (champ personnalisé « select » à référence stable, créable à la volée
+    // depuis le formulaire d'ajout et le panneau de tâche, comme les catégories)
+    // ================================================================
+    function getFamilyField() {
+      if (!state.familyFieldId) return null;
+      return (state.customFields || []).find(f => f.id === state.familyFieldId) || null;
+    }
+
+    function updateFamilySelects() {
+      const field = getFamilyField();
+      const options = field ? field.options || [] : [];
+      const optionsHtml = '<option value="">Aucune</option>' +
+        options.map(o => `<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('');
+      // Le formulaire compact du Dashboard n'a pas de place pour un champ+bouton dédiés :
+      // il propose la création directement comme option du menu. Le panneau de tâche, lui,
+      // a la place pour un champ+bouton « Ajouter » séparé (comme pour la catégorie).
+      const taskFamilySel = $('taskFamily');
+      if (taskFamilySel) {
+        const current = taskFamilySel.value;
+        taskFamilySel.innerHTML = optionsHtml + '<option value="__new__">+ Nouvelle famille…</option>';
+        if (Array.from(taskFamilySel.options).some(o => o.value === current)) taskFamilySel.value = current;
+      }
+      const editFamilySel = $('editFamily');
+      if (editFamilySel) {
+        const current = editFamilySel.value;
+        editFamilySel.innerHTML = optionsHtml;
+        if (Array.from(editFamilySel.options).some(o => o.value === current)) editFamilySel.value = current;
+      }
+    }
+
+    // Crée (si besoin) l'option de famille et renvoie son nom, prête à être assignée à une tâche.
+    function addFamilyOption(name) {
+      const trimmed = (name || '').trim();
+      if (!trimmed) return null;
+      if (!state.customFields) state.customFields = [];
+      let field = getFamilyField();
+      if (!field) {
+        field = { id: 'svc-' + Date.now().toString(36), name: 'Famille', type: 'select', options: [] };
+        state.customFields.push(field);
+        state.familyFieldId = field.id;
+      }
+      if (!field.options) field.options = [];
+      if (!field.options.some(o => o.toLowerCase() === trimmed.toLowerCase())) {
+        field.options.push(trimmed);
+      }
+      save();
+      updateFamilySelects();
+      updateGroupBySelectOptions();
+      return trimmed;
+    }
+
+    // Gère l'option spéciale "+ Nouvelle famille…" d'un <select> Famille : ouvre un prompt,
+    // crée l'option si besoin puis la sélectionne (ou revient à la valeur précédente si annulé).
+    function handleFamilySelectChange(sel) {
+      if (sel.value !== '__new__') return;
+      const name = prompt('Nom de la nouvelle famille :');
+      const created = name ? addFamilyOption(name) : null;
+      updateFamilySelects();
+      sel.value = created || '';
+    }
+
+    // ================================================================
     // TIMER LOGIC
     // ================================================================
     function getCurrentElapsed() {
@@ -6404,6 +6718,18 @@
       $('activeTaskText').textContent = titleStr;
       $('focusPageTask').textContent = titleStr;
       $('fsTask').textContent = titleStr;
+      const fsPinBtn = $('fsPinBtn');
+      if (fsPinBtn) {
+        if (task) {
+          fsPinBtn.classList.remove('hidden');
+          const pinned = timer.locked && task.id === timer.activeTaskId;
+          fsPinBtn.classList.toggle('pinned', pinned);
+          fsPinBtn.title = pinned ? 'Désépingler (revenir à la tâche la plus imminente)' : 'Épingler cette tâche sur le grand chrono';
+          fsPinBtn.setAttribute('aria-label', fsPinBtn.title);
+        } else {
+          fsPinBtn.classList.add('hidden');
+        }
+      }
       $('focusToday').textContent = Math.floor(state.history[todayStr].focusSecs / 60) + 'm';
       $('sessionCount').textContent = state.history[todayStr].sessions;
       $('statsFocus').textContent = $('focusToday').textContent;
@@ -6619,6 +6945,7 @@
       const title = $('taskInput').value.trim();
       if (!title) return;
       const deadline = resolveDeadline('taskDeadlineDate', 'taskDeadlineInput');
+      const familyValue = $('taskFamily') && $('taskFamily').value !== '__new__' ? $('taskFamily').value : '';
       const newTask = createTaskObject({
         title,
         duration: +$('taskDuration').value,
@@ -6626,7 +6953,8 @@
         category: $('taskCategory').value || 'Général',
         deadline: deadline,
         repeat: $('taskRepeat')?.value || 'none',
-        assignee: (activeWorkspaceId && $('taskAssignee')?.value) || null
+        assignee: (activeWorkspaceId && $('taskAssignee')?.value) || null,
+        customFieldValues: (state.familyFieldId && familyValue) ? { [state.familyFieldId]: familyValue } : {}
       });
       logActivity(newTask, 'Tâche créée.');
       state.tasks.unshift(newTask);
@@ -7008,6 +7336,7 @@
       $('editPriority').value = task.priority;
       $('editStatus').value = task.status;
       $('editCategory').value = task.category || 'Général';
+      if ($('editFamily')) $('editFamily').value = (state.familyFieldId && task.customFieldValues) ? (task.customFieldValues[state.familyFieldId] || '') : '';
       // Le sélecteur de date/heure est la source de vérité affichée ; le champ relatif
       // reste vide et ne sert qu'à saisir un nouvel ajustement rapide si besoin.
       $('editDeadlineInput').value = '';
@@ -7089,6 +7418,11 @@
       if (activeWorkspaceId && $('editAssignee')) task.assignee = $('editAssignee').value || null;
 
       if (!task.customFieldValues) task.customFieldValues = {};
+      if (state.familyFieldId && $('editFamily')) {
+        const famVal = $('editFamily').value;
+        if (famVal) task.customFieldValues[state.familyFieldId] = famVal;
+        else delete task.customFieldValues[state.familyFieldId];
+      }
       $('customFieldsContainer').querySelectorAll('[data-cf-id]').forEach(el => {
         const fid = el.getAttribute('data-cf-id');
         const field = (state.customFields || []).find(f => f.id === fid);
@@ -7271,7 +7605,9 @@
     function renderCustomFieldsForTask(task) {
       const container = $('customFieldsContainer');
       if (!container) return;
-      const fields = state.customFields || [];
+      // La Famille a sa propre ligne dédiée juste au-dessus (comme la catégorie) :
+      // pas besoin de la lister une seconde fois ici.
+      const fields = (state.customFields || []).filter(f => f.id !== state.familyFieldId);
       if (!fields.length) {
         container.innerHTML = '<div class="task-panel-empty">Aucun champ. Créez-en depuis « Champs perso. » au-dessus de la liste des tâches.</div>';
         return;
@@ -7350,27 +7686,58 @@
 
     // ================================================================
     // SUIVI D'AVANCEMENT (niveaux renommables, propres à chaque tâche)
+    // Chaque niveau porte un titre et un journal de notes horodatées :
+    // on peut ajouter plusieurs lignes datées au fil du temps dans la même étape.
     // ================================================================
+    function migrateTrackingLevels(task) {
+      // Anciennes tâches : trackingLevels était un tableau de chaînes (juste un nom).
+      if (task.trackingLevels && task.trackingLevels.length && typeof task.trackingLevels[0] === 'string') {
+        task.trackingLevels = task.trackingLevels.map(name => ({ name, notes: [] }));
+      }
+    }
+
+    function formatTrackingTs(ts) {
+      return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ts));
+    }
+
     function renderTrackingLevels(task) {
       const container = $('trackingLevelsList');
       if (!container) return;
+      migrateTrackingLevels(task);
       const levels = task.trackingLevels || [];
       if (!levels.length) {
         container.innerHTML = '<div class="task-panel-empty">Aucun niveau. Ajoutez votre première étape ci-dessous.</div>';
         return;
       }
       const current = task.trackingCurrent != null ? task.trackingCurrent : -1;
-      container.innerHTML = levels.map((name, i) => {
+      container.innerHTML = levels.map((level, i) => {
         const isDone = current >= 0 && i < current;
         const isCurrent = i === current;
         const cls = ['tracking-level-item'];
         if (isDone) cls.push('done');
         if (isCurrent) cls.push('current');
+        const notes = level.notes || [];
+        const notesHtml = notes.map((note, j) => `
+          <div class="tracking-note">
+            <span class="tracking-note-ts">${formatTrackingTs(note.ts)}</span>
+            <div class="tracking-note-text">${escHtml(note.text)}</div>
+            <button type="button" class="tracking-note-remove" data-idx="${i}" data-note-idx="${j}" aria-label="Supprimer cette note">✕</button>
+          </div>
+        `).join('');
         return `
           <div class="${cls.join(' ')}" data-idx="${i}">
-            <span class="tracking-level-dot">${isDone ? '✓' : i + 1}</span>
-            <input type="text" class="tracking-level-name" data-idx="${i}" value="${escHtml(name)}" />
-            <button type="button" class="tracking-level-remove" data-idx="${i}" aria-label="Supprimer ce niveau">✕</button>
+            <div class="tracking-level-head">
+              <span class="tracking-level-dot">${isDone ? '✓' : i + 1}</span>
+              <input type="text" class="tracking-level-name" data-idx="${i}" value="${escHtml(level.name)}" />
+              <button type="button" class="tracking-level-remove" data-idx="${i}" aria-label="Supprimer ce niveau">✕</button>
+            </div>
+            <div class="tracking-level-notes">
+              ${notesHtml}
+              <div class="tracking-note-add-row">
+                <input type="text" class="tracking-note-input" data-idx="${i}" placeholder="Ajouter une note datée..." />
+                <button type="button" class="tracking-note-add-btn" data-idx="${i}" aria-label="Ajouter la note"><span class="math-icon">+</span></button>
+              </div>
+            </div>
           </div>
         `;
       }).join('');
@@ -7395,15 +7762,38 @@
           deleteTrackingLevel(parseInt(btn.getAttribute('data-idx'), 10));
         });
       });
+      container.querySelectorAll('.tracking-note-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteTrackingNote(parseInt(btn.getAttribute('data-idx'), 10), parseInt(btn.getAttribute('data-note-idx'), 10));
+        });
+      });
+      const addNote = (idx) => {
+        const input = container.querySelector(`.tracking-note-input[data-idx="${idx}"]`);
+        if (!input) return;
+        addTrackingNote(idx, input.value);
+      };
+      container.querySelectorAll('.tracking-note-add-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          addNote(parseInt(btn.getAttribute('data-idx'), 10));
+        });
+      });
+      container.querySelectorAll('.tracking-note-input').forEach(input => {
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { e.preventDefault(); addNote(parseInt(input.getAttribute('data-idx'), 10)); }
+        });
+      });
     }
 
     function addTrackingLevel() {
       if (!editingTaskId) return;
       const task = state.tasks.find(t => t.id === editingTaskId);
       if (!task) return;
+      migrateTrackingLevels(task);
       if (!task.trackingLevels) task.trackingLevels = [];
-      task.trackingLevels.push('Niveau ' + (task.trackingLevels.length + 1));
-      logActivity(task, `Niveau de suivi ajouté : « ${task.trackingLevels[task.trackingLevels.length - 1]} ».`);
+      task.trackingLevels.push({ name: 'Niveau ' + (task.trackingLevels.length + 1), notes: [] });
+      logActivity(task, `Niveau de suivi ajouté : « ${task.trackingLevels[task.trackingLevels.length - 1].name} ».`);
       save();
       renderTrackingLevels(task);
       renderTasks();
@@ -7414,8 +7804,8 @@
       const task = state.tasks.find(t => t.id === editingTaskId);
       if (!task || !task.trackingLevels || !task.trackingLevels[idx]) return;
       const trimmed = name.trim();
-      if (!trimmed || trimmed === task.trackingLevels[idx]) { renderTrackingLevels(task); return; }
-      task.trackingLevels[idx] = trimmed;
+      if (!trimmed || trimmed === task.trackingLevels[idx].name) { renderTrackingLevels(task); return; }
+      task.trackingLevels[idx].name = trimmed;
       save();
       renderTrackingLevels(task);
       renderTasks();
@@ -7442,10 +7832,31 @@
       // Recliquer sur le niveau déjà courant le désélectionne (retour à "pas commencé").
       const wasCurrent = task.trackingCurrent === idx;
       task.trackingCurrent = wasCurrent ? -1 : idx;
-      if (!wasCurrent) logActivity(task, `Suivi : étape « ${task.trackingLevels[idx]} ».`);
+      if (!wasCurrent) logActivity(task, `Suivi : étape « ${task.trackingLevels[idx].name} ».`);
       save();
       renderTrackingLevels(task);
       renderTasks();
+    }
+
+    function addTrackingNote(idx, text) {
+      if (!editingTaskId) return;
+      const trimmed = (text || '').trim();
+      if (!trimmed) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task || !task.trackingLevels || !task.trackingLevels[idx]) return;
+      if (!task.trackingLevels[idx].notes) task.trackingLevels[idx].notes = [];
+      task.trackingLevels[idx].notes.push({ text: trimmed, ts: Date.now() });
+      save();
+      renderTrackingLevels(task);
+    }
+
+    function deleteTrackingNote(idx, noteIdx) {
+      if (!editingTaskId) return;
+      const task = state.tasks.find(t => t.id === editingTaskId);
+      if (!task || !task.trackingLevels || !task.trackingLevels[idx] || !task.trackingLevels[idx].notes) return;
+      task.trackingLevels[idx].notes.splice(noteIdx, 1);
+      save();
+      renderTrackingLevels(task);
     }
 
     function addDependency(depId) {
@@ -7488,6 +7899,10 @@
 
     // Clic sur la tâche principale en mode immersif → basculer les détails
     $('fsTask').addEventListener('click', toggleTaskDetails);
+    $('fsPinBtn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (timer.activeTaskId) togglePinTask(timer.activeTaskId);
+    });
 
     // Boutons des détails en mode immersif
     $('fsDetailsCloseBtn').addEventListener('click', hideTaskDetails);
@@ -7529,6 +7944,18 @@
         openInlineDropdown(inlineEditBtn);
         return;
       }
+      const toolbarDropdownItem = e.target.closest('#toolbarDropdownList .inline-dropdown-item');
+      if (toolbarDropdownItem) {
+        e.stopPropagation();
+        const sel = $(toolbarDropdownSelectId);
+        if (sel) {
+          sel.value = toolbarDropdownItem.getAttribute('data-value');
+          sel._syncFake && sel._syncFake();
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        closeToolbarDropdown();
+        return;
+      }
       const dropdownItem = e.target.closest('.inline-dropdown-item');
       if (dropdownItem) {
         e.stopPropagation();
@@ -7538,6 +7965,9 @@
       }
       if (!$('inlineDropdownPopover').classList.contains('hidden') && !e.target.closest('#inlineDropdownPopover')) {
         closeInlineDropdown();
+      }
+      if (!$('toolbarDropdownPopover').classList.contains('hidden') && !e.target.closest('#toolbarDropdownPopover') && !e.target.closest('.select-fake')) {
+        closeToolbarDropdown();
       }
       const colorSwatchBtn = e.target.closest('.color-swatch-btn');
       if (colorSwatchBtn) {
@@ -7897,6 +8327,10 @@
         closeInlineDropdown();
         return;
       }
+      if (e.key === 'Escape' && !$('toolbarDropdownPopover').classList.contains('hidden')) {
+        closeToolbarDropdown();
+        return;
+      }
       if (e.key === 'Escape' && !$('categoryColorPopover').classList.contains('hidden')) {
         closeCategoryColorPopover();
         return;
@@ -8096,6 +8530,26 @@
       }
     });
 
+    if ($('editAddFamilyBtn')) {
+      $('editAddFamilyBtn').addEventListener('click', function() {
+        const input = $('editNewFamily');
+        const name = input.value.trim();
+        if (!name) return;
+        const field = getFamilyField();
+        const already = field && (field.options || []).some(o => o.toLowerCase() === name.toLowerCase());
+        const created = addFamilyOption(name);
+        if (created) {
+          $('editFamily').value = created;
+          input.value = '';
+          toast(already ? 'Famille déjà existante.' : 'Famille ajoutée.');
+        }
+      });
+    }
+
+    if ($('taskFamily')) {
+      $('taskFamily').addEventListener('change', function() { handleFamilySelectChange(this); });
+    }
+
     // ================================================================
     // INITIALISATION
     // ================================================================
@@ -8110,38 +8564,49 @@
       state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
       save();
     }
-    // Un champ « Type » (liste déroulante, entièrement personnalisable ensuite via
+    // Un champ « Famille » (liste déroulante, entièrement personnalisable ensuite via
     // Champs personnalisés) est proposé une seule fois pour permettre un groupement
-    // par type de tâche dès le départ. L'utilisateur peut le renommer ou le supprimer.
+    // par famille de tâches dès le départ. L'utilisateur peut le renommer ou le supprimer.
     if (!state.serviceFieldSeeded) {
       state.serviceFieldSeeded = true;
       if (!state.customFields) state.customFields = [];
-      if (!state.customFields.some(f => f.name.toLowerCase() === 'service' || f.name.toLowerCase() === 'type')) {
+      if (!state.customFields.some(f => ['service', 'type', 'famille'].includes(f.name.toLowerCase()))) {
         state.customFields.push({
           id: 'svc-' + Date.now().toString(36),
-          name: 'Type',
+          name: 'Famille',
           type: 'select',
           options: ['Marketing', 'Logistique', 'Finance', 'Ventes', 'RH', 'IT']
         });
       }
       save();
     }
-    // Migration ponctuelle : l'ancien champ auto-créé s'appelait « Service », il devient « Type »
-    // (même id, mêmes valeurs déjà attribuées aux tâches — seul le libellé change).
+    // Migration ponctuelle : l'ancien champ auto-créé s'appelait « Service » puis « Type »,
+    // il devient « Famille » (même id, mêmes valeurs déjà attribuées aux tâches).
     if (!state.typeFieldRenamed) {
       state.typeFieldRenamed = true;
-      const svcField = (state.customFields || []).find(f => f.id.indexOf('svc-') === 0 && f.name === 'Service');
-      if (svcField) { svcField.name = 'Type'; save(); }
+      const svcField = (state.customFields || []).find(f => f.id.indexOf('svc-') === 0 && (f.name === 'Service' || f.name === 'Type'));
+      if (svcField) { svcField.name = 'Famille'; save(); }
     }
+    // Référence stable vers le champ Famille, pour ne plus dépendre de son libellé
+    // (qui reste par ailleurs librement renommable par l'utilisateur).
+    if (!state.familyFieldId) {
+      const famField = (state.customFields || []).find(f => f.id.indexOf('svc-') === 0);
+      if (famField) { state.familyFieldId = famField.id; save(); }
+    }
+    enhanceToolbarSelect('taskSort');
+    enhanceToolbarSelect('groupBySelect');
+    const groupBySelectWrap = $('groupBySelect') && $('groupBySelect').closest('.select-wrap');
+    if (groupBySelectWrap) groupBySelectWrap.classList.add('important');
     updateCategorySelects();
+    updateFamilySelects();
     updateGroupBySelectOptions();
-    // Groupement par Type actif par défaut dans la liste des tâches, tant que
+    // Groupement par Famille actif par défaut dans la liste des tâches, tant que
     // l'utilisateur n'a pas explicitement choisi un autre groupement.
     if (!state.groupByDefaultApplied) {
       state.groupByDefaultApplied = true;
-      const typeField = (state.customFields || []).find(f => f.id.indexOf('svc-') === 0);
-      if (typeField && $('groupBySelect')) {
-        $('groupBySelect').value = 'cf:' + typeField.id;
+      if (state.familyFieldId && $('groupBySelect')) {
+        $('groupBySelect').value = 'cf:' + state.familyFieldId;
+        syncFakeSelect('groupBySelect');
         save();
       }
     }
