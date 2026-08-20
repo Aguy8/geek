@@ -944,6 +944,19 @@
       border-radius: 3px;
       font-weight: 700;
     }
+    .mini-pin-btn {
+      background: transparent;
+      border: 0;
+      padding: 2px 5px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .mini-pin-btn:hover { color: var(--text); background: var(--surface-3); }
+    .mini-pin-btn.pinned { color: var(--primary); }
 
     /* ===== LISTE DES TÂCHES ACTIVES EN MODE IMMERSIF ===== */
     .active-tasks-mini-fs {
@@ -2196,8 +2209,9 @@
     .color-swatch-popover.hidden { display: none; }
     .color-swatch-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 8px;
+      max-width: 232px;
     }
     .color-swatch-btn {
       width: 28px;
@@ -2774,6 +2788,7 @@
               <input type="checkbox" id="hideDoneToggle" />
               Masquer terminées
             </label>
+            <button type="button" class="btn-ghost" id="manageCustomFieldsToolbarBtn" style="width:auto;"><span class="math-icon">✎︎</span> Champs perso.</button>
             <button class="btn btn-danger" id="clearDoneBtn"><span class="math-icon">⌧︎</span> Purger Terminées</button>
           </div>
           <div class="task-list" id="fullTaskList" style="max-height:60vh;"></div>
@@ -3115,10 +3130,7 @@
           </select>
         </div>
 
-        <div class="task-panel-section-title" style="display:flex; justify-content:space-between; align-items:center;">
-          <span>Champs personnalisés</span>
-          <button type="button" class="btn-ghost" id="manageCustomFieldsBtn" style="padding:2px 8px; font-size:10px; text-transform:none; letter-spacing:0; font-weight:600;">Gérer</button>
-        </div>
+        <div class="task-panel-section-title">Champs personnalisés</div>
         <div id="customFieldsContainer"></div>
 
         <div class="task-panel-section-title">Description</div>
@@ -4455,6 +4467,25 @@
       renderTasks();
     }
 
+    // Épingle une tâche pour qu'elle reste sur le grand chrono même si elle n'est pas la
+    // plus imminente (cas où l'on veut délibérément se concentrer sur une autre tâche).
+    // Désépingler rend la main au suivi automatique de la tâche la plus imminente.
+    function togglePinTask(id) {
+      if (timer.locked && timer.activeTaskId === id) {
+        timer.locked = false;
+      } else {
+        if (!state.activeTaskIds.includes(id)) return;
+        timer.mode = 'task';
+        timer.activeTaskId = id;
+        timer.locked = true;
+        timer.previewTaskId = null;
+        timer.notified = false;
+      }
+      updateTimerTarget();
+      updateDisplays();
+      renderTasks();
+    }
+
     // ================================================================
     // AJOUT DE TEMPS
     // ================================================================
@@ -4634,12 +4665,14 @@
         const label = t.deadline ? getDeadlineLabel(t.deadline) : '';
         const cls = isPrimary ? 'mini-item active-primary' : 'mini-item';
         const timeCls = remaining < 0 ? 'mini-time overdue' : 'mini-time';
+        const isPinned = timer.locked && isPrimary;
         html += `
           <div class="${cls}" data-id="${t.id}" onclick="setPrimaryTask('${t.id}')">
             <span class="mini-title">${escHtml(t.title)}</span>
             <span class="${timeCls}">${timeStr}</span>
             ${label ? `<span style="font-size:9px; color:var(--muted);">${label}</span>` : ''}
             ${isPrimary ? '<span class="mini-badge">★︎</span>' : ''}
+            <button type="button" class="mini-pin-btn ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePinTask('${t.id}')" title="${isPinned ? 'Désépingler (revenir à la tâche la plus imminente)' : 'Épingler cette tâche sur le grand chrono'}" aria-label="${isPinned ? 'Désépingler' : 'Épingler cette tâche'}"><span class="math-icon">⊙︎</span></button>
           </div>
         `;
       });
@@ -4671,12 +4704,14 @@
         const label = t.deadline ? getDeadlineLabel(t.deadline) : '';
         const cls = isPrimary ? 'mini-item active-primary' : 'mini-item';
         const timeCls = remaining < 0 ? 'mini-time overdue' : 'mini-time';
+        const isPinned = timer.locked && isPrimary;
         html += `
           <div class="${cls}" data-id="${t.id}" onclick="setPrimaryTask('${t.id}')">
             <span class="mini-title">${escHtml(t.title)}</span>
             <span class="${timeCls}">${timeStr}</span>
             ${label ? `<span style="font-size:10px; color:var(--muted); margin-left:4px;">${label}</span>` : ''}
             ${isPrimary ? '<span class="mini-badge">★︎</span>' : ''}
+            <button type="button" class="mini-pin-btn ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePinTask('${t.id}')" title="${isPinned ? 'Désépingler (revenir à la tâche la plus imminente)' : 'Épingler cette tâche sur le grand chrono'}" aria-label="${isPinned ? 'Désépingler' : 'Épingler cette tâche'}"><span class="math-icon">⊙︎</span></button>
           </div>
         `;
       });
@@ -5103,7 +5138,7 @@
     function positionColorPopover(btn) {
       const pop = $('categoryColorPopover');
       const rect = btn.getBoundingClientRect();
-      const cols = 4;
+      const cols = 6;
       const popWidth = cols * 28 + (cols - 1) * 8 + 20;
       let left = rect.left;
       let top = rect.bottom + 6;
@@ -5710,7 +5745,13 @@
     // ================================================================
     // RÉPARTITION DU TEMPS PAR CATÉGORIE
     // ================================================================
-    const CATEGORY_PALETTE = ['#60a5fa', '#f87171', '#fbbf24', '#4ade80', '#a78bfa', '#f472b6', '#38bdf8', '#fb923c'];
+    const CATEGORY_PALETTE = [
+      '#f87171', '#fb7185', '#f472b6', '#e879f9', '#c084fc', '#a78bfa',
+      '#818cf8', '#60a5fa', '#3b82f6', '#0ea5e9', '#38bdf8', '#22d3ee',
+      '#2dd4bf', '#14b8a6', '#34d399', '#4ade80', '#22c55e', '#84cc16',
+      '#a3e635', '#facc15', '#eab308', '#fbbf24', '#f59e0b', '#fb923c',
+      '#f97316', '#fca5a5', '#fdba74', '#a8a29e', '#78716c', '#94a3b8'
+    ];
 
     function renderCategoryBreakdown() {
       const donut = $('categoryDonut');
@@ -6474,10 +6515,13 @@
       logActivity(newTask, 'Tâche créée.');
       state.tasks.unshift(newTask);
       // Une tâche créée depuis ce formulaire (à côté du grand chrono) est faite pour être
-      // attaquée tout de suite : on l'active directement pour qu'elle entre dans le calcul de
-      // la tâche la plus imminente au lieu de rester invisible tant qu'on ne la coche pas.
+      // attaquée tout de suite : on l'active ET on la prévisualise directement sur le grand
+      // chrono (comme un clic dans la liste), pour que "Démarrer" la décompte immédiatement
+      // sans dépendre de savoir si elle est déjà la plus imminente parmi les tâches actives.
       state.activeTaskIds.push(newTask.id);
       timer.mode = 'task';
+      timer.previewTaskId = newTask.id;
+      timer.previewUntil = Date.now() + 7000;
       save();
       renderTasks();
       updateTimerTarget();
@@ -7109,7 +7153,7 @@
       if (!container) return;
       const fields = state.customFields || [];
       if (!fields.length) {
-        container.innerHTML = '<div class="task-panel-empty">Aucun champ. Cliquez sur « Gérer » pour en créer.</div>';
+        container.innerHTML = '<div class="task-panel-empty">Aucun champ. Créez-en depuis « Champs perso. » au-dessus de la liste des tâches.</div>';
         return;
       }
       const values = task.customFieldValues || {};
@@ -7601,7 +7645,7 @@
       switchWorkspace(val || null);
     });
 
-    $('manageCustomFieldsBtn').addEventListener('click', openCustomFieldsModal);
+    $('manageCustomFieldsToolbarBtn').addEventListener('click', openCustomFieldsModal);
     $('customFieldsModalCloseBtn').addEventListener('click', closeCustomFieldsModal);
     $('customFieldsModal').addEventListener('click', function(e) { if (e.target === this) closeCustomFieldsModal(); });
     $('newFieldType').addEventListener('change', function() {
@@ -7835,24 +7879,41 @@
       state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
       save();
     }
-    // Un champ « Service » (liste déroulante, entièrement personnalisable ensuite via
+    // Un champ « Type » (liste déroulante, entièrement personnalisable ensuite via
     // Champs personnalisés) est proposé une seule fois pour permettre un groupement
-    // par département dès le départ. L'utilisateur peut le renommer ou le supprimer.
+    // par type de tâche dès le départ. L'utilisateur peut le renommer ou le supprimer.
     if (!state.serviceFieldSeeded) {
       state.serviceFieldSeeded = true;
       if (!state.customFields) state.customFields = [];
-      if (!state.customFields.some(f => f.name.toLowerCase() === 'service')) {
+      if (!state.customFields.some(f => f.name.toLowerCase() === 'service' || f.name.toLowerCase() === 'type')) {
         state.customFields.push({
           id: 'svc-' + Date.now().toString(36),
-          name: 'Service',
+          name: 'Type',
           type: 'select',
           options: ['Marketing', 'Logistique', 'Finance', 'Ventes', 'RH', 'IT']
         });
       }
       save();
     }
+    // Migration ponctuelle : l'ancien champ auto-créé s'appelait « Service », il devient « Type »
+    // (même id, mêmes valeurs déjà attribuées aux tâches — seul le libellé change).
+    if (!state.typeFieldRenamed) {
+      state.typeFieldRenamed = true;
+      const svcField = (state.customFields || []).find(f => f.id.indexOf('svc-') === 0 && f.name === 'Service');
+      if (svcField) { svcField.name = 'Type'; save(); }
+    }
     updateCategorySelects();
     updateGroupBySelectOptions();
+    // Groupement par Type actif par défaut dans la liste des tâches, tant que
+    // l'utilisateur n'a pas explicitement choisi un autre groupement.
+    if (!state.groupByDefaultApplied) {
+      state.groupByDefaultApplied = true;
+      const typeField = (state.customFields || []).find(f => f.id.indexOf('svc-') === 0);
+      if (typeField && $('groupBySelect')) {
+        $('groupBySelect').value = 'cf:' + typeField.id;
+        save();
+      }
+    }
     updateThemeUI();
     updateSoundUI();
     updateClockModeUI();
