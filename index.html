@@ -1890,12 +1890,22 @@
       gap: 8px;
       margin-bottom: 8px;
     }
-    .category-manage-row .cat-swatch {
-      width: 20px;
-      height: 20px;
-      border-radius: 5px;
+    .category-manage-row .cat-color-input {
+      width: 26px;
+      height: 26px;
       flex-shrink: 0;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      overflow: hidden;
     }
+    .category-manage-row .cat-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+    .category-manage-row .cat-color-input::-webkit-color-swatch { border: 0; border-radius: 50%; }
+    .category-manage-row .cat-color-input::-moz-color-swatch { border: 0; border-radius: 50%; }
     .category-manage-row .field { margin-bottom: 0; }
     .category-manage-row button {
       background: transparent;
@@ -2800,6 +2810,7 @@
           </div>
           <div class="timer-controls">
             <button class="btn btn-primary" style="padding:12px 36px; font-size:15px;" id="focusPageStart"><span class="math-icon">▶︎</span> Démarrer</button>
+            <button class="btn btn-ghost" style="padding:12px 28px;" id="focusPageReset"><span class="math-icon">⟳︎</span> Reset</button>
             <button class="btn btn-ghost" style="padding:12px 28px;" id="focusPageFull"><span class="math-icon">⊙︎</span> Plein Écran</button>
           </div>
         </div>
@@ -3190,6 +3201,7 @@
       <div class="fs-controls">
         <button class="btn btn-primary" style="padding:14px 36px; font-size:16px;" id="fsStart"><span class="math-icon">▶︎</span> Démarrer</button>
         <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsPause"><span class="math-icon">⏸︎</span> Pause</button>
+        <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsReset"><span class="math-icon">⟳︎</span> Reset</button>
       </div>
 
       <!-- Mini horloges des tâches actives (mode immersif) -->
@@ -3245,6 +3257,7 @@
     if (!state.dailyGoalMin) state.dailyGoalMin = 120;
     if (!state.customFields) state.customFields = [];
     if (!state.dailyNotes) state.dailyNotes = {};
+    if (!state.categoryColors) state.categoryColors = {};
 
     // Préférence son/vibration (par appareil, non synchronisée dans le cloud)
     let soundEnabled = localStorage.getItem('tempo_pro_sound_pref') !== '0';
@@ -4740,9 +4753,20 @@
     }
 
     function categoryColor(name) {
+      if (state.categoryColors && state.categoryColors[name]) return state.categoryColors[name];
       let hash = 0;
       for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
       return CATEGORY_PALETTE[Math.abs(hash) % CATEGORY_PALETTE.length];
+    }
+
+    function setCategoryColor(name, hex) {
+      if (!state.categoryColors) state.categoryColors = {};
+      state.categoryColors[name] = hex;
+      save();
+      renderCategoryGrid();
+      if (!$('viewTasks').classList.contains('hidden') || !$('viewDashboard').classList.contains('hidden')) renderTasks();
+      if (!$('viewBoard').classList.contains('hidden')) renderBoard();
+      if (!$('viewTimeline').classList.contains('hidden')) renderTimelineView();
     }
 
     function renderCategoryGrid() {
@@ -4817,7 +4841,7 @@
       }
       container.innerHTML = cats.map(c => `
         <div class="category-manage-row">
-          <span class="cat-swatch" style="background:${categoryColor(c)};"></span>
+          <input type="color" class="cat-color-input" data-cat="${escHtml(c)}" value="${categoryColor(c)}" title="Choisir la couleur de « ${escHtml(c)} »" aria-label="Couleur de la catégorie ${escHtml(c)}" />
           <input type="text" class="field cat-rename-input" data-original="${escHtml(c)}" value="${escHtml(c)}" />
           <button type="button" data-delete-cat="${escHtml(c)}" aria-label="Supprimer la catégorie ${escHtml(c)}">✕</button>
         </div>
@@ -4832,6 +4856,9 @@
         input.addEventListener('blur', commit);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
       });
+      container.querySelectorAll('.cat-color-input').forEach(input => {
+        input.addEventListener('input', () => setCategoryColor(input.getAttribute('data-cat'), input.value));
+      });
       container.querySelectorAll('[data-delete-cat]').forEach(btn => {
         btn.addEventListener('click', () => deleteCategory(btn.getAttribute('data-delete-cat')));
       });
@@ -4844,6 +4871,10 @@
       if (idx === -1) return;
       state.categories[idx] = newName;
       state.tasks.forEach(t => { if (t.category === oldName) t.category = newName; });
+      if (state.categoryColors && state.categoryColors[oldName]) {
+        state.categoryColors[newName] = state.categoryColors[oldName];
+        delete state.categoryColors[oldName];
+      }
       save();
       updateCategorySelects();
       renderCategoryManageList();
@@ -7079,7 +7110,9 @@
     ['pauseBtn', 'fsPause'].forEach(id => {
       $(id).addEventListener('click', stopTimer);
     });
-    $('resetBtn').addEventListener('click', resetTimer);
+    ['resetBtn', 'focusPageReset', 'fsReset'].forEach(id => {
+      $(id).addEventListener('click', resetTimer);
+    });
 
     const views = ['dashboard', 'tasks', 'board', 'timeline', 'calendar', 'focus', 'stats'];
     const titles = {
