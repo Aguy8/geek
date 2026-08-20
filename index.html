@@ -3794,7 +3794,9 @@
     function scheduleCloudSave() {
       if (!supa || !cloudUser || applyingRemoteState) return;
       clearTimeout(cloudSaveTimeout);
-      cloudSaveTimeout = setTimeout(pushStateToCloud, 2000);
+      // Court délai (regroupe les modifications rafales, ex. frappe rapide) sans pénaliser
+      // la synchronisation entre appareils, qui doit rester quasi instantanée.
+      cloudSaveTimeout = setTimeout(pushStateToCloud, 600);
     }
 
     async function pushStateToCloud() {
@@ -3898,6 +3900,37 @@
         })
         .subscribe();
     }
+
+    let cloudRefreshInFlight = false;
+    // Un onglet en arrière-plan (mobile en particulier) peut voir sa connexion temps réel
+    // coupée par l'OS sans que le navigateur ne le signale : sans ce filet, les données
+    // restaient figées jusqu'à un rechargement complet. On revérifie donc à chaque retour
+    // au premier plan / reconnexion réseau, et on re-souscrit le canal temps réel au cas où.
+    async function refreshFromCloudIfNeeded() {
+      if (!supa || !cloudUser || cloudRefreshInFlight) return;
+      cloudRefreshInFlight = true;
+      try {
+        if (cloudSaveTimeout) {
+          clearTimeout(cloudSaveTimeout);
+          cloudSaveTimeout = null;
+          await pushStateToCloud();
+        }
+        const remote = await pullStateFromCloud();
+        if (remote && remote.state && Array.isArray(remote.state.tasks)) {
+          applyRemoteState(remote.state);
+        }
+        subscribeRealtime();
+      } finally {
+        cloudRefreshInFlight = false;
+      }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshFromCloudIfNeeded();
+    });
+    window.addEventListener('online', refreshFromCloudIfNeeded);
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) refreshFromCloudIfNeeded(); // page restaurée depuis le cache navigateur (bfcache)
+    });
 
     async function onAuthReady(user) {
       cloudUser = user;
