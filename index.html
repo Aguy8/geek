@@ -5032,33 +5032,35 @@
     // PERFORMANCE / ANALYTIQUES
     // ================================================================
     function computePerformance() {
-      // Cette mesure compare le temps estimé au temps réellement suivi au chrono : elle ne
-      // peut donc porter que sur les tâches qui ont été chronométrées au moins une fois.
-      // Une tâche cochée « terminée » sans jamais avoir été lancée n'a pas de temps réel
-      // à comparer (timeSpent = 0) et n'apparaît volontairement pas dans ce calcul.
+      // Le seul critère pour qu'une tâche apparaisse dans l'analytique est son statut :
+      // "terminée". Les moyennes chiffrées (temps réel, écart, précision) ne peuvent en
+      // revanche porter que sur les tâches réellement chronométrées (timeSpent > 0) — on ne
+      // peut pas comparer une durée estimée à un temps réel qui n'a jamais été mesuré.
       const allDone = state.tasks.filter(t => t.status === 'done');
-      const doneTasks = allDone.filter(t => t.timeSpent > 0);
-      if (!doneTasks.length) return { count: 0, totalDone: allDone.length, tasks: [] };
-      const totalEst = doneTasks.reduce((sum, t) => sum + t.duration * 60 * 1000, 0);
-      const totalReal = doneTasks.reduce((sum, t) => sum + (t.timeSpent || 0) * 1000, 0);
-      const avgEst = totalEst / doneTasks.length;
-      const avgReal = totalReal / doneTasks.length;
+      if (!allDone.length) return { count: 0, totalDone: 0, tracked: 0, tasks: [] };
+      const trackedTasks = allDone.filter(t => t.timeSpent > 0);
+      const totalEst = trackedTasks.reduce((sum, t) => sum + t.duration * 60 * 1000, 0);
+      const totalReal = trackedTasks.reduce((sum, t) => sum + (t.timeSpent || 0) * 1000, 0);
+      const avgEst = trackedTasks.length ? totalEst / trackedTasks.length : 0;
+      const avgReal = trackedTasks.length ? totalReal / trackedTasks.length : 0;
       const avgDiff = avgReal - avgEst;
       const accuracy = totalEst > 0 ? (1 - Math.abs(totalReal - totalEst) / totalEst) * 100 : 0;
       // La liste de détail n'a pas besoin de remonter tout l'historique : avec des tâches
       // récurrentes complétées régulièrement, elle grossirait indéfiniment. On ne montre que
-      // les plus récentes (les moyennes ci-dessus, elles, portent bien sur l'ensemble).
+      // les plus récentes (les moyennes ci-dessus, elles, portent sur toutes les tâches suivies).
       const PERF_LIST_LIMIT = 15;
-      const sortedTasks = [...doneTasks].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+      const sortedTasks = [...allDone].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
       return {
-        count: doneTasks.length,
+        count: allDone.length,
         totalDone: allDone.length,
+        tracked: trackedTasks.length,
         avgEst,
         avgReal,
         avgDiff,
         accuracy: Math.min(100, Math.max(0, accuracy)),
         tasks: sortedTasks.slice(0, PERF_LIST_LIMIT).map(t => ({
           title: t.title,
+          tracked: t.timeSpent > 0,
           est: t.duration * 60 * 1000,
           real: (t.timeSpent || 0) * 1000,
           diff: (t.timeSpent || 0) * 1000 - t.duration * 60 * 1000
@@ -5080,31 +5082,46 @@
         $('perfAvgReal').textContent = '--';
         $('perfAvgDiff').textContent = '--';
         $('perfAccuracy').textContent = '--';
-        $('perfTaskList').innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucune tâche terminée avec temps enregistré.</div>';
-        $('perfTaskListNote').textContent = perf.totalDone
-          ? `${perf.totalDone} tâche(s) marquée(s) terminée(s), mais aucune n'a été suivie avec le chrono (bouton ▶ / Focus) — sans ce suivi, il n'y a pas de temps réel à comparer.`
-          : '';
+        $('perfTaskList').innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucune tâche terminée.</div>';
+        $('perfTaskListNote').textContent = '';
         return;
       }
       const notes = [];
-      if (perf.totalDone > perf.count) {
-        notes.push(`${perf.count} sur ${perf.totalDone} tâche(s) terminée(s) ont un temps réellement suivi au chrono ; les autres ont été cochées terminées sans jamais être lancées.`);
+      if (perf.tracked < perf.count) {
+        notes.push(perf.tracked
+          ? `${perf.tracked} sur ${perf.count} tâche(s) terminée(s) ont un temps réellement suivi au chrono ; les moyennes ci-dessus ne portent que sur celles-ci.`
+          : `Aucune de vos ${perf.count} tâche(s) terminée(s) n'a été suivie avec le chrono (bouton ▶ / Focus) — les moyennes ci-dessus ne peuvent donc pas être calculées.`);
       }
       if (perf.count > perf.tasks.length) {
-        notes.push(`Les ${perf.tasks.length} plus récentes sont affichées ci-dessous (les moyennes ci-dessus portent sur les ${perf.count}).`);
+        notes.push(`Les ${perf.tasks.length} plus récentes sont affichées ci-dessous.`);
       }
       $('perfTaskListNote').textContent = notes.join(' ');
-      $('perfAvgEst').textContent = formatDuration(perf.avgEst);
-      $('perfAvgReal').textContent = formatDuration(perf.avgReal);
-      const diffEl = $('perfAvgDiff');
-      const diffText = perf.avgDiff > 0 ? `+${formatDuration(perf.avgDiff)}` : formatDuration(perf.avgDiff);
-      diffEl.textContent = diffText;
-      diffEl.className = 'perf-value ' + (perf.avgDiff > 0 ? 'bad' : perf.avgDiff < 0 ? 'good' : 'neutral');
-      const accEl = $('perfAccuracy');
-      accEl.textContent = Math.round(perf.accuracy) + '%';
-      accEl.className = 'perf-value ' + (perf.accuracy >= 90 ? 'good' : perf.accuracy >= 70 ? 'neutral' : 'bad');
+      if (perf.tracked) {
+        $('perfAvgEst').textContent = formatDuration(perf.avgEst);
+        $('perfAvgReal').textContent = formatDuration(perf.avgReal);
+        const diffEl = $('perfAvgDiff');
+        const diffText = perf.avgDiff > 0 ? `+${formatDuration(perf.avgDiff)}` : formatDuration(perf.avgDiff);
+        diffEl.textContent = diffText;
+        diffEl.className = 'perf-value ' + (perf.avgDiff > 0 ? 'bad' : perf.avgDiff < 0 ? 'good' : 'neutral');
+        const accEl = $('perfAccuracy');
+        accEl.textContent = Math.round(perf.accuracy) + '%';
+        accEl.className = 'perf-value ' + (perf.accuracy >= 90 ? 'good' : perf.accuracy >= 70 ? 'neutral' : 'bad');
+      } else {
+        $('perfAvgEst').textContent = '--';
+        $('perfAvgReal').textContent = '--';
+        $('perfAvgDiff').textContent = '--';
+        $('perfAccuracy').textContent = '--';
+      }
       const list = $('perfTaskList');
       list.innerHTML = perf.tasks.map(t => {
+        if (!t.tracked) {
+          return `
+            <div class="perf-item">
+              <span class="perf-item-title">${escHtml(t.title)}</span>
+              <span class="perf-item-diff on-time" style="opacity:0.6;">Non suivi</span>
+            </div>
+          `;
+        }
         const diff = t.diff;
         const cls = diff > 0 ? 'late' : diff < 0 ? 'early' : 'on-time';
         const label = diff > 0 ? `+${formatDuration(diff)}` : formatDuration(diff);
