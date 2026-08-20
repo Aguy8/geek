@@ -3384,7 +3384,14 @@
       // 'task' : la durée suit la tâche verrouillée (échéance/durée) ; 'focus'/'pause' : durée fixée manuellement ;
       // 'chrono' : chronomètre libre qui compte le temps écoulé, sans décompte ni tâche requise.
       mode: 'task',
-      deadlineBased: false
+      deadlineBased: false,
+      // Prévisualisation temporaire (7s) d'une tâche autre que la plus imminente,
+      // cliquée dans la liste sous le grand chrono ; previewUntil = timestamp d'expiration.
+      previewTaskId: null,
+      previewUntil: 0,
+      // true seulement après un verrouillage explicite (bouton ⊙) : bloque le suivi
+      // automatique de la tâche la plus imminente tant que la tâche verrouillée est valide.
+      locked: false
     };
 
     // ================================================================
@@ -4320,12 +4327,26 @@
         const selected = actives.find(t => t.id === timer.activeTaskId);
         if (selected) return selected;
       }
-      return actives.sort((a, b) => {
-        if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
-        if (a.deadline) return -1;
-        if (b.deadline) return 1;
-        return 0;
-      })[0];
+      return actives.sort(imminenceComparator)[0];
+    }
+
+    // Échéance la plus proche d'abord ; à défaut d'échéance, le temps restant le plus court
+    // (durée - temps déjà passé) — sert au classement "tâche la plus imminente".
+    function imminenceComparator(a, b) {
+      if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+      if (a.deadline) return -1;
+      if (b.deadline) return 1;
+      const aRemaining = (a.duration || 0) * 60000 - (a.timeSpent || 0) * 1000;
+      const bRemaining = (b.duration || 0) * 60000 - (b.timeSpent || 0) * 1000;
+      return aRemaining - bRemaining;
+    }
+
+    // Contrairement à getPrimaryActiveTask(), toujours recalculée : ignore la tâche
+    // actuellement verrouillée pour ne renvoyer que la plus imminente à l'instant présent.
+    function getMostImminentActiveTask() {
+      const actives = getActiveTasks();
+      if (!actives.length) return null;
+      return actives.slice().sort(imminenceComparator)[0];
     }
 
     function toggleTaskActive(id) {
@@ -4417,8 +4438,15 @@
     function setPrimaryTask(id) {
       if (!state.activeTaskIds.includes(id)) return;
       timer.mode = 'task';
-      timer.activeTaskId = id;
-      timer.notified = false;
+      // Si ce n'est pas déjà la tâche affichée, on ne fait que la prévisualiser 7 secondes
+      // sur le grand chrono avant de revenir automatiquement à la cible normale (tâche la
+      // plus imminente, ou tâche verrouillée via ⊙ — voir updateTimerTarget).
+      if (id === timer.activeTaskId) {
+        timer.previewTaskId = null;
+      } else {
+        timer.previewTaskId = id;
+        timer.previewUntil = Date.now() + 7000;
+      }
       if (_fsDetailsVisible && _fsDetailsTaskId !== id) {
         hideTaskDetails();
       }
@@ -4458,6 +4486,34 @@
       // Une durée fixée manuellement (Focus/Pause) ou le mode Chrono ne doivent pas
       // être écrasés par la durée de la tâche à chaque tick.
       if (timer.mode !== 'task') { timer.deadlineBased = false; return; }
+      // Tant qu'on ne tourne pas activement, le grand chrono suit automatiquement la tâche
+      // la plus imminente. Une tâche cliquée dans la liste reste prévisualisée 7s (timer.previewTaskId)
+      // avant qu'on ne revienne à la cible normale. Un verrouillage explicite (⊙, timer.locked)
+      // bloque ce suivi automatique tant que la tâche verrouillée reste valide. Une fois
+      // "Démarrer" pressé, plus aucun changement automatique : la session reste sur sa tâche
+      // jusqu'à l'arrêt.
+      if (!timer.running) {
+        const previewActive = timer.previewTaskId && Date.now() < timer.previewUntil;
+        if (previewActive) {
+          if (timer.activeTaskId !== timer.previewTaskId) {
+            timer.activeTaskId = timer.previewTaskId;
+            timer.notified = false;
+            timer.elapsed = 0;
+          }
+        } else {
+          timer.previewTaskId = null;
+          const lockedStillValid = timer.locked && getActiveTasks().some(t => t.id === timer.activeTaskId);
+          if (!lockedStillValid) {
+            timer.locked = false;
+            const targetId = getMostImminentActiveTask()?.id || null;
+            if (timer.activeTaskId !== targetId) {
+              timer.activeTaskId = targetId;
+              timer.notified = false;
+              timer.elapsed = 0;
+            }
+          }
+        }
+      }
       const task = state.tasks.find(t => t.id === timer.activeTaskId);
       if (task) {
         if (task.deadline) {
@@ -4564,15 +4620,15 @@
         container.innerHTML = '<span style="color:var(--muted); font-size:11px;">Aucune tâche active</span>';
         return;
       }
-      const primary = getPrimaryActiveTask();
+      actives.sort(imminenceComparator);
       let html = '';
       actives.forEach(t => {
-        const isPrimary = t.id === primary?.id;
+        const isPrimary = t.id === timer.activeTaskId;
         let remaining = 0;
         if (t.deadline) {
           remaining = new Date(t.deadline).getTime() - Date.now();
         } else {
-          remaining = t.duration * 60 * 1000 - (t.timeSpent || 0);
+          remaining = t.duration * 60 * 1000 - (t.timeSpent || 0) * 1000;
         }
         const timeStr = formatTimeMs(remaining);
         const label = t.deadline ? getDeadlineLabel(t.deadline) : '';
@@ -4601,15 +4657,15 @@
         container.innerHTML = '<span style="color:var(--muted); font-size:12px;">Aucune tâche active</span>';
         return;
       }
-      const primary = getPrimaryActiveTask();
+      actives.sort(imminenceComparator);
       let html = '';
       actives.forEach(t => {
-        const isPrimary = t.id === primary?.id;
+        const isPrimary = t.id === timer.activeTaskId;
         let remaining = 0;
         if (t.deadline) {
           remaining = new Date(t.deadline).getTime() - Date.now();
         } else {
-          remaining = t.duration * 60 * 1000 - (t.timeSpent || 0);
+          remaining = t.duration * 60 * 1000 - (t.timeSpent || 0) * 1000;
         }
         const timeStr = formatTimeMs(remaining);
         const label = t.deadline ? getDeadlineLabel(t.deadline) : '';
@@ -6417,8 +6473,15 @@
       });
       logActivity(newTask, 'Tâche créée.');
       state.tasks.unshift(newTask);
+      // Une tâche créée depuis ce formulaire (à côté du grand chrono) est faite pour être
+      // attaquée tout de suite : on l'active directement pour qu'elle entre dans le calcul de
+      // la tâche la plus imminente au lieu de rester invisible tant qu'on ne la coche pas.
+      state.activeTaskIds.push(newTask.id);
+      timer.mode = 'task';
       save();
       renderTasks();
+      updateTimerTarget();
+      updateDisplays();
       $('taskInput').value = '';
       $('taskDeadlineInput').value = '';
       setDatePickerField('taskDeadlineDate', 'taskDeadlineDateBtn', null);
@@ -7238,6 +7301,8 @@
             timer.mode = 'task';
             timer.activeTaskId = id;
             timer.notified = false;
+            timer.locked = false;
+            timer.previewTaskId = null;
             updateTimerTarget();
             updateDisplays();
           }
@@ -7255,6 +7320,8 @@
           timer.mode = 'task';
           timer.activeTaskId = id;
           timer.notified = false;
+          timer.locked = true;
+          timer.previewTaskId = null;
           updateTimerTarget();
           save();
           renderTasks();
