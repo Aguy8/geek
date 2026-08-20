@@ -424,49 +424,35 @@
     .category-tile {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 12px;
-      background: var(--bg);
-      border: 1px solid var(--line);
+      padding: 14px 12px;
+      border: 1px solid transparent;
       border-radius: 8px;
       cursor: pointer;
       transition: var(--transition);
       text-align: left;
       width: 100%;
-      color: var(--text);
       font-family: 'Inter', sans-serif;
     }
-    .category-tile:hover { border-color: var(--text-dim); }
-    .category-tile .cat-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 13px;
-      color: #0a0a0a;
-      flex-shrink: 0;
-    }
-    .category-tile .cat-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .category-tile:hover { filter: brightness(1.08); }
+    .category-tile .cat-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
     .category-tile .cat-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .category-tile .cat-count {
       font-size: 10px;
-      color: var(--text-dim);
+      opacity: 0.75;
     }
     .category-tile.add-tile {
-      border-style: dashed;
+      background: var(--bg);
+      border: 1px dashed var(--line);
       color: var(--text-dim);
       justify-content: center;
     }
+    .category-tile.add-tile:hover { filter: none; border-color: var(--text-dim); }
 
     .people-row {
       display: flex;
@@ -1890,22 +1876,17 @@
       gap: 8px;
       margin-bottom: 8px;
     }
-    .category-manage-row .cat-color-input {
+    .category-manage-row .cat-color-swatch-btn {
       width: 26px;
       height: 26px;
       flex-shrink: 0;
       padding: 0;
       border: 1px solid var(--line);
       border-radius: 50%;
-      background: transparent;
       cursor: pointer;
-      -webkit-appearance: none;
-      appearance: none;
-      overflow: hidden;
+      transition: var(--transition);
     }
-    .category-manage-row .cat-color-input::-webkit-color-swatch-wrapper { padding: 0; }
-    .category-manage-row .cat-color-input::-webkit-color-swatch { border: 0; border-radius: 50%; }
-    .category-manage-row .cat-color-input::-moz-color-swatch { border: 0; border-radius: 50%; }
+    .category-manage-row .cat-color-swatch-btn:hover { transform: scale(1.08); }
     .category-manage-row .field { margin-bottom: 0; }
     .category-manage-row button {
       background: transparent;
@@ -2201,6 +2182,34 @@
     .dd-dot.dot-high { background: var(--danger); }
     .dd-dot.dot-medium { background: var(--warning); }
     .dd-dot.dot-low { background: var(--success); }
+
+    /* ===== POPOVER DE CHOIX DE COULEUR (catégories) ===== */
+    .color-swatch-popover {
+      position: fixed;
+      z-index: 10002;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 10px;
+    }
+    .color-swatch-popover.hidden { display: none; }
+    .color-swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .color-swatch-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .color-swatch-btn:hover { transform: scale(1.12); }
+    .color-swatch-btn.active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
 
     /* ===== VUE CALENDRIER ===== */
     .cal-weekdays, .cal-days {
@@ -3215,6 +3224,11 @@
   <!-- POPOVER MENU DÉROULANT EN LIGNE (statut / priorité / catégorie sur les cartes de tâche) -->
   <div class="inline-dropdown-popover hidden" id="inlineDropdownPopover">
     <div id="inlineDropdownList"></div>
+  </div>
+
+  <!-- POPOVER DE CHOIX DE COULEUR DE CATÉGORIE (palette maison, pas le sélecteur natif) -->
+  <div class="color-swatch-popover hidden" id="categoryColorPopover">
+    <div class="color-swatch-grid" id="categoryColorGrid"></div>
   </div>
 
   <!-- MODALE SYNCHRONISATION CLOUD -->
@@ -4896,11 +4910,23 @@
       return CATEGORY_PALETTE[Math.abs(hash) % CATEGORY_PALETTE.length];
     }
 
+    // Choisit un texte clair ou sombre selon la luminosité perçue du fond, pour rester lisible
+    // quelle que soit la couleur (palette par défaut ou couleur personnalisée).
+    function contrastTextColor(hex) {
+      const c = hex.replace('#', '');
+      const r = parseInt(c.substring(0, 2), 16);
+      const g = parseInt(c.substring(2, 4), 16);
+      const b = parseInt(c.substring(4, 6), 16);
+      const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+      return yiq >= 150 ? '#14141a' : '#ffffff';
+    }
+
     function setCategoryColor(name, hex) {
       if (!state.categoryColors) state.categoryColors = {};
       state.categoryColors[name] = hex;
       save();
       renderCategoryGrid();
+      renderCategoryManageList();
       if (!$('viewTasks').classList.contains('hidden') || !$('viewDashboard').classList.contains('hidden')) renderTasks();
       if (!$('viewBoard').classList.contains('hidden')) renderBoard();
       if (!$('viewTimeline').classList.contains('hidden')) renderTimelineView();
@@ -4918,9 +4944,10 @@
       });
       grid.innerHTML = cats.map(c => {
         const n = counts[c] || 0;
+        const bg = categoryColor(c);
+        const fg = contrastTextColor(bg);
         return `
-        <button type="button" class="category-tile" data-category="${escHtml(c)}">
-          <span class="cat-icon" style="background:${categoryColor(c)};">${escHtml(c.charAt(0).toUpperCase())}</span>
+        <button type="button" class="category-tile" data-category="${escHtml(c)}" style="background:${bg}; color:${fg};">
           <span class="cat-info">
             <span class="cat-name">${escHtml(c)}</span>
             <span class="cat-count">${n} active${n === 1 ? '' : 's'}</span>
@@ -4978,7 +5005,7 @@
       }
       container.innerHTML = cats.map(c => `
         <div class="category-manage-row">
-          <input type="color" class="cat-color-input" data-cat="${escHtml(c)}" value="${categoryColor(c)}" title="Choisir la couleur de « ${escHtml(c)} »" aria-label="Couleur de la catégorie ${escHtml(c)}" />
+          <button type="button" class="cat-color-swatch-btn" data-cat="${escHtml(c)}" style="background:${categoryColor(c)};" title="Choisir la couleur de « ${escHtml(c)} »" aria-label="Couleur de la catégorie ${escHtml(c)}"></button>
           <input type="text" class="field cat-rename-input" data-original="${escHtml(c)}" value="${escHtml(c)}" />
           <button type="button" data-delete-cat="${escHtml(c)}" aria-label="Supprimer la catégorie ${escHtml(c)}">✕</button>
         </div>
@@ -4993,12 +5020,45 @@
         input.addEventListener('blur', commit);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
       });
-      container.querySelectorAll('.cat-color-input').forEach(input => {
-        input.addEventListener('input', () => setCategoryColor(input.getAttribute('data-cat'), input.value));
+      container.querySelectorAll('.cat-color-swatch-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); openCategoryColorPopover(btn); });
       });
       container.querySelectorAll('[data-delete-cat]').forEach(btn => {
         btn.addEventListener('click', () => deleteCategory(btn.getAttribute('data-delete-cat')));
       });
+    }
+
+    // Popover de choix de couleur (palette de swatches maison, pas le sélecteur natif du
+    // navigateur qui ne respecte pas la DA de l'app).
+    let categoryColorPopoverTarget = null;
+    function openCategoryColorPopover(btn) {
+      categoryColorPopoverTarget = btn.getAttribute('data-cat');
+      const current = categoryColor(categoryColorPopoverTarget);
+      $('categoryColorGrid').innerHTML = CATEGORY_PALETTE.map(hex => `
+        <button type="button" class="color-swatch-btn ${hex.toLowerCase() === current.toLowerCase() ? 'active' : ''}" data-hex="${hex}" style="background:${hex};" aria-label="Couleur ${hex}"></button>
+      `).join('');
+      positionColorPopover(btn);
+      $('categoryColorPopover').classList.remove('hidden');
+    }
+    function closeCategoryColorPopover() {
+      $('categoryColorPopover').classList.add('hidden');
+      categoryColorPopoverTarget = null;
+    }
+    function positionColorPopover(btn) {
+      const pop = $('categoryColorPopover');
+      const rect = btn.getBoundingClientRect();
+      const cols = 4;
+      const popWidth = cols * 28 + (cols - 1) * 8 + 20;
+      let left = rect.left;
+      let top = rect.bottom + 6;
+      if (left + popWidth > window.innerWidth - 8) left = window.innerWidth - popWidth - 8;
+      if (left < 8) left = 8;
+      const rows = Math.ceil(CATEGORY_PALETTE.length / cols);
+      const estHeight = rows * 28 + (rows - 1) * 8 + 20;
+      if (top + estHeight > window.innerHeight - 8) top = rect.top - estHeight - 6;
+      if (top < 8) top = 8;
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
     }
 
     function renameCategory(oldName, newName) {
@@ -7152,6 +7212,16 @@
       if (!$('inlineDropdownPopover').classList.contains('hidden') && !e.target.closest('#inlineDropdownPopover')) {
         closeInlineDropdown();
       }
+      const colorSwatchBtn = e.target.closest('.color-swatch-btn');
+      if (colorSwatchBtn) {
+        e.stopPropagation();
+        if (categoryColorPopoverTarget) setCategoryColor(categoryColorPopoverTarget, colorSwatchBtn.getAttribute('data-hex'));
+        closeCategoryColorPopover();
+        return;
+      }
+      if (!$('categoryColorPopover').classList.contains('hidden') && !e.target.closest('#categoryColorPopover') && !e.target.closest('.cat-color-swatch-btn')) {
+        closeCategoryColorPopover();
+      }
       const checkBtn = e.target.closest('[data-action="toggle"]');
       if (checkBtn) {
         const item = checkBtn.closest('.task-item');
@@ -7494,6 +7564,10 @@
       }
       if (e.key === 'Escape' && !$('inlineDropdownPopover').classList.contains('hidden')) {
         closeInlineDropdown();
+        return;
+      }
+      if (e.key === 'Escape' && !$('categoryColorPopover').classList.contains('hidden')) {
+        closeCategoryColorPopover();
         return;
       }
       if (e.key === 'Escape' && !$('customFieldsModal').classList.contains('hidden')) {
