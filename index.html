@@ -2011,6 +2011,42 @@
     }
     .category-add-row select { flex: 1; }
 
+    /* ===== TABLE ADMIN ===== */
+    .admin-users-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .admin-users-table th {
+      text-align: left;
+      padding: 8px 10px;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      border-bottom: 1px solid var(--line);
+    }
+    .admin-users-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      color: var(--text);
+    }
+    .admin-users-table tr:last-child td { border-bottom: 0; }
+    .admin-note-input {
+      width: 220px;
+      white-space: normal;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 5px 8px;
+      color: var(--text);
+      font-size: 11px;
+      font-family: 'Inter', sans-serif;
+    }
+    .admin-note-input:focus { border-color: var(--primary); background: var(--surface); outline: none; }
+
     /* ===== SÉLECTEUR DE DATE/HEURE ===== */
     .date-picker-btn {
       text-align: left;
@@ -2504,6 +2540,7 @@
         <button data-view="calendar"><span class="icon math-icon">▦︎</span> Calendrier</button>
         <button data-view="focus"><span class="icon math-icon">⊙︎</span> Focus</button>
         <button data-view="stats"><span class="icon math-icon">∫︎</span> Analytiques</button>
+        <button data-view="admin" id="navAdminBtn" class="hidden"><span class="icon math-icon">⚑︎</span> Admin</button>
       </nav>
       <div class="daily-notes">
         <div class="daily-notes-label">
@@ -2921,6 +2958,63 @@
             <div id="reportTaskSelector"></div>
           </div>
           <div class="report-area" id="reportOutput">Sélectionnez des tâches puis « Générer ».</div>
+        </div>
+      </section>
+
+      <!-- VUE ADMIN (réservée au compte admin, chiffres et fréquences agrégés uniquement) -->
+      <section class="view-panel hidden" id="viewAdmin">
+        <div class="stats-top-grid" id="adminStatTiles">
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Utilisateurs inscrits</div>
+            <div style="font-size:32px; font-weight:700;" id="adminTotalUsers">--</div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Actifs 24h / 7j</div>
+            <div style="font-size:32px; font-weight:700;" id="adminActiveUsers">-- / --</div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Espaces perso / équipe</div>
+            <div style="font-size:32px; font-weight:700;" id="adminSpaces">-- / --</div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Tâches créées / terminées</div>
+            <div style="font-size:32px; font-weight:700;" id="adminTasks">-- / --</div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Minutes de focus cumulées</div>
+            <div style="font-size:32px; font-weight:700;" id="adminFocusMinutes">--</div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div class="eyebrow" style="font-size:10px;">Sessions de focus</div>
+            <div style="font-size:32px; font-weight:700;" id="adminSessions">--</div>
+          </div>
+        </div>
+        <div class="card" style="padding:20px; margin-bottom:20px;">
+          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+            <h2>Inscriptions (30 derniers jours)</h2>
+          </div>
+          <div class="chart-container" id="adminSignupsChart"></div>
+        </div>
+        <div class="card" style="padding:20px; margin-bottom:20px;">
+          <div class="card-header" style="padding:0 0 12px 0; border:none; display:flex; justify-content:space-between; align-items:center;">
+            <h2>Utilisateurs</h2>
+            <button class="btn-ghost" id="adminRefreshBtn" style="padding:6px 12px; font-size:11px;"><span class="math-icon">⟳︎</span> Actualiser</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="admin-users-table" id="adminUsersTable">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Inscrit le</th>
+                  <th>Dernière activité</th>
+                  <th>Tâches</th>
+                  <th>Focus (min)</th>
+                  <th>Note admin</th>
+                </tr>
+              </thead>
+              <tbody id="adminUsersTableBody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
@@ -3672,6 +3766,9 @@
     // ================================================================
     const SUPABASE_URL = 'https://sybyymvcvmeidyubafzk.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_WszL2k5wYzGE6-pmy-9HAw_QmcvqRPU';
+    // N'affiche que l'onglet Admin côté client — la vraie vérification se fait côté
+    // serveur dans tempo_pro_is_admin(), jamais fiable depuis ce simple comparatif.
+    const ADMIN_EMAIL = 'angesamuelaguy@gmail.com';
     let supa = null;
     try {
       if (window.supabase && window.supabase.createClient) {
@@ -4111,13 +4208,20 @@
 
     function updateAuthUI() {
       const box = $('authStatus');
-      if (!box) return;
-      if (cloudUser) {
-        box.innerHTML = `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;"><span class="math-icon">⇅︎</span> ${escHtml(cloudUser.email)}</span><button class="btn-ghost" id="logoutBtn" style="padding:4px 10px; font-size:11px;">Déconnexion</button>`;
-        $('logoutBtn').addEventListener('click', () => supa && supa.auth.signOut());
-      } else {
-        box.innerHTML = `<button class="btn-ghost" id="loginOpenBtn" style="padding:4px 10px; font-size:11px;"><span class="math-icon">⇅︎</span> Synchroniser</button>`;
-        $('loginOpenBtn').addEventListener('click', openAuthModal);
+      if (box) {
+        if (cloudUser) {
+          box.innerHTML = `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;"><span class="math-icon">⇅︎</span> ${escHtml(cloudUser.email)}</span><button class="btn-ghost" id="logoutBtn" style="padding:4px 10px; font-size:11px;">Déconnexion</button>`;
+          $('logoutBtn').addEventListener('click', () => supa && supa.auth.signOut());
+        } else {
+          box.innerHTML = `<button class="btn-ghost" id="loginOpenBtn" style="padding:4px 10px; font-size:11px;"><span class="math-icon">⇅︎</span> Synchroniser</button>`;
+          $('loginOpenBtn').addEventListener('click', openAuthModal);
+        }
+      }
+      const isAdmin = !!(cloudUser && cloudUser.email && cloudUser.email.toLowerCase() === ADMIN_EMAIL);
+      const adminBtn = $('navAdminBtn');
+      if (adminBtn) adminBtn.classList.toggle('hidden', !isAdmin);
+      if (!isAdmin && !$('viewAdmin').classList.contains('hidden')) {
+        document.querySelector('.nav button[data-view="dashboard"]').click();
       }
     }
 
@@ -5331,6 +5435,89 @@
         `;
         chart.appendChild(wrap);
       }
+    }
+
+    // ================================================================
+    // ADMIN — chiffres et fréquences agrégés de la plateforme (jamais le
+    // contenu des tâches). Réservé au compte ADMIN_EMAIL, vérifié côté
+    // serveur par tempo_pro_is_admin() dans les fonctions RPC appelées ici.
+    // ================================================================
+    async function loadAdminStats() {
+      const body = $('adminUsersTableBody');
+      if (!supa || !cloudUser) {
+        toast('Connectez-vous avec le compte admin pour voir ce tableau de bord.');
+        return;
+      }
+      body.innerHTML = '<tr><td colspan="6" style="color:var(--muted);">Chargement…</td></tr>';
+      const { data, error } = await supa.rpc('tempo_pro_admin_stats');
+      if (error) {
+        body.innerHTML = '<tr><td colspan="6" style="color:var(--danger);">Accès refusé ou erreur de chargement.</td></tr>';
+        return;
+      }
+      renderAdminStats(data);
+    }
+
+    function renderAdminStats(data) {
+      $('adminTotalUsers').textContent = data.totalUsers;
+      $('adminActiveUsers').textContent = `${data.activeUsers24h} / ${data.activeUsers7d}`;
+      $('adminSpaces').textContent = `${data.totalPersonalSpaces} / ${data.totalWorkspaces}`;
+      $('adminTasks').textContent = `${data.totalTasks} / ${data.totalDoneTasks}`;
+      $('adminFocusMinutes').textContent = Math.round(data.totalFocusMinutes);
+      $('adminSessions').textContent = data.totalSessions;
+
+      const chart = $('adminSignupsChart');
+      chart.innerHTML = '';
+      const byDay = {};
+      (data.signupsByDay || []).forEach(s => { byDay[s.day] = s.count; });
+      const maxCount = Math.max(1, ...Object.values(byDay));
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        const dayName = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+        const count = byDay[dateStr] || 0;
+        const heightPct = (count / maxCount) * 100;
+        const wrap = document.createElement('div');
+        wrap.className = 'chart-bar-wrap';
+        wrap.innerHTML = `
+          <div style="font-size:9px; color:var(--primary);">${count > 0 ? count : ''}</div>
+          <div class="chart-bar" style="height:${Math.max(heightPct, 3)}%;"></div>
+          <div class="chart-label">${dayName}</div>
+        `;
+        chart.appendChild(wrap);
+      }
+
+      const body = $('adminUsersTableBody');
+      const users = data.users || [];
+      if (!users.length) {
+        body.innerHTML = '<tr><td colspan="6" style="color:var(--muted);">Aucun utilisateur.</td></tr>';
+        return;
+      }
+      body.innerHTML = users.map(u => `
+        <tr>
+          <td>${escHtml(u.email)}</td>
+          <td>${new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
+          <td>${new Date(u.lastActive).getTime() > 0 ? new Date(u.lastActive).toLocaleDateString('fr-FR') : '—'}</td>
+          <td>${u.taskCount}</td>
+          <td>${Math.round(u.focusMinutes)}</td>
+          <td><input type="text" class="admin-note-input" data-email="${escHtml(u.email)}" value="${escHtml(u.note || '')}" placeholder="Note privée…" /></td>
+        </tr>
+      `).join('');
+      body.querySelectorAll('.admin-note-input').forEach(input => {
+        let debounce = null;
+        input.addEventListener('input', function() {
+          clearTimeout(debounce);
+          const email = this.getAttribute('data-email');
+          const val = this.value;
+          debounce = setTimeout(() => saveAdminNote(email, val), 500);
+        });
+      });
+    }
+
+    async function saveAdminNote(email, note) {
+      if (!supa) return;
+      const { error } = await supa.rpc('tempo_pro_set_admin_note', { target_email: email, note_text: note });
+      if (error) toast('Erreur d\'enregistrement de la note.');
     }
 
     // ================================================================
@@ -7113,8 +7300,9 @@
     ['resetBtn', 'focusPageReset', 'fsReset'].forEach(id => {
       $(id).addEventListener('click', resetTimer);
     });
+    $('adminRefreshBtn').addEventListener('click', loadAdminStats);
 
-    const views = ['dashboard', 'tasks', 'board', 'timeline', 'calendar', 'focus', 'stats'];
+    const views = ['dashboard', 'tasks', 'board', 'timeline', 'calendar', 'focus', 'stats', 'admin'];
     const titles = {
       dashboard: { eye: 'Tableau de bord', h1: 'Opérations du Jour.' },
       tasks: { eye: 'Base de données', h1: 'Centre de Tâches.' },
@@ -7122,7 +7310,8 @@
       timeline: { eye: 'Vue Gantt', h1: 'Timeline.' },
       calendar: { eye: 'Vue chronologique', h1: 'Calendrier.' },
       focus: { eye: 'Deep Work', h1: 'Immersion Active.' },
-      stats: { eye: 'Analytiques', h1: 'Performances.' }
+      stats: { eye: 'Analytiques', h1: 'Performances.' },
+      admin: { eye: 'Administration', h1: 'Activité de la Plateforme.' }
     };
 
     document.querySelectorAll('.nav button').forEach(btn => {
@@ -7145,6 +7334,7 @@
         if (v === 'board') renderBoard();
         if (v === 'timeline') renderTimelineView();
         if (v === 'calendar') renderCalendarView();
+        if (v === 'admin') loadAdminStats();
       });
     });
 
