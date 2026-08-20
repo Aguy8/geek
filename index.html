@@ -1616,6 +1616,134 @@
     }
     .toast-action:hover { background: rgba(0,0,0,0.1); }
 
+    /* ===== INVITE CENTRÉE « DÉMARRER LE SUIVI ? » =====
+       Un toast en coin d'écran passait inaperçu : cette invite demande une vraie
+       décision, elle est donc affichée au centre, au premier plan, avec deux boutons
+       assez grands pour être touchés au pouce sur mobile. */
+    .start-prompt-scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      z-index: 10050;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+    }
+    .start-prompt-scrim.show { opacity: 1; }
+    .start-prompt-scrim.hidden { display: none; }
+    .start-prompt {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 26px 24px 22px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      transform: translateY(10px) scale(0.98);
+      transition: transform 0.18s ease;
+    }
+    .start-prompt-scrim.show .start-prompt { transform: none; }
+    .start-prompt-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .start-prompt-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.35;
+      word-break: break-word;
+      margin-bottom: 6px;
+    }
+    .start-prompt-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .start-prompt-actions { display: grid; gap: 10px; }
+    .start-prompt-actions button {
+      width: 100%;
+      padding: 15px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      color: var(--text);
+      transition: var(--transition);
+    }
+    .start-prompt-actions button:hover { border-color: var(--text-dim); }
+    .start-prompt-actions .sp-primary {
+      background: var(--primary);
+      color: var(--primary-text);
+      border-color: var(--primary);
+    }
+    .start-prompt-actions .sp-primary:hover { filter: brightness(1.08); }
+
+    /* ===== CARTE DE SURVOL DE LA FRISE ===== */
+    .tl-hovercard {
+      position: fixed;
+      z-index: 10040;
+      width: 280px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 12px 14px;
+      font-family: 'Inter', sans-serif;
+      pointer-events: auto;
+    }
+    .tl-hovercard.hidden { display: none; }
+    .tl-hovercard .tlh-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.35;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+    .tl-hovercard .tlh-notes {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      margin-bottom: 10px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tl-hovercard .tlh-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11px;
+      padding: 3px 0;
+    }
+    .tl-hovercard .tlh-label { color: var(--muted); flex-shrink: 0; }
+    .tl-hovercard .tlh-value { color: var(--text); text-align: right; word-break: break-word; }
+    .tl-hovercard .tlh-chrono { color: var(--success); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .tl-hovercard .tlh-expand {
+      width: 100%;
+      margin-top: 10px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      color: var(--text);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .tl-hovercard .tlh-expand:hover { border-color: var(--text-dim); color: var(--text); }
+
     .shortcut-row {
       display: flex;
       justify-content: space-between;
@@ -2515,7 +2643,6 @@
       align-items: center;
       padding: 6px 10px;
       background: var(--surface);
-      border-radius: 4px;
       border-left: 3px solid var(--line);
       font-size: 12px;
     }
@@ -3209,6 +3336,11 @@
               <div class="perf-value" id="perfAccuracy">--</div>
               <div class="perf-sub">part des tâches proches de l'estimation</div>
             </div>
+            <div class="perf-card">
+              <div class="perf-title">Durée d'achèvement</div>
+              <div class="perf-value" id="perfAvgLead">--</div>
+              <div class="perf-sub">du 1<sup>er</sup> démarrage à la fin, hors temps bloqué</div>
+            </div>
           </div>
           <details class="perf-details" id="perfTaskDetails" style="margin-top:16px;">
             <summary class="perf-summary">Détail par tâche terminée<span class="perf-summary-count" id="perfTaskCount"></span></summary>
@@ -3507,6 +3639,22 @@
       <button type="button" class="btn btn-primary" id="dpConfirmBtn" style="padding:6px 16px; font-size:11px;">Valider</button>
     </div>
   </div>
+
+  <!-- INVITE CENTRÉE : proposée à la création d'une tâche, elle démarre son suivi -->
+  <div class="start-prompt-scrim hidden" id="startPromptScrim">
+    <div class="start-prompt" role="dialog" aria-modal="true" aria-labelledby="startPromptTitle">
+      <div class="start-prompt-eyebrow">Démarrer le suivi ?</div>
+      <div class="start-prompt-title" id="startPromptTitle"></div>
+      <div class="start-prompt-sub">Le chronomètre ne démarre que si vous le lancez. Sans suivi, la tâche reste créée mais son temps réel ne sera pas mesuré.</div>
+      <div class="start-prompt-actions">
+        <button type="button" class="sp-primary" id="startPromptGo"><span class="math-icon">▶︎</span> Démarrer le suivi</button>
+        <button type="button" id="startPromptLater">Plus tard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARTE DE SURVOL DE LA FRISE (détails d'une tâche sans quitter la vue) -->
+  <div class="tl-hovercard hidden" id="tlHoverCard"></div>
 
   <!-- POPOVER MENU DÉROULANT EN LIGNE (statut / priorité / catégorie sur les cartes de tâche) -->
   <div class="inline-dropdown-popover hidden" id="inlineDropdownPopover">
@@ -5107,14 +5255,26 @@
       //    les taches reellement chronometrees (timeSpent > 0) : sans temps mesure, il n'y a
       //    rien a comparer a la duree estimee. Ces taches restent listees, marquees
       //    « Non suivi », mais ne faussent pas les moyennes.
+      // 3. La DUREE D'ACHEVEMENT mesure le temps ecoulé entre le tout premier passage en
+      //    « En cours » (trackingStartedAt, jamais réécrit, même si la tâche ressort de
+      //    « Terminée ») et la date de fin, MOINS le temps passé en « Bloquée ». Elle n'existe
+      //    donc que pour les tâches réellement démarrées puis terminées.
       const allDone = state.tasks.filter(t => t.status === 'done');
-      if (!allDone.length) return { count: 0, tracked: 0, groups: [], groupCount: 0 };
+      if (!allDone.length) return { count: 0, tracked: 0, groups: [], groupCount: 0, leadCount: 0, avgLead: 0 };
       const trackedTasks = allDone.filter(t => t.timeSpent > 0);
       const totalEst = trackedTasks.reduce((sum, t) => sum + t.duration * 60 * 1000, 0);
       const totalReal = trackedTasks.reduce((sum, t) => sum + (t.timeSpent || 0) * 1000, 0);
       const avgEst = trackedTasks.length ? totalEst / trackedTasks.length : 0;
       const avgReal = trackedTasks.length ? totalReal / trackedTasks.length : 0;
       const accuracy = totalEst > 0 ? (1 - Math.abs(totalReal - totalEst) / totalEst) * 100 : 0;
+
+      const leadOf = (t) => {
+        if (!t.trackingStartedAt || !t.completedAt) return null;
+        const raw = t.completedAt - t.trackingStartedAt - (t.blockedMs || 0);
+        return raw > 0 ? raw : 0;
+      };
+      const leads = allDone.map(leadOf).filter(v => v !== null);
+      const avgLead = leads.length ? leads.reduce((a, b) => a + b, 0) / leads.length : 0;
 
       // Une tache recurrente reapparait a chaque echeance : listee occurrence par occurrence,
       // elle noierait toutes les autres. On regroupe donc les taches terminees par intitule,
@@ -5131,6 +5291,8 @@
             estMs: 0,
             realMs: 0,
             lastCompletedAt: 0,
+            leadMs: 0,
+            leadCount: 0,
             recurring: false
           };
           groupsByKey.set(key, g);
@@ -5142,6 +5304,8 @@
           g.estMs += t.duration * 60 * 1000;
           g.realMs += (t.timeSpent || 0) * 1000;
         }
+        const lead = leadOf(t);
+        if (lead !== null) { g.leadMs += lead; g.leadCount++; }
         if ((t.completedAt || 0) > g.lastCompletedAt) g.lastCompletedAt = t.completedAt || 0;
       });
       const groups = [...groupsByKey.values()]
@@ -5155,6 +5319,8 @@
         avgReal,
         avgDiff: avgReal - avgEst,
         accuracy: Math.min(100, Math.max(0, accuracy)),
+        avgLead,
+        leadCount: leads.length,
         groupCount: groups.length,
         groups
       };
@@ -5175,6 +5341,9 @@
         $('perfAvgDiff').textContent = '--';
         $('perfAccuracy').textContent = '--';
       };
+      // La durée d'achèvement ne dépend pas du chrono (seulement des dates de début/fin) :
+      // elle est renseignée séparément des moyennes estimé/réel.
+      $('perfAvgLead').textContent = perf.leadCount ? formatDuration(perf.avgLead) : '--';
       if (!perf.count) {
         setBlank();
         $('perfTaskCount').textContent = '';
@@ -6959,10 +7128,14 @@
         toast('Aucune tâche active. Sélectionnez une tâche à suivre.');
         return;
       }
-      // Démarrer le chrono sur une tâche la fait passer "En cours" automatiquement.
+      // Démarrer le chrono sur une tâche la fait passer "En cours" automatiquement — y
+      // compris depuis « Bloquée », dont l'intervalle de blocage est alors refermé.
       const startedTask = state.tasks.find(t => t.id === timer.activeTaskId);
-      if (startedTask && startedTask.status === 'todo') {
+      if (startedTask && startedTask.status !== 'inprogress' && startedTask.status !== 'done') {
         moveTaskToStatus(startedTask.id, 'inprogress');
+        // moveTaskToStatus a déjà relancé le chrono via startTrackingTask : ouvrir un
+        // second intervalle ici compterait le temps en double.
+        if (timer.running) return;
       }
       timer.running = true;
       timer.startTime = Date.now();
@@ -7054,6 +7227,12 @@
       stopTimer();
       // Le suivi demarre : elle n'a plus besoin d'etre epinglee en tete de liste.
       if (state.lastCreatedTaskId === id) state.lastCreatedTaskId = null;
+      // Lancer le suivi fait réellement passer la tâche « En cours » (et referme un éventuel
+      // intervalle de blocage). moveTaskToStatus nous rappellera, statut déjà posé.
+      if (task.status !== 'inprogress') {
+        moveTaskToStatus(id, 'inprogress');
+        return true;
+      }
       if (!state.activeTaskIds.includes(id)) state.activeTaskIds.push(id);
       timer.mode = 'task';
       timer.activeTaskId = id;
@@ -7062,7 +7241,10 @@
       timer.locked = true;
       timer.previewTaskId = null;
       timer.previewUntil = 0;
-      timer.elapsed = 0;
+      // Le chrono reprend exactement où il s'était arrêté : le temps déjà cumulé sur la
+      // tâche est réinjecté dans la session, sinon un retour depuis « Bloquée » ou
+      // « Terminée » repartirait de zéro.
+      timer.elapsed = (task.timeSpent || 0) * 1000;
       timer.notified = false;
       updateTimerTarget();
       startTimer();
@@ -7103,8 +7285,30 @@
       ]).catch(() => null);
     }
 
+    // Invite centrée, au premier plan : un toast en coin passait inaperçu alors que cette
+    // question demande une vraie décision. Ignorer l'invite (clic à côté, Échap, ou
+    // « Plus tard ») revient à ne rien lancer : la tâche attendra le bouton ▶.
+    let startPromptTaskId = null;
+
+    function showStartPrompt(task) {
+      startPromptTaskId = task.id;
+      $('startPromptTitle').textContent = task.title;
+      const scrim = $('startPromptScrim');
+      scrim.classList.remove('hidden');
+      // Deux frames : sans cela la transition d'opacité ne se joue pas au premier affichage.
+      requestAnimationFrame(() => requestAnimationFrame(() => scrim.classList.add('show')));
+    }
+
+    function closeStartPrompt() {
+      const scrim = $('startPromptScrim');
+      if (!scrim || scrim.classList.contains('hidden')) return;
+      scrim.classList.remove('show');
+      startPromptTaskId = null;
+      setTimeout(() => scrim.classList.add('hidden'), 180);
+    }
+
     function offerToStartTracking(task) {
-      toast(`« ${task.title} » ajoutee.`, 'Demarrer le suivi', () => startTrackingTask(task.id));
+      showStartPrompt(task);
       // Notification.requestPermission() doit partir dans le geste utilisateur (le clic sur
       // "Creer") : on l'appelle donc immediatement, sans await prealable.
       requestNotificationPermission(true).then(perm => {
@@ -7348,40 +7552,9 @@
     function toggleTaskStatus(id) {
       const task = state.tasks.find(t => t.id === id);
       if (!task) return;
-      if (task.status === 'done') {
-        task.status = 'todo';
-        task.completedAt = null;
-        logActivity(task, 'Statut : Terminée → À faire.');
-      } else {
-        const blocked = hasIncompleteDependencies(task);
-        task.status = 'done';
-        task.completedAt = Date.now();
-        logActivity(task, 'Statut : → Terminée.');
-        state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
-        if (timer.activeTaskId === id) {
-          timer.activeTaskId = getPrimaryActiveTask()?.id || null;
-          timer.notified = false;
-          hideTaskDetails();
-        }
-        const now = new Date();
-        historyToday().completedTasks.push({
-          title: task.title,
-          time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-        });
-        playBeep();
-        vibrate(120);
-        sendNotification('Tâche terminée', `"${task.title}" est terminée.`);
-        spawnNextRecurrence(task);
-        if (timer.activeTaskId === id) {
-          stopTimer();
-        }
-        if (blocked) toast('Tâche terminée — dépendances non terminées.');
-      }
-      save();
-      renderTasks();
-      renderTimeline();
-      updateTimerTarget();
-      updateDisplays();
+      // La case à cocher bascule simplement entre « Terminée » et « À faire ». Elle passe par
+      // le point d'entrée unique : mêmes effets sur le chrono que depuis le Kanban.
+      moveTaskToStatus(id, task.status === 'done' ? 'todo' : 'done');
     }
 
     // ================================================================
@@ -7396,15 +7569,55 @@
 
     const KANBAN_STATUS_LABELS = { todo: 'À faire', inprogress: 'En cours', done: 'Terminée', blocked: 'Bloquée' };
 
+    // Ferme l'intervalle « bloquée » en cours et cumule sa durée. Le temps passé bloqué est
+    // exclu de la durée d'achèvement analysée : on veut mesurer le temps de travail, pas
+    // l'attente subie.
+    function closeBlockedInterval(task) {
+      if (task.blockedSince) {
+        task.blockedMs = (task.blockedMs || 0) + Math.max(0, Date.now() - task.blockedSince);
+        task.blockedSince = null;
+      }
+    }
+
+    // POINT D'ENTRÉE UNIQUE de tout changement de statut (Kanban, menu en ligne, panneau
+    // d'édition, case à cocher, sous-tâches). Chaque statut a un effet réel sur le chrono :
+    //   • En cours  → démarre (ou reprend) le suivi, le chrono repart où il s'était arrêté
+    //   • Bloquée   → met le temps en pause et ouvre un intervalle de blocage
+    //   • Terminée  → arrête le suivi et fige la date de fin
+    //   • À faire   → arrête le suivi sans effacer le temps déjà cumulé
+    // trackingStartedAt (premier démarrage) n'est jamais réécrit : même si la tâche
+    // ressort de « Terminée », l'analyse part toujours de ce premier démarrage.
     function moveTaskToStatus(id, newStatus) {
       const task = state.tasks.find(t => t.id === id);
       if (!task || task.status === newStatus) return;
-      logActivity(task, `Statut : ${KANBAN_STATUS_LABELS[task.status] || task.status} → ${KANBAN_STATUS_LABELS[newStatus] || newStatus}.`);
+      const prevStatus = task.status;
+      logActivity(task, `Statut : ${KANBAN_STATUS_LABELS[prevStatus] || prevStatus} → ${KANBAN_STATUS_LABELS[newStatus] || newStatus}.`);
+
+      if (prevStatus === 'blocked') closeBlockedInterval(task);
+      // La tâche ressort de « Terminée » : on rouvre la mesure sans toucher au premier
+      // démarrage ni au temps déjà chronométré.
+      if (prevStatus === 'done' && newStatus !== 'done') task.completedAt = null;
+
+      task.status = newStatus;
       let blockedWarning = false;
-      if (newStatus === 'done') {
+
+      if (newStatus === 'inprogress') {
+        if (!task.trackingStartedAt) task.trackingStartedAt = Date.now();
+        // Le statut est déjà posé : startTimer() ne rebouclera pas ici.
+        startTrackingTask(id, { resume: true });
+      } else if (newStatus === 'blocked') {
+        task.blockedSince = Date.now();
+        if (timer.activeTaskId === id && timer.running) stopTimer();
+        state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
+      } else if (newStatus === 'todo') {
+        if (timer.activeTaskId === id && timer.running) stopTimer();
+        state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
+      } else if (newStatus === 'done') {
         task.completedAt = Date.now();
         blockedWarning = hasIncompleteDependencies(task);
+        if (timer.activeTaskId === id && timer.running) stopTimer();
         state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
+        if (state.lastCreatedTaskId === id) state.lastCreatedTaskId = null;
         if (timer.activeTaskId === id) {
           timer.activeTaskId = getPrimaryActiveTask()?.id || null;
           timer.notified = false;
@@ -7419,10 +7632,8 @@
         vibrate(120);
         sendNotification('Tâche terminée', `"${task.title}" est terminée.`);
         spawnNextRecurrence(task);
-        if (timer.activeTaskId === id) stopTimer();
       }
-      if (task.status === 'done' && newStatus !== 'done') task.completedAt = null;
-      task.status = newStatus;
+
       if (blockedWarning) toast('Tâche terminée — dépendances non terminées.');
       save();
       renderBoard();
@@ -7455,6 +7666,93 @@
           </div>
         </div>
       `;
+    }
+
+    // ================================================================
+    // CARTE DE SURVOL DE LA FRISE
+    // Donne l'essentiel sans quitter la vue (titre, description, statut, catégorie,
+    // famille, chrono en cours) et ouvre le panneau détaillé — onglet Suivi compris.
+    // ================================================================
+    let tlHoverTaskId = null;
+    let tlHoverHideTimer = null;
+    let tlHoverChronoTimer = null;
+
+    function tlHoverCardHTML(task) {
+      const fam = (state.familyFieldId && task.customFieldValues)
+        ? (task.customFieldValues[state.familyFieldId] || '') : '';
+      const rows = [];
+      rows.push(`<div class="tlh-row"><span class="tlh-label">Statut</span><span class="tlh-value">${escHtml(KANBAN_STATUS_LABELS[task.status] || task.status)}</span></div>`);
+      rows.push(`<div class="tlh-row"><span class="tlh-label">Catégorie</span><span class="tlh-value">${escHtml(task.category || 'Général')}</span></div>`);
+      if (fam) rows.push(`<div class="tlh-row"><span class="tlh-label">Famille</span><span class="tlh-value">${escHtml(fam)}</span></div>`);
+      if (task.deadline) rows.push(`<div class="tlh-row"><span class="tlh-label">Échéance</span><span class="tlh-value">${escHtml(getDeadlineLabelForTask(task))}</span></div>`);
+      const subtasks = task.subtasks || [];
+      if (subtasks.length) {
+        rows.push(`<div class="tlh-row"><span class="tlh-label">Sous-tâches</span><span class="tlh-value">${subtasks.filter(s => s.done).length}/${subtasks.length}</span></div>`);
+      }
+      if (task.trackingLevels && task.trackingLevels.length) {
+        const cur = task.trackingCurrent != null ? task.trackingCurrent : -1;
+        const lvl = cur >= 0 ? task.trackingLevels[cur] : null;
+        const name = lvl ? (typeof lvl === 'string' ? lvl : lvl.name) : 'Pas commencé';
+        rows.push(`<div class="tlh-row"><span class="tlh-label">Suivi</span><span class="tlh-value">${escHtml(name)} · ${cur >= 0 ? cur + 1 : 0}/${task.trackingLevels.length}</span></div>`);
+      }
+      if (task.status === 'inprogress' || task.timeSpent > 0) {
+        rows.push(`<div class="tlh-row"><span class="tlh-label">Chrono</span><span class="tlh-value tlh-chrono" id="tlhChrono">${escHtml(formatTimeShort(task.timeSpent || 0))}</span></div>`);
+      }
+      return `
+        <div class="tlh-title">${escHtml(task.title)}</div>
+        ${task.notes ? `<div class="tlh-notes">${escHtml(task.notes)}</div>` : ''}
+        ${rows.join('')}
+        <button type="button" class="tlh-expand" data-tlh-expand="${task.id}">Développer les détails</button>
+      `;
+    }
+
+    function positionTlHoverCard(anchorRect) {
+      const card = $('tlHoverCard');
+      const w = card.offsetWidth || 280;
+      const h = card.offsetHeight || 160;
+      let left = anchorRect.left;
+      let top = anchorRect.bottom + 8;
+      if (left + w > window.innerWidth - 8) left = window.innerWidth - w - 8;
+      if (left < 8) left = 8;
+      // Bascule au-dessus de la barre s'il n'y a pas la place en dessous.
+      if (top + h > window.innerHeight - 8) top = Math.max(8, anchorRect.top - h - 8);
+      card.style.left = left + 'px';
+      card.style.top = top + 'px';
+    }
+
+    function showTlHoverCard(barEl) {
+      const id = barEl.getAttribute('data-open-task');
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      clearTimeout(tlHoverHideTimer);
+      tlHoverTaskId = id;
+      const card = $('tlHoverCard');
+      card.innerHTML = tlHoverCardHTML(task);
+      card.classList.remove('hidden');
+      positionTlHoverCard(barEl.getBoundingClientRect());
+      clearInterval(tlHoverChronoTimer);
+      // Rafraîchit le chrono tant que la carte reste ouverte sur la tâche en cours.
+      if (timer.running && timer.activeTaskId === id) {
+        tlHoverChronoTimer = setInterval(() => {
+          const t = state.tasks.find(x => x.id === tlHoverTaskId);
+          const el = $('tlhChrono');
+          if (!t || !el) { clearInterval(tlHoverChronoTimer); return; }
+          el.textContent = formatTimeShort(t.timeSpent || 0);
+        }, 1000);
+      }
+    }
+
+    function hideTlHoverCard(immediate) {
+      clearTimeout(tlHoverHideTimer);
+      const doHide = () => {
+        clearInterval(tlHoverChronoTimer);
+        tlHoverTaskId = null;
+        const card = $('tlHoverCard');
+        if (card) card.classList.add('hidden');
+      };
+      // Petit délai : laisse le temps d'amener le pointeur de la barre vers la carte.
+      if (immediate) doHide();
+      else tlHoverHideTimer = setTimeout(doHide, 220);
     }
 
     function renderBoard() {
@@ -7627,7 +7925,7 @@
               <div class="tl-label-cell" data-open-task="${task.id}" title="${escHtml(task.title)}">${escHtml(task.title)}</div>
               <div class="tl-row-track">
                 ${bgCellsHTML}
-                ${visible ? `<div class="tl-bar ${task.status === 'done' ? 'done' : ''}" data-open-task="${task.id}" style="left:${barLeft}px; width:${barWidth}px; background:${categoryColor(cat)};" title="${escHtml(task.title)}">${hasDeps ? '<span class="math-icon">⛓︎</span>' : ''}${escHtml(task.title)}</div>` : ''}
+                ${visible ? `<div class="tl-bar ${task.status === 'done' ? 'done' : ''}" data-open-task="${task.id}" style="left:${barLeft}px; width:${barWidth}px; background:${categoryColor(cat)};">${hasDeps ? '<span class="math-icon">⛓︎</span>' : ''}${escHtml(task.title)}</div>` : ''}
               </div>
             </div>
           `;
@@ -7756,7 +8054,10 @@
       task.title = $('editTitle').value.trim() || task.title;
       task.duration = +$('editDuration').value;
       task.priority = $('editPriority').value;
-      task.status = $('editStatus').value;
+      // Le statut passe par le point d'entrée unique pour que le panneau d'édition ait
+      // exactement les mêmes effets sur le chrono que le Kanban (appliqué en fin de fonction,
+      // une fois les autres champs enregistrés).
+      const pendingStatus = $('editStatus').value;
       task.category = $('editCategory').value || 'Général';
       task.deadline = resolveDeadline('editDeadlineDate', 'editDeadlineInput');
       task.startDate = $('editStartDate').value || null;
@@ -7779,15 +8080,17 @@
         else task.customFieldValues[fid] = v;
       });
 
-      const dependencyWarning = (before.status !== 'done' && task.status === 'done' && hasIncompleteDependencies(task));
+      const dependencyWarning = (before.status !== 'done' && pendingStatus === 'done' && hasIncompleteDependencies(task));
       if (before.title !== task.title) logActivity(task, `Titre modifié : « ${before.title} » → « ${task.title} ».`);
-      if (before.status !== task.status) logActivity(task, `Statut : ${KANBAN_STATUS_LABELS[before.status] || before.status} → ${KANBAN_STATUS_LABELS[task.status] || task.status}.`);
       if (before.priority !== task.priority) logActivity(task, `Priorité : ${before.priority} → ${task.priority}.`);
       if (before.category !== task.category) logActivity(task, `Catégorie : ${before.category} → ${task.category}.`);
       if ((before.assignee || null) !== (task.assignee || null)) {
         const newLabel = task.assignee ? (memberEmailFor(task.assignee) || 'un membre') : 'personne';
         logActivity(task, `Assigné à ${newLabel}.`);
       }
+      // Applique le statut en dernier : moveTaskToStatus journalise le changement, ajuste le
+      // chrono (démarrage / pause de blocage / fin) et déclenche ses propres rendus.
+      if (pendingStatus && pendingStatus !== task.status) moveTaskToStatus(task.id, pendingStatus);
       save();
       renderTasks();
       closeEditModal();
@@ -8251,6 +8554,40 @@
       if (timer.activeTaskId) togglePinTask(timer.activeTaskId);
     });
 
+    // Survol d'une barre de la frise : carte de details, masquee des qu'on quitte
+    // la barre ET la carte (le delai laisse le temps d'atteindre le bouton).
+    document.addEventListener('mouseover', function(e) {
+      const bar = e.target.closest && e.target.closest('.tl-bar[data-open-task]');
+      if (bar) { showTlHoverCard(bar); return; }
+      if (e.target.closest && e.target.closest('#tlHoverCard')) clearTimeout(tlHoverHideTimer);
+    });
+    document.addEventListener('mouseout', function(e) {
+      const from = e.target.closest && e.target.closest('.tl-bar[data-open-task], #tlHoverCard');
+      if (!from) return;
+      const to = e.relatedTarget;
+      if (to && to.closest && to.closest('.tl-bar[data-open-task], #tlHoverCard')) return;
+      hideTlHoverCard();
+    });
+    $('tlHoverCard').addEventListener('click', function(e) {
+      const btn = e.target.closest('[data-tlh-expand]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-tlh-expand');
+      hideTlHoverCard(true);
+      openEditModal(id);
+    });
+    window.addEventListener('scroll', () => hideTlHoverCard(true), true);
+
+    $('startPromptGo').addEventListener('click', function() {
+      const id = startPromptTaskId;
+      closeStartPrompt();
+      if (id) startTrackingTask(id);
+    });
+    $('startPromptLater').addEventListener('click', closeStartPrompt);
+    $('startPromptScrim').addEventListener('click', function(e) {
+      // Clic sur le fond = « plus tard » : on ne lance rien.
+      if (e.target === this) closeStartPrompt();
+    });
+
     // Boutons des détails en mode immersif
     $('fsDetailsCloseBtn').addEventListener('click', hideTaskDetails);
 
@@ -8405,24 +8742,7 @@
         const allDone = (task.subtasks || []).every(s => s.done);
         if (allDone && task.status !== 'done') {
           if (confirm('Toutes les sous-tâches sont terminées. Marquer la tâche comme terminée ?')) {
-            task.status = 'done';
-            task.completedAt = Date.now();
-            state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== taskId);
-            if (timer.activeTaskId === taskId) {
-              timer.activeTaskId = getPrimaryActiveTask()?.id || null;
-              timer.notified = false;
-              stopTimer();
-              hideTaskDetails();
-            }
-            const now = new Date();
-            historyToday().completedTasks.push({
-              title: task.title,
-              time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-            });
-            playBeep();
-            vibrate(120);
-            sendNotification('Tâche terminée', `"${task.title}" est terminée.`);
-            spawnNextRecurrence(task);
+            moveTaskToStatus(taskId, 'done');
           }
         }
         save();
@@ -8666,6 +8986,10 @@
     }
 
     document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && !$('startPromptScrim').classList.contains('hidden')) {
+        closeStartPrompt();
+        return;
+      }
       if (e.key === 'Escape' && !$('datePickerPopover').classList.contains('hidden')) {
         closeDatePicker();
         return;
