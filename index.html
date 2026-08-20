@@ -3047,6 +3047,8 @@
                   <option value="Urgent">Urgent</option>
                 </select>
                 <select id="taskFamily" class="field" title="Famille"></select>
+                <button type="button" class="field date-picker-btn" id="taskStartDateBtn" data-picker="taskStartDate" data-placeholder="Date de début (programmer)" title="Programmer un démarrage automatique du suivi à cette date">Date de début (programmer)</button>
+                <input type="hidden" id="taskStartDate" />
                 <input type="text" class="field" id="taskDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
                 <button type="button" class="field date-picker-btn" id="taskDeadlineDateBtn" data-picker="taskDeadlineDate" data-related="taskDeadlineInput" title="Ou choisir une date et heure d'échéance précises">Date précise</button>
                 <input type="hidden" id="taskDeadlineDate" />
@@ -7164,7 +7166,12 @@
           if (activeTask) {
             activeTask.timeSpent = (activeTask.timeSpent || 0) + 5;
           }
-          historyToday().focusSecs += 5;
+          // Une pause est un temps de repos, pas de concentration : elle ne doit jamais
+          // gonfler le "temps de concentration" du jour, sous peine de fausser complètement
+          // ce que ce chiffre est censé mesurer.
+          if (timer.mode !== 'pause') {
+            historyToday().focusSecs += 5;
+          }
           save();
         }
         updateDisplays();
@@ -7464,6 +7471,27 @@
     }
 
     // ================================================================
+    // DÉMARRAGE AUTOMATIQUE DES TÂCHES PROGRAMMÉES (date de début choisie
+    // à la création ou dans le panneau d'édition). Contrairement à une tâche
+    // juste créée (qui attend toujours un geste explicite), une date de début
+    // est un engagement conscient : le suivi démarre tout seul à cette heure-là,
+    // sans qu'on ait besoin de rappuyer sur ▶.
+    // ================================================================
+    function checkScheduledStarts() {
+      const now = Date.now();
+      state.tasks.forEach(t => {
+        if (t.status === 'done' || !t.startDate || t.autoStartFired) return;
+        if (new Date(t.startDate).getTime() > now) return;
+        t.autoStartFired = true;
+        if (t.status !== 'inprogress' || timer.activeTaskId !== t.id || !timer.running) {
+          startTrackingTask(t.id);
+          toast(`« ${t.title} » démarrée automatiquement (heure programmée atteinte).`);
+          sendNotification('Suivi démarré', `« ${t.title} » a démarré automatiquement — heure de début programmée atteinte.`);
+        }
+      });
+    }
+
+    // ================================================================
     // CRUD TÂCHES
     // ================================================================
     function createTaskObject(overrides) {
@@ -7486,7 +7514,8 @@
         activity: [],
         customFieldValues: {},
         dependsOn: [],
-        startDate: null
+        startDate: null,
+        autoStartFired: false
       }, overrides);
     }
 
@@ -7494,6 +7523,7 @@
       const title = $('taskInput').value.trim();
       if (!title) return;
       const deadline = resolveDeadline('taskDeadlineDate', 'taskDeadlineInput');
+      const startDate = ($('taskStartDate') && $('taskStartDate').value) || null;
       const familyValue = $('taskFamily') && $('taskFamily').value !== '__new__' ? $('taskFamily').value : '';
       const newTask = createTaskObject({
         title,
@@ -7501,6 +7531,7 @@
         priority: $('taskPriority').value,
         category: $('taskCategory').value || 'Général',
         deadline: deadline,
+        startDate: startDate,
         repeat: $('taskRepeat')?.value || 'none',
         assignee: (activeWorkspaceId && $('taskAssignee')?.value) || null,
         customFieldValues: (state.familyFieldId && familyValue) ? { [state.familyFieldId]: familyValue } : {}
@@ -7519,8 +7550,17 @@
       $('taskInput').value = '';
       $('taskDeadlineInput').value = '';
       setDatePickerField('taskDeadlineDate', 'taskDeadlineDateBtn', null);
+      $('taskStartDate').value = '';
+      setDatePickerField('taskStartDate', 'taskStartDateBtn', null, 'Date de début (programmer)');
       if ($('taskAssignee')) $('taskAssignee').value = '';
-      offerToStartTracking(newTask);
+      // Une tâche "programmée" (date de début choisie) n'a pas besoin qu'on lui demande de
+      // démarrer maintenant : elle démarrera toute seule à l'heure prévue (checkScheduledStarts),
+      // sauf si cette heure est déjà passée, auquel cas on la démarre tout de suite.
+      if (startDate) {
+        if (new Date(startDate).getTime() <= Date.now()) startTrackingTask(newTask.id);
+      } else {
+        offerToStartTracking(newTask);
+      }
     }
 
     function deleteTask(id) {
@@ -8060,7 +8100,11 @@
       const pendingStatus = $('editStatus').value;
       task.category = $('editCategory').value || 'Général';
       task.deadline = resolveDeadline('editDeadlineDate', 'editDeadlineInput');
-      task.startDate = $('editStartDate').value || null;
+      const newStartDate = $('editStartDate').value || null;
+      // Reprogrammer une nouvelle date de début doit pouvoir redéclencher le démarrage
+      // automatique, même si une précédente date programmée avait déjà été traitée.
+      if (newStartDate !== task.startDate) task.autoStartFired = false;
+      task.startDate = newStartDate;
       task.notes = $('editNotes').value;
       if ($('editRepeat')) task.repeat = $('editRepeat').value;
       if (activeWorkspaceId && $('editAssignee')) task.assignee = $('editAssignee').value || null;
@@ -9317,6 +9361,7 @@
     updateFullscreenInfo();
     initCloudAuth();
     checkUpcomingDeadlines();
+    checkScheduledStarts();
     updateMobileBarOffsets();
     setTimeout(updateMobileBarOffsets, 300);
     window.addEventListener('resize', updateMobileBarOffsets);
@@ -9324,6 +9369,7 @@
     setInterval(() => {
       updateStatusBar();
       checkUpcomingDeadlines();
+      checkScheduledStarts();
       if (!timer.running) updateClock();
       // Ne reconstruit ces mini-listes que si leur zone est réellement visible à l'écran :
       // les rebâtir chaque seconde alors que l'utilisateur consulte un autre onglet mobile
