@@ -3596,7 +3596,26 @@
     // ÉTAT
     // ================================================================
     const STORE_KEY = 'tempo_pro_db_v8';
-    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // Clé de journée en heure LOCALE. toISOString() renvoie la date UTC : pour tout fuseau
+    // décalé, le temps passé juste après minuit local était encore compté la veille.
+    function dayKey(date) {
+      const d = date || new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    // Fiche du jour COURANT, créée à la volée. La clé du jour était auparavant figée au
+    // chargement de la page : une app laissée ouverte (c'est un minuteur, c'est le cas normal)
+    // continuait après minuit d'écrire son temps de concentration et ses tâches achevées
+    // dans la journée de la veille, sans jamais le signaler.
+    function historyToday() {
+      const key = dayKey();
+      if (!state.history) state.history = {};
+      if (!state.history[key]) {
+        state.history[key] = { focusSecs: 0, sessions: 0, completedTasks: [] };
+      }
+      return state.history[key];
+    }
 
     const defaultState = {
       tasks: [],
@@ -3607,9 +3626,7 @@
 
     let state = JSON.parse(localStorage.getItem(STORE_KEY)) || defaultState;
 
-    if (!state.history[todayStr]) {
-      state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
-    }
+    historyToday();
     if (!state.activeTaskIds) state.activeTaskIds = [];
     if (!state.dailyGoalMin) state.dailyGoalMin = 120;
     if (!state.customFields) state.customFields = [];
@@ -4070,6 +4087,10 @@
       supa = null;
     }
 
+    // Registration du service worker, renseignee au chargement (cf. bas de fichier) : c'est
+    // le seul canal capable d'afficher une notification sur Android.
+    let swRegistration = null;
+
     const CLIENT_ID = Math.random().toString(36).slice(2);
     let cloudUser = null;
     let cloudSaveTimeout = null;
@@ -4143,7 +4164,7 @@
       if (!state.dailyGoalMin) state.dailyGoalMin = 120;
       if (!state.customFields) state.customFields = [];
       if (!state.history) state.history = {};
-      if (!state.history[todayStr]) state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
+      historyToday();
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
       stopTimer();
       timer.mode = 'task';
@@ -4337,12 +4358,12 @@
     function loadDailyNote() {
       const ta = $('dailyNoteText');
       if (!ta) return;
-      ta.value = (state.dailyNotes && state.dailyNotes[todayStr]) || '';
+      ta.value = (state.dailyNotes && state.dailyNotes[dayKey()]) || '';
     }
     let dailyNoteSavedTimer = null;
     function saveDailyNote(text) {
       if (!state.dailyNotes) state.dailyNotes = {};
-      state.dailyNotes[todayStr] = text;
+      state.dailyNotes[dayKey()] = text;
       save();
       const saved = $('dnSaved');
       if (saved) {
@@ -4894,7 +4915,7 @@
         if (t.status === 'done') return false;
         return t.deadline && getDeadlineStatus(t.deadline) === 'overdue';
       }).length;
-      const doneToday = state.history[todayStr]?.completedTasks?.length || 0;
+      const doneToday = historyToday().completedTasks.length;
       $('fsInProgress').textContent = inProgress;
       $('fsOverdue').textContent = overdue;
       $('fsDoneToday').textContent = doneToday;
@@ -4986,11 +5007,11 @@
       let cursor = new Date();
       // Si aucune session aujourd'hui, on commence à compter depuis hier
       // (la journée en cours n'est pas encore "manquée").
-      if (!state.history[todayStr] || state.history[todayStr].focusSecs <= 0) {
+      if (historyToday().focusSecs <= 0) {
         cursor.setDate(cursor.getDate() - 1);
       }
       for (let i = 0; i < 3650; i++) {
-        const key = cursor.toISOString().slice(0, 10);
+        const key = dayKey(cursor);
         const day = state.history[key];
         if (day && day.focusSecs > 0) {
           streak++;
@@ -5004,7 +5025,7 @@
 
     function renderGoalProgress() {
       const goalMs = (state.dailyGoalMin || 120) * 60 * 1000;
-      const focusMs = (state.history[todayStr]?.focusSecs || 0) * 1000;
+      const focusMs = historyToday().focusSecs * 1000;
       const pct = goalMs > 0 ? Math.min(100, Math.round((focusMs / goalMs) * 100)) : 0;
       const fill = $('dailyGoalFill');
       if (fill) fill.style.width = pct + '%';
@@ -5273,7 +5294,7 @@
       }).format(new Date());
       const name = getDisplayName();
       $('homeGreeting').textContent = greetingWord() + (name ? `, ${name}` : '');
-      const doneToday = (state.history[todayStr]?.completedTasks || []).length;
+      const doneToday = historyToday().completedTasks.length;
       $('homeTasksDoneToday').textContent = doneToday;
       const collabStat = $('homeCollabStat');
       if (activeWorkspaceId && currentWorkspaceMembers.length) {
@@ -6003,6 +6024,15 @@
         timeSpent: 0,
         completedAt: null,
         deadline: nextDeadline,
+        // La nouvelle occurrence repart vierge : elle heritait jusqu'ici du journal
+        // d'activite, des commentaires et de l'avancement de l'occurrence precedente.
+        // Les niveaux de suivi sont conserves (ils servent de modele d'etapes) mais remis a zero.
+        comments: [],
+        activity: [],
+        trackingCurrent: -1,
+        trackingLevels: (task.trackingLevels || []).map(l => (
+          typeof l === 'string' ? { name: l, notes: [] } : { name: l.name, notes: [] }
+        )),
         subtasks: (task.subtasks || []).map(s => ({ ...s, id: Date.now().toString() + Math.random().toString(36).slice(2), done: false }))
       };
       state.tasks.unshift(nextTask);
@@ -6012,7 +6042,7 @@
     // TIMELINE
     // ================================================================
     function renderTimeline() {
-      const logs = state.history[todayStr].completedTasks || [];
+      const logs = historyToday().completedTasks;
       if (!logs.length) {
         $('timeline').innerHTML = '<div style="color:var(--muted); font-size:12px; padding:10px;">Journal vide.</div>';
         return;
@@ -6039,7 +6069,7 @@
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().slice(0, 10);
+        const dateStr = dayKey(d);
         const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' });
         const minutes = state.history[dateStr] ? Math.floor(state.history[dateStr].focusSecs / 60) : 0;
         const heightPct = Math.min((minutes / 240) * 100, 100);
@@ -6156,7 +6186,7 @@
       let maxSecs = 0;
       const cursor = new Date(rangeStart);
       while (cursor <= today) {
-        const key = cursor.toISOString().slice(0, 10);
+        const key = dayKey(cursor);
         const secs = state.history[key]?.focusSecs || 0;
         days.push({ date: new Date(cursor), key, secs });
         if (secs > maxSecs) maxSecs = secs;
@@ -6209,16 +6239,16 @@
       }
 
       let acc = 0;
-      const stops = entries.map(([, secs], i) => {
-        const color = CATEGORY_PALETTE[i % CATEGORY_PALETTE.length];
+      const stops = entries.map(([cat, secs]) => {
+        const color = categoryColor(cat);
         const from = acc;
         acc += (secs / totalSecs) * 100;
         return `${color} ${from}% ${acc}%`;
       }).join(', ');
       donut.style.background = `conic-gradient(${stops})`;
       center.innerHTML = `<strong>${formatTimeShort(totalSecs)}</strong><small>au total</small>`;
-      legend.innerHTML = entries.map(([cat, secs], i) => {
-        const color = CATEGORY_PALETTE[i % CATEGORY_PALETTE.length];
+      legend.innerHTML = entries.map(([cat, secs]) => {
+        const color = categoryColor(cat);
         const pct = Math.round((secs / totalSecs) * 100);
         return `<div class="cat-legend-item"><span class="cat-legend-dot" style="background:${color};"></span><span class="cat-legend-label">${escHtml(cat)}</span><span class="cat-legend-value">${formatTimeShort(secs)} · ${pct}%</span></div>`;
       }).join('');
@@ -6443,7 +6473,7 @@
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `tempo_pro_backup_${todayStr}.json`;
+      link.download = `tempo_pro_backup_${dayKey()}.json`;
       link.click();
       URL.revokeObjectURL(link.href);
       toast('Sauvegarde JSON téléchargée.');
@@ -6465,7 +6495,7 @@
           }
           if (!state.activeTaskIds) state.activeTaskIds = [];
           if (!state.dailyGoalMin) state.dailyGoalMin = 120;
-          if (!state.history[todayStr]) state.history[todayStr] = { focusSecs: 0, sessions: 0, completedTasks: [] };
+          historyToday();
           save();
           stopTimer();
           timer.mode = 'task';
@@ -6801,10 +6831,11 @@
           fsPinBtn.classList.add('hidden');
         }
       }
-      $('focusToday').textContent = Math.floor(state.history[todayStr].focusSecs / 60) + 'm';
-      $('sessionCount').textContent = state.history[todayStr].sessions;
+      const todayHistory = historyToday();
+      $('focusToday').textContent = Math.floor(todayHistory.focusSecs / 60) + 'm';
+      $('sessionCount').textContent = todayHistory.sessions;
       $('statsFocus').textContent = $('focusToday').textContent;
-      $('statsSessions').textContent = state.history[todayStr].sessions;
+      $('statsSessions').textContent = todayHistory.sessions;
       renderGoalProgress();
       updateStatusBar();
       // Ces deux listes ne sont reconstruites que si leur zone est visible : pendant un focus
@@ -6845,7 +6876,7 @@
           toast('Temps écoulé !');
           sendNotification('Temps écoulé', 'La tâche active est maintenant en dépassement.');
           vibrate([200, 100, 200]);
-          state.history[todayStr].sessions = (state.history[todayStr].sessions || 0) + 1;
+          historyToday().sessions = (historyToday().sessions || 0) + 1;
           save();
         }
         ticks++;
@@ -6854,7 +6885,7 @@
           if (activeTask) {
             activeTask.timeSpent = (activeTask.timeSpent || 0) + 5;
           }
-          state.history[todayStr].focusSecs += 5;
+          historyToday().focusSecs += 5;
           save();
         }
         updateDisplays();
@@ -6908,6 +6939,51 @@
       toast(soundEnabled ? 'Son activé.' : 'Son coupé.');
     }
 
+    // Demarre reellement le suivi d'une tache donnee (equivalent du bouton Demarrer / play).
+    // Utilise par la notification « Demarrer le suivi ? » et par le bouton du toast.
+    function startTrackingTask(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) { toast("Cette tache n'existe plus."); return false; }
+      if (task.status === 'done') { toast(`« ${task.title} » est deja terminee.`); return false; }
+      stopTimer();
+      if (!state.activeTaskIds.includes(id)) state.activeTaskIds.push(id);
+      timer.mode = 'task';
+      timer.activeTaskId = id;
+      // Epinglee : sans ce verrou, le suivi automatique de « la tache la plus imminente »
+      // reprendrait la main sur le grand chrono juste apres le demarrage.
+      timer.locked = true;
+      timer.previewTaskId = null;
+      timer.previewUntil = 0;
+      timer.elapsed = 0;
+      timer.notified = false;
+      updateTimerTarget();
+      startTimer();
+      save();
+      renderTasks();
+      updateDisplays();
+      return true;
+    }
+
+    // Une tache fraichement creee est prevusualisee 7 s sur le grand chrono mais SON SUIVI
+    // N'EST PAS LANCE : on propose explicitement de le demarrer, dans l'app (toast) et par
+    // notification systeme (utile quand l'ecran est verrouille ou l'app en arriere-plan).
+    // Sans reponse, la tache attend simplement un appui sur Demarrer.
+    function offerToStartTracking(task) {
+      toast(`« ${task.title} » ajoutee.`, 'Demarrer le suivi', () => startTrackingTask(task.id));
+      requestNotificationPermission(true).then(() => {
+        sendNotification('Demarrer le suivi ?', `« ${task.title} » est prete. Touchez pour lancer le chrono.`, {
+          tag: 'start-task-' + task.id,
+          requireInteraction: true,
+          data: { appAction: 'start-task', taskId: task.id },
+          actions: [
+            { action: 'start', title: 'Demarrer' },
+            { action: 'later', title: 'Plus tard' }
+          ],
+          onClick: () => startTrackingTask(task.id)
+        });
+      });
+    }
+
     function stopTimer() {
       if (!timer.running) return;
       timer.running = false;
@@ -6951,16 +7027,60 @@
       toast('Mode Chrono libre — le temps s\'écoule librement.');
     }
 
-    function requestNotificationPermission() {
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+    // La demande de permission doit partir d'un GESTE utilisateur : lancée au chargement de
+    // la page, elle etait rejetee d'office par les navigateurs (Firefox la refuse, Safari
+    // l'ignore), et toutes les notifications de l'app restaient donc sans aucun effet — sans
+    // le moindre message d'erreur.
+    function requestNotificationPermission(fromUserGesture) {
+      if (!('Notification' in window)) return Promise.resolve('unsupported');
+      if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+      if (!fromUserGesture) return Promise.resolve('default');
+      try {
+        const result = Notification.requestPermission();
+        // Safari ancien : API a callback, sans promesse de retour.
+        return (result && typeof result.then === 'function')
+          ? result
+          : new Promise(resolve => Notification.requestPermission(resolve));
+      } catch (e) {
+        console.warn('Demande de permission de notification impossible.', e);
+        return Promise.resolve('denied');
       }
     }
-    requestNotificationPermission();
 
-    function sendNotification(title, body) {
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⊙︎</text></svg>' });
+    function sendNotification(title, body, options) {
+      const opts = options || {};
+      if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+      const payload = {
+        body,
+        icon: 'icon-192.png',
+        badge: 'icon-192.png',
+        data: opts.data || {},
+        requireInteraction: !!opts.requireInteraction
+      };
+      if (opts.tag) { payload.tag = opts.tag; payload.renotify = true; }
+      // Sur Android, `new Notification()` leve une TypeError : seul le service worker peut
+      // afficher une notification. On passe donc par lui des qu'il est disponible — c'est
+      // aussi le seul canal qui accepte des boutons d'action.
+      if (swRegistration && swRegistration.showNotification) {
+        const swPayload = Object.assign({}, payload);
+        if (opts.actions) swPayload.actions = opts.actions;
+        swRegistration.showNotification(title, swPayload)
+          .catch(e => console.warn('Notification (service worker) non affichee.', e));
+        return true;
+      }
+      try {
+        const notif = new Notification(title, payload);
+        if (opts.onClick) {
+          notif.onclick = function() {
+            try { window.focus(); } catch (e) {}
+            notif.close();
+            opts.onClick();
+          };
+        }
+        return true;
+      } catch (e) {
+        console.warn('Notification non affichee.', e);
+        return false;
       }
     }
 
@@ -7045,7 +7165,7 @@
       $('taskDeadlineInput').value = '';
       setDatePickerField('taskDeadlineDate', 'taskDeadlineDateBtn', null);
       if ($('taskAssignee')) $('taskAssignee').value = '';
-      toast('Tâche ajoutée.');
+      offerToStartTracking(newTask);
     }
 
     function deleteTask(id) {
@@ -7092,7 +7212,7 @@
           hideTaskDetails();
         }
         const now = new Date();
-        state.history[todayStr].completedTasks.push({
+        historyToday().completedTasks.push({
           title: task.title,
           time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
         });
@@ -7139,7 +7259,7 @@
           hideTaskDetails();
         }
         const now = new Date();
-        state.history[todayStr].completedTasks.push({
+        historyToday().completedTasks.push({
           title: task.title,
           time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
         });
@@ -8144,7 +8264,7 @@
               hideTaskDetails();
             }
             const now = new Date();
-            state.history[todayStr].completedTasks.push({
+            historyToday().completedTasks.push({
               title: task.title,
               time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
             });
@@ -8501,7 +8621,7 @@
     });
 
     $('clearTimelineBtn').addEventListener('click', function() {
-      state.history[todayStr].completedTasks = [];
+      historyToday().completedTasks = [];
       save();
       renderTimeline();
       toast('Journal purgé.');
@@ -8744,9 +8864,23 @@
     // ================================================================
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(e => {
-          console.warn('Service worker non enregistré (mode hors-ligne indisponible).', e);
-        });
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => { swRegistration = reg; })
+          .catch(e => {
+            console.warn('Service worker non enregistre (mode hors-ligne indisponible).', e);
+          });
+      });
+      navigator.serviceWorker.ready
+        .then(reg => { swRegistration = swRegistration || reg; })
+        .catch(() => {});
+      // Clic sur la notification « Demarrer le suivi ? » : le service worker nous relaie
+      // l'action, on lance alors le chrono exactement comme un appui sur Demarrer.
+      navigator.serviceWorker.addEventListener('message', event => {
+        const msg = event.data || {};
+        if (msg.type !== 'notification-action') return;
+        if (msg.appAction === 'start-task' && msg.action !== 'later' && msg.taskId) {
+          startTrackingTask(msg.taskId);
+        }
       });
     }
   </script>
