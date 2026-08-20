@@ -2524,6 +2524,48 @@
     .perf-item .perf-item-diff.early { color: var(--success); }
     .perf-item .perf-item-diff.late { color: var(--danger); }
     .perf-item .perf-item-diff.on-time { color: var(--warning); }
+    .perf-details {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+    .perf-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      list-style: none;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      user-select: none;
+    }
+    .perf-summary::-webkit-details-marker { display: none; }
+    .perf-summary::before {
+      content: '\25B8';
+      font-size: 10px;
+      transition: transform 0.15s ease;
+    }
+    .perf-details[open] .perf-summary::before { transform: rotate(90deg); }
+    .perf-summary:hover { color: var(--text); }
+    .perf-summary-count {
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--muted);
+    }
+    .perf-item-title-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .perf-repeat-badge {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--surface-3);
+      border-radius: 4px;
+      padding: 1px 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
 
     /* ===== HEATMAP D'ASSIDUITÉ ===== */
     .heatmap-wrap {
@@ -2885,6 +2927,8 @@
                   <option value="none">Ne pas répéter</option>
                   <option value="daily">Répéter chaque jour</option>
                   <option value="weekly">Répéter chaque semaine</option>
+                  <option value="monthly">Répéter chaque mois</option>
+                  <option value="yearly">Répéter chaque année</option>
                 </select>
                 <select id="taskAssignee" class="field hidden" title="Assigner à">
                   <option value="">Non assigné</option>
@@ -3166,11 +3210,11 @@
               <div class="perf-sub">part des tâches proches de l'estimation</div>
             </div>
           </div>
-          <div style="margin-top:16px;">
-            <div class="perf-title" style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Détail par tâche terminée</div>
-            <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px; line-height:1.5;" id="perfTaskListNote"></div>
+          <details class="perf-details" id="perfTaskDetails" style="margin-top:16px;">
+            <summary class="perf-summary">Détail par tâche terminée<span class="perf-summary-count" id="perfTaskCount"></span></summary>
+            <div style="font-size:11px; color:var(--text-dim); margin:8px 0; line-height:1.5;" id="perfTaskListNote"></div>
             <div class="perf-list" id="perfTaskList"></div>
-          </div>
+          </details>
         </div>
         <div class="card" style="padding:20px;">
           <div class="card-header" style="padding:0 0 12px 0; border:none;">
@@ -3348,6 +3392,8 @@
             <option value="none">Ne pas répéter</option>
             <option value="daily">Répéter chaque jour</option>
             <option value="weekly">Répéter chaque semaine</option>
+            <option value="monthly">Répéter chaque mois</option>
+            <option value="yearly">Répéter chaque année</option>
           </select>
         </div>
 
@@ -5053,39 +5099,64 @@
     // PERFORMANCE / ANALYTIQUES
     // ================================================================
     function computePerformance() {
-      // Le seul critère pour qu'une tâche apparaisse dans l'analytique est son statut :
-      // "terminée". Les moyennes chiffrées (temps réel, écart, précision) ne peuvent en
-      // revanche porter que sur les tâches réellement chronométrées (timeSpent > 0) — on ne
-      // peut pas comparer une durée estimée à un temps réel qui n'a jamais été mesuré.
+      // CRITERES D'ANALYSE
+      // 1. Une tache entre dans l'analytique des lors que son statut est « Terminee ».
+      //    C'est le seul critere d'inclusion, quelle que soit la maniere dont elle a ete
+      //    terminee (case cochee, glissee dans la colonne Terminee, sous-taches achevees).
+      // 2. Les moyennes chiffrees (temps reel, ecart, precision) ne peuvent porter que sur
+      //    les taches reellement chronometrees (timeSpent > 0) : sans temps mesure, il n'y a
+      //    rien a comparer a la duree estimee. Ces taches restent listees, marquees
+      //    « Non suivi », mais ne faussent pas les moyennes.
       const allDone = state.tasks.filter(t => t.status === 'done');
-      if (!allDone.length) return { count: 0, totalDone: 0, tracked: 0, tasks: [] };
+      if (!allDone.length) return { count: 0, tracked: 0, groups: [], groupCount: 0 };
       const trackedTasks = allDone.filter(t => t.timeSpent > 0);
       const totalEst = trackedTasks.reduce((sum, t) => sum + t.duration * 60 * 1000, 0);
       const totalReal = trackedTasks.reduce((sum, t) => sum + (t.timeSpent || 0) * 1000, 0);
       const avgEst = trackedTasks.length ? totalEst / trackedTasks.length : 0;
       const avgReal = trackedTasks.length ? totalReal / trackedTasks.length : 0;
-      const avgDiff = avgReal - avgEst;
       const accuracy = totalEst > 0 ? (1 - Math.abs(totalReal - totalEst) / totalEst) * 100 : 0;
-      // La liste de détail n'a pas besoin de remonter tout l'historique : avec des tâches
-      // récurrentes complétées régulièrement, elle grossirait indéfiniment. On ne montre que
-      // les plus récentes (les moyennes ci-dessus, elles, portent sur toutes les tâches suivies).
-      const PERF_LIST_LIMIT = 15;
-      const sortedTasks = [...allDone].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+
+      // Une tache recurrente reapparait a chaque echeance : listee occurrence par occurrence,
+      // elle noierait toutes les autres. On regroupe donc les taches terminees par intitule,
+      // et une ligne unique porte le cumul de ses occurrences.
+      const groupsByKey = new Map();
+      allDone.forEach(t => {
+        const key = (t.title || '').trim().toLowerCase();
+        let g = groupsByKey.get(key);
+        if (!g) {
+          g = {
+            title: t.title,
+            occurrences: 0,
+            trackedCount: 0,
+            estMs: 0,
+            realMs: 0,
+            lastCompletedAt: 0,
+            recurring: false
+          };
+          groupsByKey.set(key, g);
+        }
+        g.occurrences++;
+        if (t.repeat && t.repeat !== 'none') g.recurring = true;
+        if (t.timeSpent > 0) {
+          g.trackedCount++;
+          g.estMs += t.duration * 60 * 1000;
+          g.realMs += (t.timeSpent || 0) * 1000;
+        }
+        if ((t.completedAt || 0) > g.lastCompletedAt) g.lastCompletedAt = t.completedAt || 0;
+      });
+      const groups = [...groupsByKey.values()]
+        .map(g => Object.assign(g, { diffMs: g.trackedCount ? (g.realMs - g.estMs) / g.trackedCount : 0 }))
+        .sort((a, b) => b.lastCompletedAt - a.lastCompletedAt);
+
       return {
         count: allDone.length,
-        totalDone: allDone.length,
         tracked: trackedTasks.length,
         avgEst,
         avgReal,
-        avgDiff,
+        avgDiff: avgReal - avgEst,
         accuracy: Math.min(100, Math.max(0, accuracy)),
-        tasks: sortedTasks.slice(0, PERF_LIST_LIMIT).map(t => ({
-          title: t.title,
-          tracked: t.timeSpent > 0,
-          est: t.duration * 60 * 1000,
-          real: (t.timeSpent || 0) * 1000,
-          diff: (t.timeSpent || 0) * 1000 - t.duration * 60 * 1000
-        }))
+        groupCount: groups.length,
+        groups
       };
     }
 
@@ -5098,58 +5169,66 @@
         renderCategoryBreakdown();
       }
       const perf = computePerformance();
-      if (!perf.count) {
+      const setBlank = () => {
         $('perfAvgEst').textContent = '--';
         $('perfAvgReal').textContent = '--';
         $('perfAvgDiff').textContent = '--';
         $('perfAccuracy').textContent = '--';
+      };
+      if (!perf.count) {
+        setBlank();
+        $('perfTaskCount').textContent = '';
         $('perfTaskList').innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucune tâche terminée.</div>';
-        $('perfTaskListNote').textContent = '';
+        $('perfTaskListNote').textContent = 'Une tâche est analysée dès qu\'elle passe au statut « Terminée ».';
         return;
       }
-      const notes = [];
+      $('perfTaskCount').textContent = perf.groupCount === perf.count
+        ? `(${perf.count})`
+        : `(${perf.groupCount} intitulés · ${perf.count} tâches)`;
+      const notes = ["Une tâche est analysée dès qu'elle passe au statut « Terminée »."];
       if (perf.tracked < perf.count) {
         notes.push(perf.tracked
-          ? `${perf.tracked} sur ${perf.count} tâche(s) terminée(s) ont un temps réellement suivi au chrono ; les moyennes ci-dessus ne portent que sur celles-ci.`
-          : `Aucune de vos ${perf.count} tâche(s) terminée(s) n'a été suivie avec le chrono (bouton ▶ / Focus) — les moyennes ci-dessus ne peuvent donc pas être calculées.`);
+          ? `Les moyennes ci-dessus ne portent que sur les ${perf.tracked} tâche(s) suivie(s) au chrono sur ${perf.count} : sans temps mesuré, il n'y a rien à comparer à la durée estimée.`
+          : `Aucune de vos ${perf.count} tâche(s) terminée(s) n'a été suivie au chrono (bouton ▶), les moyennes ci-dessus ne peuvent donc pas être calculées.`);
       }
-      if (perf.count > perf.tasks.length) {
-        notes.push(`Les ${perf.tasks.length} plus récentes sont affichées ci-dessous.`);
+      if (perf.groupCount < perf.count) {
+        notes.push('Les occurrences répétées d\'un même intitulé sont regroupées sur une seule ligne.');
       }
       $('perfTaskListNote').textContent = notes.join(' ');
       if (perf.tracked) {
         $('perfAvgEst').textContent = formatDuration(perf.avgEst);
         $('perfAvgReal').textContent = formatDuration(perf.avgReal);
         const diffEl = $('perfAvgDiff');
-        const diffText = perf.avgDiff > 0 ? `+${formatDuration(perf.avgDiff)}` : formatDuration(perf.avgDiff);
-        diffEl.textContent = diffText;
+        diffEl.textContent = perf.avgDiff > 0 ? `+${formatDuration(perf.avgDiff)}` : formatDuration(perf.avgDiff);
         diffEl.className = 'perf-value ' + (perf.avgDiff > 0 ? 'bad' : perf.avgDiff < 0 ? 'good' : 'neutral');
         const accEl = $('perfAccuracy');
         accEl.textContent = Math.round(perf.accuracy) + '%';
         accEl.className = 'perf-value ' + (perf.accuracy >= 90 ? 'good' : perf.accuracy >= 70 ? 'neutral' : 'bad');
       } else {
-        $('perfAvgEst').textContent = '--';
-        $('perfAvgReal').textContent = '--';
-        $('perfAvgDiff').textContent = '--';
-        $('perfAccuracy').textContent = '--';
+        setBlank();
       }
-      const list = $('perfTaskList');
-      list.innerHTML = perf.tasks.map(t => {
-        if (!t.tracked) {
-          return `
-            <div class="perf-item">
-              <span class="perf-item-title">${escHtml(t.title)}</span>
-              <span class="perf-item-diff on-time" style="opacity:0.6;">Non suivi</span>
-            </div>
-          `;
+      $('perfTaskList').innerHTML = perf.groups.map(g => {
+        const countBadge = g.occurrences > 1
+          ? `<span class="perf-repeat-badge">${g.recurring ? '↻ ' : ''}×${g.occurrences}</span>`
+          : (g.recurring ? '<span class="perf-repeat-badge">↻</span>' : '');
+        let right;
+        if (!g.trackedCount) {
+          right = '<span class="perf-item-diff on-time" style="opacity:0.6;">Non suivi</span>';
+        } else {
+          const diff = g.diffMs;
+          const cls = diff > 0 ? 'late' : diff < 0 ? 'early' : 'on-time';
+          const label = diff > 0 ? `+${formatDuration(diff)}` : formatDuration(diff);
+          // Sur un groupe, l'ecart affiche est la moyenne par occurrence suivie.
+          const suffix = g.trackedCount > 1 ? ' <span style="opacity:0.6; font-weight:500;">/ occ.</span>' : '';
+          right = `<span class="perf-item-diff ${cls}">${label}${suffix}</span>`;
         }
-        const diff = t.diff;
-        const cls = diff > 0 ? 'late' : diff < 0 ? 'early' : 'on-time';
-        const label = diff > 0 ? `+${formatDuration(diff)}` : formatDuration(diff);
         return `
           <div class="perf-item">
-            <span class="perf-item-title">${escHtml(t.title)}</span>
-            <span class="perf-item-diff ${cls}">${label}</span>
+            <span class="perf-item-title-wrap">
+              <span class="perf-item-title">${escHtml(g.title)}</span>
+              ${countBadge}
+            </span>
+            ${right}
           </div>
         `;
       }).join('');
@@ -5262,6 +5341,12 @@
         list = allTasks.filter(t => t.status !== 'done');
       }
       list = list.slice().sort((a, b) => {
+        // La tâche qu'on vient de créer reste tout en haut, pour pouvoir lancer son suivi
+        // (▶) immédiatement sans la chercher au milieu des échéances.
+        if (state.lastCreatedTaskId) {
+          if (a.id === state.lastCreatedTaskId) return -1;
+          if (b.id === state.lastCreatedTaskId) return 1;
+        }
         // Les échéances passent devant, mais à échéance égale (ou absente),
         // les tâches critiques/urgentes remontent en premier.
         if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
@@ -5979,7 +6064,7 @@
               ${t.notes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;"><span class="math-icon">✐︎</span> ${escHtml(t.notes)}</div>` : ''}
             </div>
             <div class="task-actions">
-              <button class="icon-btn ${isActive ? 'active-timer' : ''}" data-action="toggle-active" title="${isActive ? 'Arrêter le suivi' : 'Suivre'}" aria-label="${isActive ? 'Arrêter le suivi' : 'Suivre cette tâche'}">${isActive ? '⏹︎' : '▶︎'}</button>
+              <button class="icon-btn ${isActive ? 'active-timer' : ''}" data-action="toggle-active" title="${isActive ? 'Arrêter le suivi' : 'Lancer le suivi (démarre le chrono)'}" aria-label="${isActive ? 'Arrêter le suivi' : 'Lancer le suivi de cette tâche'}">${isActive ? '⏹︎' : '▶︎'}</button>
               <button class="icon-btn" data-action="focus" title="Verrouiller comme cible" aria-label="Verrouiller comme cible">⊙︎</button>
               <button class="icon-btn" data-action="duplicate" title="Dupliquer" aria-label="Dupliquer la tâche">⧉︎</button>
               <button class="icon-btn" data-action="edit" title="Modifier" aria-label="Modifier la tâche">✎︎</button>
@@ -6013,16 +6098,37 @@
     // ================================================================
     // TÂCHES RÉCURRENTES
     // ================================================================
+    // Decalage d'echeance d'une occurrence a la suivante. Mois et annees se calculent sur le
+    // calendrier (et non en millisecondes fixes) : +1 mois sur le 31 janvier doit donner le
+    // 28/29 fevrier, pas le 3 mars.
+    function nextRecurrenceDate(fromISO, repeat) {
+      const d = new Date(fromISO);
+      if (isNaN(d.getTime())) return null;
+      if (repeat === 'weekly') {
+        d.setDate(d.getDate() + 7);
+      } else if (repeat === 'monthly' || repeat === 'yearly') {
+        const day = d.getDate();
+        d.setDate(1); // evite le debordement pendant le changement de mois/annee
+        if (repeat === 'monthly') d.setMonth(d.getMonth() + 1);
+        else d.setFullYear(d.getFullYear() + 1);
+        const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        d.setDate(Math.min(day, lastDay));
+      } else {
+        d.setDate(d.getDate() + 1);
+      }
+      return d.toISOString();
+    }
+
     function spawnNextRecurrence(task) {
       if (!task.repeat || task.repeat === 'none') return;
-      const stepMs = task.repeat === 'weekly' ? 7 * 86400000 : 86400000;
-      const nextDeadline = task.deadline ? new Date(new Date(task.deadline).getTime() + stepMs).toISOString() : null;
+      const nextDeadline = task.deadline ? nextRecurrenceDate(task.deadline, task.repeat) : null;
       const nextTask = {
         ...task,
         id: Date.now().toString() + Math.random().toString(36).slice(2),
         status: 'todo',
         timeSpent: 0,
         completedAt: null,
+        createdAt: Date.now(),
         deadline: nextDeadline,
         // La nouvelle occurrence repart vierge : elle heritait jusqu'ici du journal
         // d'activite, des commentaires et de l'avancement de l'occurrence precedente.
@@ -6946,6 +7052,8 @@
       if (!task) { toast("Cette tache n'existe plus."); return false; }
       if (task.status === 'done') { toast(`« ${task.title} » est deja terminee.`); return false; }
       stopTimer();
+      // Le suivi demarre : elle n'a plus besoin d'etre epinglee en tete de liste.
+      if (state.lastCreatedTaskId === id) state.lastCreatedTaskId = null;
       if (!state.activeTaskIds.includes(id)) state.activeTaskIds.push(id);
       timer.mode = 'task';
       timer.activeTaskId = id;
@@ -6964,23 +7072,64 @@
       return true;
     }
 
-    // Une tache fraichement creee est prevusualisee 7 s sur le grand chrono mais SON SUIVI
-    // N'EST PAS LANCE : on propose explicitement de le demarrer, dans l'app (toast) et par
-    // notification systeme (utile quand l'ecran est verrouille ou l'app en arriere-plan).
-    // Sans reponse, la tache attend simplement un appui sur Demarrer.
+    // Une tache fraichement creee n'apparait PAS dans le grand chrono et ne demarre aucun
+    // suivi : on propose explicitement de le demarrer, dans l'app (toast) et par notification
+    // systeme (utile quand l'ecran est verrouille ou l'app en arriere-plan). Sans reponse,
+    // la tache attend simplement un appui sur le bouton de suivi dans la liste.
+    let notifDiagnosticShown = false;
+
+    // Un push qui n'arrive jamais sans le moindre message est le pire des cas : on explique
+    // une fois par session pourquoi, au lieu d'echouer en silence.
+    function explainNotificationFailure(reason) {
+      if (notifDiagnosticShown) return;
+      notifDiagnosticShown = true;
+      const messages = {
+        unsupported: "Notifications non gerees par ce navigateur : utilisez le bouton de suivi dans la liste.",
+        denied: "Notifications bloquees pour ce site : reactivez-les dans les reglages du navigateur.",
+        dismissed: "Notifications non autorisees : utilisez le bouton de suivi dans la liste.",
+        failed: "Notification impossible a afficher ici. Sur iPhone, ajoutez l'app a l'ecran d'accueil."
+      };
+      toast(messages[reason] || messages.failed);
+    }
+
+    // Attend que le service worker soit reellement actif (3 s max) : juste apres le tout
+    // premier chargement, swRegistration peut encore etre nul quand une tache est deja creee.
+    function whenServiceWorkerReady() {
+      if (swRegistration && swRegistration.showNotification) return Promise.resolve(swRegistration);
+      if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+      return Promise.race([
+        navigator.serviceWorker.ready.then(reg => { swRegistration = swRegistration || reg; return reg; }),
+        new Promise(resolve => setTimeout(() => resolve(null), 3000))
+      ]).catch(() => null);
+    }
+
     function offerToStartTracking(task) {
-      toast(`« ${task.title} » ajoutee.`, 'Demarrer le suivi', () => startTrackingTask(task.id));
-      requestNotificationPermission(true).then(() => {
-        sendNotification('Demarrer le suivi ?', `« ${task.title} » est prete. Touchez pour lancer le chrono.`, {
-          tag: 'start-task-' + task.id,
-          requireInteraction: true,
-          data: { appAction: 'start-task', taskId: task.id },
-          actions: [
-            { action: 'start', title: 'Demarrer' },
-            { action: 'later', title: 'Plus tard' }
-          ],
-          onClick: () => startTrackingTask(task.id)
+      toast(`« ${task.title} » ajoutee.`, 'Demarrer le suivi', () => startTrackingTask(task.id));
+      // Notification.requestPermission() doit partir dans le geste utilisateur (le clic sur
+      // "Creer") : on l'appelle donc immediatement, sans await prealable.
+      requestNotificationPermission(true).then(perm => {
+        if (perm === 'unsupported') { explainNotificationFailure('unsupported'); return; }
+        if (perm === 'denied') { explainNotificationFailure('denied'); return; }
+        if (perm !== 'granted') { explainNotificationFailure('dismissed'); return; }
+        // Le service worker est le seul canal capable d'afficher une notification sur Android
+        // et le seul qui accepte des boutons d'action : on attend qu'il soit pret plutot que
+        // de tomber sur le `new Notification()` qui y leve une TypeError.
+        return whenServiceWorkerReady().then(() => {
+          const ok = sendNotification('Demarrer le suivi ?', `« ${task.title} » est prete. Touchez pour lancer le chrono.`, {
+            tag: 'start-task-' + task.id,
+            requireInteraction: true,
+            data: { appAction: 'start-task', taskId: task.id },
+            actions: [
+              { action: 'start', title: 'Demarrer' },
+              { action: 'later', title: 'Plus tard' }
+            ],
+            onClick: () => startTrackingTask(task.id)
+          });
+          if (!ok) explainNotificationFailure('failed');
         });
+      }).catch(e => {
+        console.warn('Proposition de suivi non notifiee.', e);
+        explainNotificationFailure('failed');
       });
     }
 
@@ -7065,7 +7214,10 @@
         const swPayload = Object.assign({}, payload);
         if (opts.actions) swPayload.actions = opts.actions;
         swRegistration.showNotification(title, swPayload)
-          .catch(e => console.warn('Notification (service worker) non affichee.', e));
+          .catch(e => {
+            console.warn('Notification (service worker) non affichee.', e);
+            if (typeof explainNotificationFailure === 'function') explainNotificationFailure('failed');
+          });
         return true;
       }
       try {
@@ -7121,6 +7273,8 @@
         subtasks: [],
         notes: '',
         timeSpent: 0,
+        createdAt: Date.now(),
+        completedAt: null,
         deadline: null,
         repeat: 'none',
         assignee: null,
@@ -7149,14 +7303,11 @@
       });
       logActivity(newTask, 'Tâche créée.');
       state.tasks.unshift(newTask);
-      // Une tâche créée depuis ce formulaire (à côté du grand chrono) est faite pour être
-      // attaquée tout de suite : on l'active ET on la prévisualise directement sur le grand
-      // chrono (comme un clic dans la liste), pour que "Démarrer" la décompte immédiatement
-      // sans dépendre de savoir si elle est déjà la plus imminente parmi les tâches actives.
-      state.activeTaskIds.push(newTask.id);
-      timer.mode = 'task';
-      timer.previewTaskId = newTask.id;
-      timer.previewUntil = Date.now() + 7000;
+      // Une tâche nouvellement créée n'entre PAS dans le grand chrono et ne démarre aucun
+      // suivi : elle attend un appui explicite sur ▶ (dans la liste) ou la réponse à la
+      // notification « Démarrer le suivi ? ». Elle est seulement épinglée en tête de la
+      // liste du tableau de bord pour rester sous la main.
+      state.lastCreatedTaskId = newTask.id;
       save();
       renderTasks();
       updateTimerTarget();
@@ -7172,6 +7323,7 @@
       const idx = state.tasks.findIndex(t => t.id === id);
       if (idx === -1) return;
       const [removed] = state.tasks.splice(idx, 1);
+      if (state.lastCreatedTaskId === id) state.lastCreatedTaskId = null;
       state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
       if (timer.activeTaskId === id) {
         timer.activeTaskId = getPrimaryActiveTask()?.id || null;
@@ -8185,15 +8337,14 @@
         const item = toggleActiveBtn.closest('.task-item');
         if (item) {
           const id = item.dataset.id;
-          toggleTaskActive(id);
-          if (state.activeTaskIds.includes(id) && !timer.activeTaskId) {
-            timer.mode = 'task';
-            timer.activeTaskId = id;
-            timer.notified = false;
-            timer.locked = false;
-            timer.previewTaskId = null;
-            updateTimerTarget();
-            updateDisplays();
+          // Ce bouton est le seul point de depart du suivi : le lecture lance reellement le
+          // chrono et porte la tache sur le grand chrono, l'arret le stoppe et retire la
+          // tache des taches suivies. Rien ne demarre tout seul a la creation.
+          if (state.activeTaskIds.includes(id)) {
+            if (timer.running && timer.activeTaskId === id) stopTimer();
+            toggleTaskActive(id);
+          } else {
+            startTrackingTask(id);
           }
         }
         return;
