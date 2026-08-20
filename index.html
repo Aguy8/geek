@@ -6142,6 +6142,10 @@
       save();
       renderTasks();
       toast('Tâche ajoutée.');
+      // Cette création rapide (juste un titre) n'a pas de champ durée : la tâche hérite du
+      // défaut (25m) en silence. On ouvre directement le panneau pour que ce défaut soit
+      // visible et modifiable tout de suite plutôt que découvert plus tard sans explication.
+      openEditModal(newTask.id);
     }
 
     function addSubtaskInline(taskId, title) {
@@ -7361,8 +7365,20 @@
       stopTimer();
       timer.elapsed = 0;
       timer.notified = false;
+      // timer.elapsed n'est que le compteur de LA session en cours ; le temps réellement
+      // accumulé sur la tâche (task.timeSpent) vit ailleurs et n'était jamais remis à zéro —
+      // Reset n'avait donc aucun effet visible sur une tâche à échéance (le décompte y est
+      // calculé à partir de l'échéance, pas de timer.elapsed) ni sur le temps affiché ailleurs
+      // (liste, panneau de détail, analytique) pour une tâche sans échéance.
+      const task = state.tasks.find(t => t.id === timer.activeTaskId);
+      if (task && timer.mode === 'task' && task.timeSpent) {
+        task.timeSpent = 0;
+        save();
+        renderTasks();
+      }
       updateTimerTarget();
       updateDisplays();
+      toast('Chrono réinitialisé.');
     }
 
     function setManualTimer(mins, mode) {
