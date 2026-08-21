@@ -3392,9 +3392,9 @@
         </div>
         <div class="card" style="padding:20px; margin-bottom:20px;">
           <div class="card-header" style="padding:0 0 4px 0; border:none;">
-            <h2>Répartition du temps estimé par catégorie</h2>
+            <h2>Répartition du temps par catégorie</h2>
           </div>
-          <div style="font-size:11px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Part de la durée estimée des tâches (suivies au chrono ou non) répartie par catégorie — reflète où va l'effort planifié, pas seulement les sessions chronométrées.</div>
+          <div style="font-size:11px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Part du temps réellement suivi au chrono, réparti par catégorie — c'est la seule mesure qui reflète où tu as vraiment été concentré.</div>
           <div class="cat-donut-wrap">
             <div class="cat-donut-box">
               <div class="cat-donut" id="categoryDonut"></div>
@@ -3402,6 +3402,7 @@
             </div>
             <div class="cat-legend" id="categoryLegend"></div>
           </div>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:10px; line-height:1.5;" id="categoryBreakdownNote"></div>
         </div>
         <div class="card" style="padding:20px; margin-bottom:20px;">
           <div class="card-header" style="padding:0 0 4px 0; border:none;">
@@ -6816,42 +6817,53 @@
       const donut = $('categoryDonut');
       const center = $('categoryDonutCenter');
       const legend = $('categoryLegend');
+      const note = $('categoryBreakdownNote');
       if (!donut || !legend) return;
-      // Basé sur la durée ESTIMÉE (task.duration), pas sur le temps suivi au chrono : la
-      // plupart des tâches sont cochées terminées sans jamais être lancées, donc le temps
-      // réel ne reflète pas l'effort réparti par catégorie — seule une minorité de tâches
-      // aurait un poids, faussant complètement la répartition affichée.
+      // Basé sur le temps RÉELLEMENT suivi au chrono (task.timeSpent, en secondes — d'où le
+      // *1000 avant formatTimeShort qui attend des ms) : c'est la seule mesure qui répond à
+      // "où ai-je vraiment été concentré", contrairement à une durée estimée jamais vérifiée.
+      // Une tâche cochée terminée sans avoir été lancée n'a simplement rien à apporter ici ;
+      // la note ci-dessous rend cette couverture partielle explicite plutôt que silencieuse.
       const totals = {};
+      let trackedCount = 0;
       state.tasks.forEach(t => {
-        const mins = t.duration || 0;
-        if (mins <= 0) return;
+        const secs = t.timeSpent || 0;
+        if (secs <= 0) return;
+        trackedCount++;
         const cat = t.category || 'Général';
-        totals[cat] = (totals[cat] || 0) + mins;
+        totals[cat] = (totals[cat] || 0) + secs;
       });
+      const totalTasks = state.tasks.length;
       const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-      const totalMins = entries.reduce((sum, [, m]) => sum + m, 0);
+      const totalSecs = entries.reduce((sum, [, s]) => sum + s, 0);
 
       if (!entries.length) {
         donut.style.background = 'var(--line)';
         center.innerHTML = '<strong>--</strong><small>Aucune donnée</small>';
-        legend.innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucune tâche estimée pour l\'instant.</div>';
+        legend.innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucun temps suivi au chrono pour l\'instant.</div>';
+        if (note) note.textContent = '';
         return;
       }
 
       let acc = 0;
-      const stops = entries.map(([cat, mins]) => {
+      const stops = entries.map(([cat, secs]) => {
         const color = categoryColor(cat);
         const from = acc;
-        acc += (mins / totalMins) * 100;
+        acc += (secs / totalSecs) * 100;
         return `${color} ${from}% ${acc}%`;
       }).join(', ');
       donut.style.background = `conic-gradient(${stops})`;
-      center.innerHTML = `<strong>${formatTimeShort(totalMins * 60000)}</strong><small>estimé</small>`;
-      legend.innerHTML = entries.map(([cat, mins]) => {
+      center.innerHTML = `<strong>${formatTimeShort(totalSecs * 1000)}</strong><small>suivi</small>`;
+      legend.innerHTML = entries.map(([cat, secs]) => {
         const color = categoryColor(cat);
-        const pct = Math.round((mins / totalMins) * 100);
-        return `<div class="cat-legend-item"><span class="cat-legend-dot" style="background:${color};"></span><span class="cat-legend-label">${escHtml(cat)}</span><span class="cat-legend-value">${formatTimeShort(mins * 60000)} · ${pct}%</span></div>`;
+        const pct = Math.round((secs / totalSecs) * 100);
+        return `<div class="cat-legend-item"><span class="cat-legend-dot" style="background:${color};"></span><span class="cat-legend-label">${escHtml(cat)}</span><span class="cat-legend-value">${formatTimeShort(secs * 1000)} · ${pct}%</span></div>`;
       }).join('');
+      if (note) {
+        note.textContent = trackedCount < totalTasks
+          ? `${trackedCount} sur ${totalTasks} tâche(s) ont un temps suivi au chrono ; les autres (cochées terminées sans avoir été lancées) n'apparaissent pas ci-dessus.`
+          : '';
+      }
     }
 
     // ================================================================
