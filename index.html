@@ -2588,6 +2588,7 @@
     }
     input.field.filter-active { border-color: var(--warning); }
     label.filter-active { color: var(--warning); }
+    #mobileFiltersToggle.filter-active { border-color: var(--warning); color: var(--warning); }
     .dd-dot.dot-todo { background: var(--muted); }
     .dd-dot.dot-inprogress { background: var(--warning); }
     .dd-dot.dot-blocked { background: var(--danger); }
@@ -2868,6 +2869,9 @@
     .cat-legend-item .cat-legend-value { color: var(--text-dim); font-variant-numeric: tabular-nums; font-size: 11px; }
 
     /* ===== RESPONSIVE ===== */
+    /* Repliage mobile des blocs de contrôles (toujours masqués en desktop, où tout reste
+       affiché comme avant) — voir le détail dans le @media ci-dessous. */
+    .mobile-filters-toggle, .mobile-taskform-toggle { display: none; }
     @media (max-width: 900px) {
       .app { grid-template-columns: 1fr; }
       /* La nav ET la barre de statut sont toutes deux figées en bas sur mobile ;
@@ -2900,6 +2904,26 @@
 
       .grid-2 { grid-template-columns: 1fr; }
       .task-form { grid-template-columns: 1fr 1fr; }
+
+      /* La rangée de filtres (6 selects + 2 boutons) se replie derrière un seul bouton :
+         sans ça, la vue Tâches ouvre sur un mur de contrôles avant la moindre tâche. */
+      .mobile-filters-toggle { display: inline-flex !important; }
+      #tasksToolbarExtra { display: none !important; }
+      #tasksToolbarExtra.expanded {
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 12px;
+        flex-basis: 100%;
+        margin-top: 4px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+      }
+      /* Le formulaire de création (tableau de bord) : seuls le titre et la durée restent
+         visibles par défaut, le reste (priorité, catégorie, famille, dates, répétition,
+         assigné) se déplie à la demande — sinon c'est dix champs empilés avant les tâches. */
+      .mobile-taskform-toggle { display: inline-flex !important; }
+      #taskFormExtra { display: none !important; }
+      #taskFormExtra.expanded { display: contents !important; }
       .status-bar {
         bottom: var(--mobile-nav-h, 60px);
         flex-direction: column;
@@ -3126,22 +3150,28 @@
                   <option value="Personnel">Personnel</option>
                   <option value="Urgent">Urgent</option>
                 </select>
-                <select id="taskFamily" class="field" title="Famille"></select>
-                <button type="button" class="field date-picker-btn" id="taskStartDateBtn" data-picker="taskStartDate" data-placeholder="Date de début (programmer)" title="Programmer un démarrage automatique du suivi à cette date">Date de début (programmer)</button>
-                <input type="hidden" id="taskStartDate" />
-                <input type="text" class="field" id="taskDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
-                <button type="button" class="field date-picker-btn" id="taskDeadlineDateBtn" data-picker="taskDeadlineDate" data-related="taskDeadlineInput" title="Ou choisir une date et heure d'échéance précises">Date précise</button>
-                <input type="hidden" id="taskDeadlineDate" />
-                <select id="taskRepeat" class="field" title="Répéter">
-                  <option value="none">Ne pas répéter</option>
-                  <option value="daily">Répéter chaque jour</option>
-                  <option value="weekly">Répéter chaque semaine</option>
-                  <option value="monthly">Répéter chaque mois</option>
-                  <option value="yearly">Répéter chaque année</option>
-                </select>
-                <select id="taskAssignee" class="field hidden" title="Assigner à">
-                  <option value="">Non assigné</option>
-                </select>
+                <!-- Sur mobile, famille/dates/répétition/assignation se repliaient déjà en
+                     une pile de dix champs avant même le bouton Créer. En desktop ce bouton
+                     reste caché et rien ne change (voir CSS @900px). -->
+                <button type="button" class="field mobile-taskform-toggle" id="mobileTaskFormToggle" style="text-align:left; cursor:pointer;">Plus d'options (famille, dates, répétition…) ▾</button>
+                <div id="taskFormExtra" style="display:contents;">
+                  <select id="taskFamily" class="field" title="Famille"></select>
+                  <button type="button" class="field date-picker-btn" id="taskStartDateBtn" data-picker="taskStartDate" data-placeholder="Date de début (programmer)" title="Programmer un démarrage automatique du suivi à cette date">Date de début (programmer)</button>
+                  <input type="hidden" id="taskStartDate" />
+                  <input type="text" class="field" id="taskDeadlineInput" placeholder="Échéance relative (ex: 3j 5h 30min)" />
+                  <button type="button" class="field date-picker-btn" id="taskDeadlineDateBtn" data-picker="taskDeadlineDate" data-related="taskDeadlineInput" title="Ou choisir une date et heure d'échéance précises">Date précise</button>
+                  <input type="hidden" id="taskDeadlineDate" />
+                  <select id="taskRepeat" class="field" title="Répéter">
+                    <option value="none">Ne pas répéter</option>
+                    <option value="daily">Répéter chaque jour</option>
+                    <option value="weekly">Répéter chaque semaine</option>
+                    <option value="monthly">Répéter chaque mois</option>
+                    <option value="yearly">Répéter chaque année</option>
+                  </select>
+                  <select id="taskAssignee" class="field hidden" title="Assigner à">
+                    <option value="">Non assigné</option>
+                  </select>
+                </div>
                 <button class="btn btn-primary" id="addTaskBtn"><span class="math-icon">+</span> Créer</button>
               </div>
               <div class="task-list" id="dashTaskList"></div>
@@ -3210,54 +3240,60 @@
         <div class="card" style="padding:20px;">
           <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; align-items:center;">
             <input type="text" class="field search-bar" id="searchInput" placeholder="Rechercher..." style="flex:1; max-width:280px;" />
-            <select id="filterStatus" class="field" style="width:auto;">
-              <option value="all">Tous statuts</option>
-              <option value="todo">À faire</option>
-              <option value="inprogress">En cours</option>
-              <option value="done">Terminée</option>
-              <option value="blocked">Bloquée</option>
-            </select>
-            <select id="filterCategory" class="field" style="width:auto;">
-              <option value="all">Toutes catégories</option>
-              <option value="Général">Général</option>
-              <option value="Livraison">Livraison</option>
-              <option value="Développement">Développement</option>
-              <option value="Personnel">Personnel</option>
-              <option value="Urgent">Urgent</option>
-            </select>
-            <select id="filterPriority" class="field" style="width:auto;">
-              <option value="all">Toutes priorités</option>
-              <option value="high">Critique / Urgent</option>
-              <option value="medium">Normale</option>
-              <option value="low">Basse</option>
-            </select>
-            <select id="filterDeadline" class="field" style="width:auto;">
-              <option value="all">Toutes échéances</option>
-              <option value="overdue">En retard</option>
-              <option value="today">Aujourd'hui</option>
-              <option value="week">Cette semaine</option>
-              <option value="future">À venir</option>
-            </select>
-            <select id="taskSort" class="field" style="width:auto;">
-              <option value="deadline">Trier : Échéance</option>
-              <option value="priority">Trier : Priorité</option>
-              <option value="title">Trier : Titre (A-Z)</option>
-              <option value="status">Trier : Statut</option>
-              <option value="duration">Trier : Durée</option>
-            </select>
-            <select id="groupBySelect" class="field" style="width:auto;">
-              <option value="none">Pas de groupement</option>
-              <option value="category">Grouper par catégorie</option>
-              <option value="status">Grouper par statut</option>
-              <option value="priority">Grouper par priorité</option>
-              <option value="assignee">Grouper par assigné</option>
-            </select>
-            <label style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
-              <input type="checkbox" id="hideDoneToggle" />
-              Masquer terminées
-            </label>
-            <button type="button" class="btn-ghost" id="manageCustomFieldsToolbarBtn" style="width:auto;"><span class="math-icon">✎︎</span> Champs perso.</button>
-            <button class="btn btn-danger" id="clearDoneBtn"><span class="math-icon">⌧︎</span> Purger Terminées</button>
+            <!-- Sur mobile, cette rangée de 6 selects + 2 boutons formait un mur de contrôles
+                 avant même de voir une seule tâche. Ce bouton la replie derrière un panneau ;
+                 en desktop il reste caché et tout s'affiche comme avant (voir CSS @900px). -->
+            <button type="button" class="btn-ghost mobile-filters-toggle" id="mobileFiltersToggle" style="width:auto;"><span class="math-icon">▤︎</span> Filtres</button>
+            <div id="tasksToolbarExtra" style="display:contents;">
+              <select id="filterStatus" class="field" style="width:auto;">
+                <option value="all">Tous statuts</option>
+                <option value="todo">À faire</option>
+                <option value="inprogress">En cours</option>
+                <option value="done">Terminée</option>
+                <option value="blocked">Bloquée</option>
+              </select>
+              <select id="filterCategory" class="field" style="width:auto;">
+                <option value="all">Toutes catégories</option>
+                <option value="Général">Général</option>
+                <option value="Livraison">Livraison</option>
+                <option value="Développement">Développement</option>
+                <option value="Personnel">Personnel</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+              <select id="filterPriority" class="field" style="width:auto;">
+                <option value="all">Toutes priorités</option>
+                <option value="high">Critique / Urgent</option>
+                <option value="medium">Normale</option>
+                <option value="low">Basse</option>
+              </select>
+              <select id="filterDeadline" class="field" style="width:auto;">
+                <option value="all">Toutes échéances</option>
+                <option value="overdue">En retard</option>
+                <option value="today">Aujourd'hui</option>
+                <option value="week">Cette semaine</option>
+                <option value="future">À venir</option>
+              </select>
+              <select id="taskSort" class="field" style="width:auto;">
+                <option value="deadline">Trier : Échéance</option>
+                <option value="priority">Trier : Priorité</option>
+                <option value="title">Trier : Titre (A-Z)</option>
+                <option value="status">Trier : Statut</option>
+                <option value="duration">Trier : Durée</option>
+              </select>
+              <select id="groupBySelect" class="field" style="width:auto;">
+                <option value="none">Pas de groupement</option>
+                <option value="category">Grouper par catégorie</option>
+                <option value="status">Grouper par statut</option>
+                <option value="priority">Grouper par priorité</option>
+                <option value="assignee">Grouper par assigné</option>
+              </select>
+              <label style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
+                <input type="checkbox" id="hideDoneToggle" />
+                Masquer terminées
+              </label>
+              <button type="button" class="btn-ghost" id="manageCustomFieldsToolbarBtn" style="width:auto;"><span class="math-icon">✎︎</span> Champs perso.</button>
+              <button class="btn btn-danger" id="clearDoneBtn"><span class="math-icon">⌧︎</span> Purger Terminées</button>
+            </div>
           </div>
           <div class="task-list" id="fullTaskList" style="max-height:60vh;"></div>
         </div>
@@ -5555,6 +5591,13 @@
       if (searchInput) searchInput.classList.toggle('filter-active', !!search);
       const hideDoneLabel = $('hideDoneToggle') && $('hideDoneToggle').closest('label');
       if (hideDoneLabel) hideDoneLabel.classList.toggle('filter-active', hideDone);
+      // Sur mobile, ces filtres sont repliés derrière un bouton : sans ce repère, on peut
+      // oublier qu'un filtre reste actif alors qu'il est hors de vue.
+      const mobileToggle = $('mobileFiltersToggle');
+      if (mobileToggle) {
+        const anyActive = Object.values(marks).some(Boolean) || !!search || hideDone;
+        mobileToggle.classList.toggle('filter-active', anyActive);
+      }
     }
 
     function renderTasks() {
@@ -9452,6 +9495,17 @@
       });
     });
     applyCollapsedCards();
+
+    // Repliage mobile : ces deux panneaux (filtres de la vue Tâches, options avancées du
+    // formulaire de création) restent ouverts en desktop et se replient uniquement sous
+    // 900px — voir la CSS correspondante.
+    $('mobileFiltersToggle').addEventListener('click', function() {
+      $('tasksToolbarExtra').classList.toggle('expanded');
+    });
+    $('mobileTaskFormToggle').addEventListener('click', function() {
+      $('taskFormExtra').classList.toggle('expanded');
+    });
+
     $('categoriesManageModalCloseBtn').addEventListener('click', closeCategoriesManageModal);
     $('categoriesManageModal').addEventListener('click', function(e) { if (e.target === this) closeCategoriesManageModal(); });
     $('addCategoryManageBtn').addEventListener('click', addCategoryFromManageModal);
