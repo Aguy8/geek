@@ -6656,6 +6656,11 @@
     function spawnNextRecurrence(task) {
       if (!task.repeat || task.repeat === 'none') return;
       const nextDeadline = task.deadline ? nextRecurrenceDate(task.deadline, task.repeat) : null;
+      // Une tache "programmee" (date de debut choisie) doit le rester a chaque occurrence :
+      // sans ca, seule la toute premiere se lancerait seule au chrono, et toutes les
+      // suivantes retomberaient en suivi manuel (donc absentes de l'analytique tant qu'on
+      // ne pense pas a rappuyer sur Demarrer chaque jour).
+      const nextStartDate = task.startDate ? nextRecurrenceDate(task.startDate, task.repeat) : null;
       const nextTask = {
         ...task,
         id: Date.now().toString() + Math.random().toString(36).slice(2),
@@ -6664,15 +6669,22 @@
         completedAt: null,
         createdAt: Date.now(),
         deadline: nextDeadline,
-        // La nouvelle occurrence repart vierge : elle heritait jusqu'ici du journal
-        // d'activite, des commentaires et de l'avancement de l'occurrence precedente.
-        // Les niveaux de suivi sont conserves (ils servent de modele d'etapes) mais remis a zero.
+        startDate: nextStartDate,
+        autoStartFired: false,
+        // La nouvelle occurrence repart vierge sur le journal d'activite et les
+        // commentaires de l'occurrence precedente, mais conserve ses notes et son suivi
+        // d'avancement (niveaux, etape courante, notes datees) : on continue le meme fil,
+        // on ne repart pas de zero chaque jour.
         comments: [],
         activity: [],
-        trackingCurrent: -1,
+        notes: task.notes || '',
+        trackingCurrent: task.trackingCurrent,
         trackingLevels: (task.trackingLevels || []).map(l => (
-          typeof l === 'string' ? { name: l, notes: [] } : { name: l.name, notes: [] }
+          typeof l === 'string'
+            ? { name: l, notes: [] }
+            : { name: l.name, notes: (l.notes || []).map(n => ({ ...n })) }
         )),
+        customFieldValues: { ...(task.customFieldValues || {}) },
         subtasks: (task.subtasks || []).map(s => ({ ...s, id: Date.now().toString() + Math.random().toString(36).slice(2), done: false }))
       };
       state.tasks.unshift(nextTask);
