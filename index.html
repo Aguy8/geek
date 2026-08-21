@@ -1133,7 +1133,10 @@
     /* ===== TASK FORM ===== */
     .task-form {
       display: grid;
-      grid-template-columns: 1fr auto auto auto 1fr auto;
+      /* Colonnes à largeur fixe (fractions égales), plutôt que "auto" qui se redimensionne
+         selon le contenu affiché : un select maison qui change de libellé (ex. "Durée
+         estimée…" → "8h") ne doit jamais faire bouger toute la grille autour de lui. */
+      grid-template-columns: repeat(6, 1fr);
       gap: 10px;
       padding: 16px 20px;
       border-bottom: 1px solid var(--line);
@@ -1189,8 +1192,12 @@
       display: grid;
       gap: 8px;
       max-height: 400px;
+      /* Sans plancher, passer d'un onglet à 9 tâches à un onglet à 1 tâche rétrécit la
+         carte d'un coup et fait sauter tout ce qui suit en dessous. */
+      min-height: 160px;
       overflow-y: auto;
     }
+    #dashTaskList { min-height: 320px; }
     .task-item {
       display: grid;
       grid-template-columns: auto 1fr auto;
@@ -1255,6 +1262,11 @@
       background: rgba(74, 222, 128, 0.1);
       color: var(--success);
       border: 1px solid rgba(74, 222, 128, 0.2);
+    }
+    .task-deadline.scheduled {
+      background: rgba(96, 165, 250, 0.1);
+      color: var(--info);
+      border: 1px solid rgba(96, 165, 250, 0.2);
     }
     .task-actions { display: flex; gap: 4px; }
     .icon-btn {
@@ -2526,13 +2538,24 @@
     .inline-dropdown-item.active { background: var(--surface-3); font-weight: 600; }
     .inline-dropdown-item .dd-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     /* Select maison (remplace le <select> natif, non stylable une fois ouvert) */
-    .select-wrap { position: relative; display: inline-flex; }
+    /* Par défaut, le select maison remplit la largeur stable de son conteneur (colonne de
+       grille, cellule de .task-panel-field-row...) plutôt que de se dimensionner sur son
+       propre texte — voir .select-fake. La barre d'outils (recherche/filtres), en ligne
+       flexible plutôt qu'en grille, a besoin d'une largeur fixe à elle : voir plus bas. */
+    .select-wrap { position: relative; display: flex; width: 100%; min-width: 0; }
+    #tasksToolbarExtra .select-wrap { width: 168px; flex: 0 0 auto; }
     select.select-native-hidden { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
     .select-fake {
       display: flex;
       align-items: center;
       gap: 6px;
-      width: auto;
+      /* Largeur pilotée par le conteneur (grille/flex), jamais par le texte affiché : un
+         select maison qui change de valeur ("25m" → "Durée estimée…") ne doit pas changer
+         de taille et faire bouger tout ce qui l'entoure. Le libellé se tronque à l'intérieur
+         (voir .select-fake-label) plutôt que d'agrandir le bouton. */
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
       background: var(--bg);
       border: 1px solid var(--line);
       color: var(--text);
@@ -3766,6 +3789,39 @@
     </div>
   </div>
 
+  <!-- MODALE DE DÉCLARATION DE PAUSE (pour calculer le focus réel de la journée) -->
+  <div class="modal-overlay hidden" id="pauseCheckModal">
+    <div class="modal" style="max-width:380px;">
+      <div class="modal-header">
+        <h2>Pause aujourd'hui ?</h2>
+        <button class="modal-close" id="pauseCheckCloseBtn" aria-label="Fermer">&times;</button>
+      </div>
+      <div>
+        <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">Pour calculer votre temps de concentration réel, on retire les pauses du temps suivi. Avez-vous fait une pause aujourd'hui, entre 12h et 14h ?</p>
+        <div style="display:flex; gap:10px; margin-bottom:14px;">
+          <button type="button" class="btn btn-primary" id="pauseCheckYesDefault" style="flex:1;">Oui, entre 12h et 14h</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+          <div style="flex:1; border-top:1px solid var(--line);"></div>
+          <span style="font-size:11px; color:var(--muted);">ou précisez</span>
+          <div style="flex:1; border-top:1px solid var(--line);"></div>
+        </div>
+        <div class="task-panel-field-row" style="margin-bottom:10px;">
+          <label for="pauseCheckTime">Heure de début</label>
+          <input type="time" class="field" id="pauseCheckTime" value="12:00" />
+        </div>
+        <div class="task-panel-field-row" style="margin-bottom:16px;">
+          <label for="pauseCheckMinutes">Durée (minutes)</label>
+          <input type="number" class="field" id="pauseCheckMinutes" value="60" min="1" max="600" />
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button class="btn-ghost" id="pauseCheckNoneBtn">Pas de pause aujourd'hui</button>
+          <button class="btn btn-primary" id="pauseCheckConfirmBtn">Valider</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- POPOVER SÉLECTEUR DE DATE/HEURE -->
   <div class="datepicker-popover hidden" id="datePickerPopover">
     <div class="dp-header">
@@ -3958,9 +4014,22 @@
       const key = dayKey();
       if (!state.history) state.history = {};
       if (!state.history[key]) {
-        state.history[key] = { focusSecs: 0, sessions: 0, completedTasks: [] };
+        state.history[key] = { focusSecs: 0, pauseSecs: 0, appOnlySecs: 0, manualPauseSecs: 0, sessions: 0, completedTasks: [] };
       }
       return state.history[key];
+    }
+
+    // Le "focus" d'une journée n'est pas simplement le temps suivi sur les tâches : on en
+    // retire le temps passé sur l'appli Tempo.PRO elle-même sans qu'aucune tâche ne tourne
+    // (navigation, réglages...) et le temps de pause (déclaré via le mode Pause, ou indiqué
+    // manuellement si aucune pause n'a été enregistrée dans la journée). Ce qu'il reste est
+    // le temps réellement passé concentré sur une tâche.
+    function computeRealFocusSecs(day) {
+      if (!day) return 0;
+      const gross = day.focusSecs || 0;
+      const appOnly = day.appOnlySecs || 0;
+      const pause = (day.pauseSecs || 0) + (day.manualPauseSecs || 0);
+      return Math.max(0, gross - appOnly - pause);
     }
 
     const defaultState = {
@@ -4383,11 +4452,32 @@
       return `dans ${mins}m`;
     }
 
+    // Temps restant avant le début programmé d'une tâche (date de début future).
+    function getStartsInLabel(startDate) {
+      const diff = new Date(startDate).getTime() - Date.now();
+      const days = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      if (days > 0) return `commence dans ${days}j ${hours}h`;
+      if (hours > 0) return `commence dans ${hours}h ${mins}m`;
+      return `commence dans ${mins}m`;
+    }
+
+    // Une tâche dont la date de début n'est pas encore arrivée n'a pas commencé à courir
+    // contre son échéance : avant d'entrer dans sa fenêtre de travail, on ne doit pas
+    // afficher un décompte d'échéance qui donne l'impression que le chrono tourne déjà.
+    function isNotYetStarted(task) {
+      return task.status !== 'done' && !!task.startDate && new Date(task.startDate).getTime() > Date.now();
+    }
+
     function getDeadlineLabelForTask(task) {
+      if (task.status !== 'done') {
+        if (isNotYetStarted(task)) return getStartsInLabel(task.startDate);
+        return getDeadlineLabel(task.deadline);
+      }
       // Pour une tâche terminée, comparer "maintenant" à l'échéance ferait grandir un
       // faux « en retard » indéfiniment après coup : on compare plutôt à la date réelle
       // de fin (complétée), figée une fois pour toutes au moment où la tâche a été cochée.
-      if (task.status !== 'done') return getDeadlineLabel(task.deadline);
       if (!task.completedAt) return 'terminée';
       const diff = task.completedAt - new Date(task.deadline).getTime();
       const abs = Math.abs(diff);
@@ -4406,6 +4496,8 @@
       let cls = 'task-deadline';
       if (task.status === 'done') {
         cls += (task.completedAt && task.completedAt - new Date(task.deadline).getTime() > 60000) ? ' overdue' : ' ok';
+      } else if (isNotYetStarted(task)) {
+        cls += ' scheduled';
       } else {
         const status = getDeadlineStatus(task.deadline);
         if (status === 'overdue') cls += ' overdue';
@@ -5189,7 +5281,13 @@
       }
       const task = state.tasks.find(t => t.id === timer.activeTaskId);
       if (task) {
-        if (task.deadline) {
+        if (task.deadline && isNotYetStarted(task)) {
+          // Tant que la date de début programmée n'est pas arrivée, le grand chrono compte
+          // vers CETTE date, pas vers l'échéance : sinon il donnerait l'impression que le
+          // temps de la tâche s'écoule déjà, alors que sa fenêtre de travail n'a pas commencé.
+          timer.deadlineBased = true;
+          timer.targetDuration = new Date(task.startDate).getTime() - Date.now();
+        } else if (task.deadline) {
           // Pas de Math.max(0, ...) ici : une échéance dépassée doit pouvoir passer en négatif
           // pour afficher le dépassement (ex. "-2j 07:50:33"), pas rester figée à zéro.
           timer.deadlineBased = true;
@@ -5298,13 +5396,15 @@
       actives.forEach(t => {
         const isPrimary = t.id === timer.activeTaskId;
         let remaining = 0;
-        if (t.deadline) {
+        if (t.deadline && isNotYetStarted(t)) {
+          remaining = new Date(t.startDate).getTime() - Date.now();
+        } else if (t.deadline) {
           remaining = new Date(t.deadline).getTime() - Date.now();
         } else {
           remaining = t.duration * 60 * 1000 - (t.timeSpent || 0) * 1000;
         }
         const timeStr = formatTimeMs(remaining);
-        const label = t.deadline ? getDeadlineLabel(t.deadline) : '';
+        const label = t.deadline ? getDeadlineLabelForTask(t) : '';
         const cls = isPrimary ? 'mini-item active-primary' : 'mini-item';
         const timeCls = remaining < 0 ? 'mini-time overdue' : 'mini-time';
         const isPinned = timer.locked && isPrimary;
@@ -5337,13 +5437,15 @@
       actives.forEach(t => {
         const isPrimary = t.id === timer.activeTaskId;
         let remaining = 0;
-        if (t.deadline) {
+        if (t.deadline && isNotYetStarted(t)) {
+          remaining = new Date(t.startDate).getTime() - Date.now();
+        } else if (t.deadline) {
           remaining = new Date(t.deadline).getTime() - Date.now();
         } else {
           remaining = t.duration * 60 * 1000 - (t.timeSpent || 0) * 1000;
         }
         const timeStr = formatTimeMs(remaining);
-        const label = t.deadline ? getDeadlineLabel(t.deadline) : '';
+        const label = t.deadline ? getDeadlineLabelForTask(t) : '';
         const cls = isPrimary ? 'mini-item active-primary' : 'mini-item';
         const timeCls = remaining < 0 ? 'mini-time overdue' : 'mini-time';
         const isPinned = timer.locked && isPrimary;
@@ -5386,7 +5488,7 @@
 
     function renderGoalProgress() {
       const goalMs = (state.dailyGoalMin || 120) * 60 * 1000;
-      const focusMs = historyToday().focusSecs * 1000;
+      const focusMs = computeRealFocusSecs(historyToday()) * 1000;
       const pct = goalMs > 0 ? Math.min(100, Math.round((focusMs / goalMs) * 100)) : 0;
       const fill = $('dailyGoalFill');
       if (fill) fill.style.width = pct + '%';
@@ -6728,7 +6830,7 @@
         d.setDate(d.getDate() - i);
         const dateStr = dayKey(d);
         const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' });
-        const minutes = state.history[dateStr] ? Math.floor(state.history[dateStr].focusSecs / 60) : 0;
+        const minutes = state.history[dateStr] ? Math.floor(computeRealFocusSecs(state.history[dateStr]) / 60) : 0;
         const heightPct = Math.min((minutes / 240) * 100, 100);
         const wrap = document.createElement('div');
         wrap.className = 'chart-bar-wrap';
@@ -6844,7 +6946,7 @@
       const cursor = new Date(rangeStart);
       while (cursor <= today) {
         const key = dayKey(cursor);
-        const secs = state.history[key]?.focusSecs || 0;
+        const secs = computeRealFocusSecs(state.history[key]);
         days.push({ date: new Date(cursor), key, secs });
         if (secs > maxSecs) maxSecs = secs;
         cursor.setDate(cursor.getDate() + 1);
@@ -7518,7 +7620,7 @@
         }
       }
       const todayHistory = historyToday();
-      $('focusToday').textContent = Math.floor(todayHistory.focusSecs / 60) + 'm';
+      $('focusToday').textContent = Math.floor(computeRealFocusSecs(todayHistory) / 60) + 'm';
       $('sessionCount').textContent = todayHistory.sessions;
       $('statsFocus').textContent = $('focusToday').textContent;
       $('statsSessions').textContent = todayHistory.sessions;
@@ -7580,6 +7682,10 @@
           // ce que ce chiffre est censé mesurer.
           if (timer.mode !== 'pause') {
             historyToday().focusSecs += 5;
+          } else {
+            // Une pause explicitement suivie (mode Pause, immersif ou réglages) compte comme
+            // pause déclarée : on n'aura pas besoin de redemander à l'utilisateur plus tard.
+            historyToday().pauseSecs = (historyToday().pauseSecs || 0) + 5;
           }
           save();
         }
@@ -7915,6 +8021,35 @@
         toast(`« ${scheduled.title} » démarrée automatiquement (heure programmée atteinte).`);
         sendNotification('Suivi démarré', `« ${scheduled.title} » a démarré automatiquement — heure de début programmée atteinte.`);
       }
+    }
+
+    // ================================================================
+    // DEMANDE DE PAUSE (pour calculer le focus réel de la journée — voir
+    // computeRealFocusSecs). On ne demande que si la journée a déjà du temps suivi
+    // (sinon rien à corriger), qu'aucune pause n'a déjà été enregistrée (via le mode
+    // Pause) et qu'on n'a pas encore répondu aujourd'hui, une fois l'heure du déjeuner
+    // passée.
+    // ================================================================
+    function maybeAskAboutPause() {
+      const day = historyToday();
+      if (day.pausePromptAnswered) return;
+      if ((day.focusSecs || 0) <= 0) return;
+      if ((day.pauseSecs || 0) > 0) return;
+      if (new Date().getHours() < 14) return;
+      if (Date.now() < pauseCheckSnoozedUntil) return;
+      if (!$('pauseCheckModal').classList.contains('hidden')) return;
+      $('pauseCheckModal').classList.remove('hidden');
+    }
+
+    function answerPauseCheck(minutes) {
+      const day = historyToday();
+      day.pausePromptAnswered = true;
+      day.manualPauseSecs = Math.max(0, Math.round(minutes || 0)) * 60;
+      save();
+      $('pauseCheckModal').classList.add('hidden');
+      renderGoalProgress();
+      updateDisplays();
+      toast(minutes > 0 ? `Pause de ${minutes} min déduite du focus réel.` : 'Aucune pause enregistrée aujourd\'hui.');
     }
 
     // ================================================================
@@ -9479,6 +9614,22 @@
       if (this.value) { addDependency(this.value); this.value = ''; }
     });
 
+    let pauseCheckSnoozedUntil = 0;
+    $('pauseCheckYesDefault').addEventListener('click', () => answerPauseCheck(120));
+    $('pauseCheckNoneBtn').addEventListener('click', () => answerPauseCheck(0));
+    $('pauseCheckConfirmBtn').addEventListener('click', () => {
+      answerPauseCheck(+$('pauseCheckMinutes').value || 0);
+    });
+    $('pauseCheckCloseBtn').addEventListener('click', () => {
+      // Fermer sans répondre ne compte pas comme "pas de pause" : on redemandera plus tard,
+      // mais pas dans l'immédiat (sinon la modale reviendrait dès la seconde suivante).
+      pauseCheckSnoozedUntil = Date.now() + 3600000;
+      $('pauseCheckModal').classList.add('hidden');
+    });
+    $('pauseCheckModal').addEventListener('click', function(e) {
+      if (e.target === this) $('pauseCheckCloseBtn').click();
+    });
+
     $('manageCategoriesBtn').addEventListener('click', openCategoriesManageModal);
     $('manageFamiliesBtn').addEventListener('click', openFamiliesManageModal);
     $('familiesManageModalCloseBtn').addEventListener('click', closeFamiliesManageModal);
@@ -9566,6 +9717,10 @@
       }
       if (e.key === 'Escape' && !$('categoriesManageModal').classList.contains('hidden')) {
         closeCategoriesManageModal();
+        return;
+      }
+      if (e.key === 'Escape' && !$('pauseCheckModal').classList.contains('hidden')) {
+        $('pauseCheckCloseBtn').click();
         return;
       }
       if (e.key === 'Escape' && !$('editModal').classList.contains('hidden')) {
@@ -9877,7 +10032,16 @@
       updateStatusBar();
       checkUpcomingDeadlines();
       checkScheduledStarts();
+      maybeAskAboutPause();
       if (!timer.running) updateClock();
+      // Temps passé À REGARDER l'appli sans qu'aucun chrono ne tourne (navigation, réglages,
+      // consultation des tâches...) : ce n'est pas du temps de concentration sur une tâche,
+      // donc il doit être retiré du focus réel de la journée (voir computeRealFocusSecs).
+      // On ne compte que si l'onglet est réellement affiché, pas juste ouvert en arrière-plan.
+      if (document.visibilityState === 'visible' && !timer.running) {
+        historyToday().appOnlySecs = (historyToday().appOnlySecs || 0) + 1;
+        save();
+      }
       // Ne reconstruit ces mini-listes que si leur zone est réellement visible à l'écran :
       // les rebâtir chaque seconde alors que l'utilisateur consulte un autre onglet mobile
       // ne fait que consommer du temps CPU pour rien, au moment même où un tap peut arriver.
