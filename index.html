@@ -1911,8 +1911,10 @@
       letter-spacing: 1px;
       color: var(--text-dim);
       margin-top: 8px;
-      padding-top: 14px;
+      margin-bottom: 10px;
+      padding-top: 16px;
       border-top: 1px solid var(--line);
+      line-height: 1.4;
     }
     .task-panel-tabs {
       display: flex;
@@ -2504,7 +2506,32 @@
       white-space: nowrap;
     }
     .select-fake:hover { border-color: var(--text-dim); }
-    .select-fake-chevron { font-size: 9px; color: var(--muted); transform: scaleY(0.8); }
+    .select-fake-chevron { font-size: 9px; color: var(--muted); transform: scaleY(0.8); flex-shrink: 0; margin-left: auto; }
+    .select-fake-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    /* Les libellés longs (« Grouper par Famille », noms de tâches en dépendance…) doivent
+       pouvoir revenir à la ligne dans le menu plutôt que d'être coupés par la largeur. */
+    #toolbarDropdownList .inline-dropdown-item { white-space: normal; line-height: 1.4; }
+
+    /* ===== CARTES PLIABLES (Catégories, Familles…) ===== */
+    .card-collapse-btn {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--text-dim);
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 10px;
+      flex-shrink: 0;
+      transition: var(--transition);
+    }
+    .card-collapse-btn:hover { color: var(--text); border-color: var(--text-dim); }
+    .card-collapse-btn .math-icon { display: block; transition: transform 0.18s ease; }
+    .card-collapsible-body { overflow: hidden; }
+    .card.is-collapsed .card-collapsible-body { display: none; }
+    .card.is-collapsed .card-collapse-btn .math-icon { transform: rotate(-90deg); }
     .select-wrap.important .select-fake {
       border-color: var(--primary);
       background: color-mix(in srgb, var(--primary) 12%, var(--bg));
@@ -3028,11 +3055,16 @@
               </div>
               <div class="task-form">
                 <input id="taskInput" class="field" placeholder="Ex. Contacter le livreur" style="grid-column:span 2;" />
-                <select id="taskDuration" class="field">
+                <select id="taskDuration" class="field" title="Durée estimée (facultative)">
+                  <option value="" selected>Durée estimée…</option>
                   <option value="15">15m</option>
-                  <option value="25" selected>25m</option>
+                  <option value="25">25m</option>
                   <option value="45">45m</option>
                   <option value="60">1h</option>
+                  <option value="90">1h30</option>
+                  <option value="120">2h</option>
+                  <option value="240">4h</option>
+                  <option value="480">8h</option>
                 </select>
                 <select id="taskPriority" class="field">
                   <option value="high">Critique</option>
@@ -3084,18 +3116,29 @@
                 </div>
               </div>
             </div>
-            <div class="card" style="margin-bottom:20px;">
+            <div class="card" style="margin-bottom:20px;" data-collapsible="categories">
               <div class="card-header">
                 <h2>Catégories</h2>
-                <button class="btn-ghost" id="manageCategoriesBtn" style="padding:4px 10px; font-size:10px;">Gérer</button>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <button class="btn-ghost" id="manageCategoriesBtn" style="padding:4px 10px; font-size:10px;">Gérer</button>
+                  <button type="button" class="card-collapse-btn" data-collapse-toggle aria-label="Plier ou déplier les catégories"><span class="math-icon">⌄</span></button>
+                </div>
               </div>
-              <div class="category-grid" id="categoryGrid"></div>
+              <div class="card-collapsible-body">
+                <div class="category-grid" id="categoryGrid"></div>
+              </div>
             </div>
-            <div class="card hidden" id="familyCard" style="margin-bottom:20px;">
+            <div class="card hidden" id="familyCard" style="margin-bottom:20px;" data-collapsible="families">
               <div class="card-header">
                 <h2>Familles</h2>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <button class="btn-ghost" id="manageFamiliesBtn" style="padding:4px 10px; font-size:10px;">Gérer</button>
+                  <button type="button" class="card-collapse-btn" data-collapse-toggle aria-label="Plier ou déplier les familles"><span class="math-icon">⌄</span></button>
+                </div>
               </div>
-              <div class="category-grid" id="familyGrid"></div>
+              <div class="card-collapsible-body">
+                <div class="category-grid" id="familyGrid"></div>
+              </div>
             </div>
             <div class="card">
               <div class="card-header">
@@ -3517,7 +3560,9 @@
         <div class="task-panel-field-row">
           <label for="editDuration">Durée</label>
           <select class="field" id="editDuration">
+            <option value="">Non estimée</option>
             <option value="15">15m</option><option value="25">25m</option><option value="45">45m</option><option value="60">1h</option>
+            <option value="90">1h30</option><option value="120">2h</option><option value="240">4h</option><option value="480">8h</option>
           </select>
         </div>
         <div class="task-panel-field-row">
@@ -3619,6 +3664,23 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="familiesManageModal">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <h2>Familles</h2>
+        <button class="modal-close" id="familiesManageModalCloseBtn" aria-label="Fermer">&times;</button>
+      </div>
+      <div>
+        <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">Renommez, recolorez ou supprimez vos familles. Renommer une famille mate&nbsp;à jour toutes les tâches qui la portent.</p>
+        <div id="familyManageList" style="margin-bottom:16px;"></div>
+        <div style="border-top:1px solid var(--line); padding-top:14px; display:flex; gap:8px;">
+          <input type="text" class="field" id="newFamilyManageName" placeholder="Nouvelle famille" style="flex:1;" />
+          <button class="btn btn-primary" id="addFamilyManageBtn" style="white-space:nowrap;">Ajouter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- POPOVER SÉLECTEUR DE DATE/HEURE -->
   <div class="datepicker-popover hidden" id="datePickerPopover">
     <div class="dp-header">
@@ -3665,6 +3727,9 @@
 
   <!-- POPOVER MENU DÉROULANT MAISON POUR LES SELECTS DE LA BARRE D'OUTILS (Trier / Grouper...) -->
   <div class="inline-dropdown-popover hidden" id="toolbarDropdownPopover">
+    <div id="toolbarDropdownSearchWrap" class="hidden" style="padding:4px 4px 6px;">
+      <input type="text" id="toolbarDropdownSearch" class="field" placeholder="Rechercher…" style="font-size:12px; padding:7px 9px;" />
+    </div>
     <div id="toolbarDropdownList"></div>
   </div>
 
@@ -4371,12 +4436,27 @@
       updateCategorySelects();
       updateFamilySelects();
       updateGroupBySelectOptions();
+      // La grille des categories/familles et l'etat plie des cartes viennent aussi de
+      // l'etat distant : sans ce rafraichissement elles restaient figees sur l'ancien.
+      renderCategoryGrid();
+      applyCollapsedCards();
       renderTasks();
       renderTimeline();
       renderWeeklyChart();
       renderPerformance();
       updateDisplays();
       applyingRemoteState = false;
+    }
+
+    // Une rafale de sauvegardes distantes (l'autre appareil enregistre a chaque frappe)
+    // declenchait un toast par evenement : le message restait colle a l'ecran en
+    // permanence. On n'en annonce donc qu'un seul par fenetre de 30 s.
+    let lastRemoteToastAt = 0;
+    function announceRemoteUpdate() {
+      const now = Date.now();
+      if (now - lastRemoteToastAt < 30000) return;
+      lastRemoteToastAt = now;
+      toast('Donnees mises a jour depuis un autre appareil.');
     }
 
     function subscribeRealtime() {
@@ -4392,7 +4472,7 @@
             if (!incoming || !incoming.state) return;
             if (incoming.state._client === CLIENT_ID) return; // écho de notre propre écriture
             applyRemoteState(incoming.state);
-            toast('Données mises à jour depuis un autre appareil.');
+            announceRemoteUpdate();
           })
           .subscribe();
         return;
@@ -4406,7 +4486,7 @@
           if (!incoming || !incoming.state) return;
           if (incoming.state._client === CLIENT_ID) return; // écho de notre propre écriture
           applyRemoteState(incoming.state);
-          toast('Données mises à jour depuis un autre appareil.');
+          announceRemoteUpdate();
         })
         .subscribe();
     }
@@ -4894,7 +4974,7 @@
         <div class="detail-row"><span class="label">Statut</span><span class="value">${task.status}</span></div>
         <div class="detail-row"><span class="label">Priorité</span><span class="value">${task.priority}</span></div>
         <div class="detail-row"><span class="label">Catégorie</span><span class="value">${escHtml(task.category) || 'Général'}</span></div>
-        <div class="detail-row"><span class="label">Durée estimée</span><span class="value">${task.duration}m</span></div>
+        ${task.duration ? `<div class="detail-row"><span class="label">Durée estimée</span><span class="value">${task.duration}m</span></div>` : ''}
         <div class="detail-row"><span class="label">Temps passé</span><span class="value">${formatTimeShort(task.timeSpent || 0)}</span></div>
         ${task.deadline ? `<div class="detail-row"><span class="label">Échéance</span><span class="value">${new Date(task.deadline).toLocaleString('fr-FR')} (${getDeadlineLabelForTask(task)})</span></div>` : ''}
         ${task.notes ? `<div class="detail-row"><span class="label">Notes</span><span class="value">${escHtml(task.notes)}</span></div>` : ''}
@@ -4978,7 +5058,7 @@
         task.deadline = d.toISOString();
         toast(`+${minutes}min ajouté à l'échéance de "${task.title}"`);
       } else {
-        task.duration += minutes;
+        task.duration = (task.duration || 0) + minutes;
         toast(`+${minutes}min ajouté à la durée de "${task.title}"`);
       }
       save();
@@ -5031,7 +5111,7 @@
           timer.targetDuration = new Date(task.deadline).getTime() - Date.now();
         } else {
           timer.deadlineBased = false;
-          timer.targetDuration = task.duration * 60 * 1000;
+          timer.targetDuration = (task.duration || 25) * 60 * 1000;
         }
       } else {
         timer.deadlineBased = false;
@@ -5263,7 +5343,7 @@
       //    donc que pour les tâches réellement démarrées puis terminées.
       const allDone = state.tasks.filter(t => t.status === 'done');
       if (!allDone.length) return { count: 0, tracked: 0, groups: [], groupCount: 0, leadCount: 0, avgLead: 0 };
-      const trackedTasks = allDone.filter(t => t.timeSpent > 0);
+      const trackedTasks = allDone.filter(t => t.timeSpent > 0 && t.duration > 0);
       const totalEst = trackedTasks.reduce((sum, t) => sum + t.duration * 60 * 1000, 0);
       const totalReal = trackedTasks.reduce((sum, t) => sum + (t.timeSpent || 0) * 1000, 0);
       const avgEst = trackedTasks.length ? totalEst / trackedTasks.length : 0;
@@ -5301,9 +5381,9 @@
         }
         g.occurrences++;
         if (t.repeat && t.repeat !== 'none') g.recurring = true;
-        if (t.timeSpent > 0) {
+        if (t.timeSpent > 0 && t.duration > 0) {
           g.trackedCount++;
-          g.estMs += t.duration * 60 * 1000;
+          g.estMs += (t.duration || 0) * 60 * 1000;
           g.realMs += (t.timeSpent || 0) * 1000;
         }
         const lead = leadOf(t);
@@ -5588,6 +5668,26 @@
       return yiq >= 150 ? '#14141a' : '#ffffff';
     }
 
+    // Les familles ont leur propre table de couleurs : sans cela, une famille et une
+    // categorie portant le meme nom (« Urgent »…) partageraient la meme entree et se
+    // recoloreraient mutuellement.
+    function familyColor(name) {
+      if (state.familyColors && state.familyColors[name]) return state.familyColors[name];
+      let hash = 0;
+      const salted = 'fam:' + name;
+      for (let i = 0; i < salted.length; i++) hash = salted.charCodeAt(i) + ((hash << 5) - hash);
+      return CATEGORY_PALETTE[Math.abs(hash) % CATEGORY_PALETTE.length];
+    }
+
+    function setFamilyColor(name, hex) {
+      if (!state.familyColors) state.familyColors = {};
+      state.familyColors[name] = hex;
+      save();
+      renderFamilyGrid();
+      renderFamilyManageList();
+      renderTasks();
+    }
+
     function setCategoryColor(name, hex) {
       if (!state.categoryColors) state.categoryColors = {};
       state.categoryColors[name] = hex;
@@ -5654,7 +5754,7 @@
       });
       grid.innerHTML = options.map(name => {
         const n = counts[name] || 0;
-        const bg = categoryColor(name);
+        const bg = familyColor(name);
         const fg = contrastTextColor(bg);
         return `
         <button type="button" class="category-tile" data-family="${escHtml(name)}" style="background:${bg}; color:${fg};">
@@ -5684,6 +5784,98 @@
         const name = prompt('Nom de la nouvelle famille :');
         if (name && name.trim()) { addFamilyOption(name.trim()); renderFamilyGrid(); }
       });
+    }
+
+    // ================================================================
+    // GESTION DES FAMILLES (renommer / recolorer / supprimer)
+    // Renommer doit reporter le nouveau nom sur toutes les taches qui portaient l'ancien,
+    // sinon elles se retrouveraient orphelines dans un groupe qui n'existe plus.
+    // ================================================================
+    function openFamiliesManageModal() {
+      renderFamilyManageList();
+      $('familiesManageModal').classList.remove('hidden');
+    }
+    function closeFamiliesManageModal() {
+      $('familiesManageModal').classList.add('hidden');
+      $('newFamilyManageName').value = '';
+    }
+
+    function renderFamilyManageList() {
+      const container = $('familyManageList');
+      if (!container) return;
+      const field = getFamilyField();
+      const options = field ? (field.options || []) : [];
+      if (!options.length) {
+        container.innerHTML = '<div class="task-panel-empty">Aucune famille.</div>';
+        return;
+      }
+      container.innerHTML = options.map(f => `
+        <div class="category-manage-row">
+          <button type="button" class="cat-color-swatch-btn" data-fam="${escHtml(f)}" style="background:${familyColor(f)};" title="Choisir la couleur de « ${escHtml(f)} »" aria-label="Couleur de la famille ${escHtml(f)}"></button>
+          <input type="text" class="field fam-rename-input" data-original="${escHtml(f)}" value="${escHtml(f)}" />
+          <button type="button" data-delete-fam="${escHtml(f)}" aria-label="Supprimer la famille ${escHtml(f)}">✕</button>
+        </div>
+      `).join('');
+      container.querySelectorAll('.fam-rename-input').forEach(input => {
+        const commit = () => {
+          const original = input.getAttribute('data-original');
+          const next = input.value.trim();
+          if (!next || next === original) { input.value = original; return; }
+          renameFamily(original, next);
+        };
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+      });
+      container.querySelectorAll('.cat-color-swatch-btn[data-fam]').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); openFamilyColorPopover(btn); });
+      });
+      container.querySelectorAll('[data-delete-fam]').forEach(btn => {
+        btn.addEventListener('click', () => deleteFamily(btn.getAttribute('data-delete-fam')));
+      });
+    }
+
+    function renameFamily(oldName, newName) {
+      const field = getFamilyField();
+      if (!field) return;
+      if ((field.options || []).some(o => o.toLowerCase() === newName.toLowerCase() && o !== oldName)) {
+        toast('Cette famille existe déjà.');
+        renderFamilyManageList();
+        return;
+      }
+      field.options = (field.options || []).map(o => (o === oldName ? newName : o));
+      state.tasks.forEach(t => {
+        if (t.customFieldValues && t.customFieldValues[field.id] === oldName) {
+          t.customFieldValues[field.id] = newName;
+        }
+      });
+      if (state.familyColors && state.familyColors[oldName]) {
+        state.familyColors[newName] = state.familyColors[oldName];
+        delete state.familyColors[oldName];
+      }
+      save();
+      updateFamilySelects();
+      renderFamilyManageList();
+      renderFamilyGrid();
+      renderTasks();
+      toast('Famille renommée.');
+    }
+
+    function deleteFamily(name) {
+      const field = getFamilyField();
+      if (!field) return;
+      const used = state.tasks.filter(t => t.customFieldValues && t.customFieldValues[field.id] === name).length;
+      if (used && !confirm(`« ${name} » est utilisée par ${used} tâche(s). Les détacher de cette famille ?`)) return;
+      field.options = (field.options || []).filter(o => o !== name);
+      state.tasks.forEach(t => {
+        if (t.customFieldValues && t.customFieldValues[field.id] === name) delete t.customFieldValues[field.id];
+      });
+      if (state.familyColors) delete state.familyColors[name];
+      save();
+      updateFamilySelects();
+      renderFamilyManageList();
+      renderFamilyGrid();
+      renderTasks();
+      toast('Famille supprimée.');
     }
 
     function addCategoryByPrompt() {
@@ -5747,14 +5939,28 @@
     // Popover de choix de couleur (palette de swatches maison, pas le sélecteur natif du
     // navigateur qui ne respecte pas la DA de l'app).
     let categoryColorPopoverTarget = null;
+    let categoryColorPopoverKind = 'category';
+    function openFamilyColorPopover(btn) {
+      categoryColorPopoverKind = 'family';
+      categoryColorPopoverTarget = btn.getAttribute('data-fam');
+      renderColorPopover(btn, familyColor(categoryColorPopoverTarget));
+    }
     function openCategoryColorPopover(btn) {
+      categoryColorPopoverKind = 'category';
       categoryColorPopoverTarget = btn.getAttribute('data-cat');
-      const current = categoryColor(categoryColorPopoverTarget);
+      renderColorPopover(btn, categoryColor(categoryColorPopoverTarget));
+    }
+    function renderColorPopover(btn, current) {
       $('categoryColorGrid').innerHTML = CATEGORY_PALETTE.map(hex => `
         <button type="button" class="color-swatch-btn ${hex.toLowerCase() === current.toLowerCase() ? 'active' : ''}" data-hex="${hex}" style="background:${hex};" aria-label="Couleur ${hex}"></button>
       `).join('');
       positionColorPopover(btn);
       $('categoryColorPopover').classList.remove('hidden');
+    }
+    function applyColorPopoverChoice(hex) {
+      if (!categoryColorPopoverTarget) return;
+      if (categoryColorPopoverKind === 'family') setFamilyColor(categoryColorPopoverTarget, hex);
+      else setCategoryColor(categoryColorPopoverTarget, hex);
     }
     function closeCategoryColorPopover() {
       $('categoryColorPopover').classList.add('hidden');
@@ -6081,6 +6287,23 @@
       };
       sel._syncFake();
       fake.addEventListener('click', () => openToolbarDropdown(id));
+      // Les listes repeuplees en JS (categories, familles, dependances, membres...) doivent
+      // rafraichir leur libelle sans que chaque appelant ait a y penser : on observe donc
+      // directement les <option> plutot que de compter sur des appels manuels.
+      try {
+        new MutationObserver(() => sel._syncFake()).observe(sel, { childList: true, subtree: true });
+      } catch (e) { /* navigateur sans MutationObserver : le libelle reste celui du rendu initial */ }
+    }
+
+    // Applique le menu maison a TOUS les <select> de l'app (existants comme ajoutes plus
+    // tard), pour qu'aucune liste native non stylable ne subsiste. C'est le point d'entree
+    // unique : tout nouveau <select class="field"> herite automatiquement du style.
+    function enhanceAllSelects(root) {
+      (root || document).querySelectorAll('select.field, select[data-enhance]').forEach(sel => {
+        if (!sel.id) sel.id = 'sel-' + Math.random().toString(36).slice(2, 9);
+        if (sel.parentNode && sel.parentNode.classList.contains('select-wrap')) return;
+        enhanceToolbarSelect(sel.id);
+      });
     }
 
     function syncFakeSelect(id) {
@@ -6088,17 +6311,40 @@
       if (sel && sel._syncFake) sel._syncFake();
     }
 
+    // Au-dela de ce nombre d'entrees, chercher a l'oeil devient penible (liste des taches
+    // pour une dependance, par exemple) : on affiche alors un champ de recherche.
+    const TOOLBAR_DROPDOWN_SEARCH_THRESHOLD = 8;
+
+    function renderToolbarDropdownItems(filter) {
+      const sel = $(toolbarDropdownSelectId);
+      if (!sel) return 0;
+      const needle = (filter || '').trim().toLowerCase();
+      const options = Array.from(sel.options)
+        .map(o => ({ value: o.value, label: o.textContent }))
+        .filter(o => !needle || o.label.toLowerCase().includes(needle));
+      $('toolbarDropdownList').innerHTML = options.length
+        ? options.map(o => `
+            <button type="button" class="inline-dropdown-item ${o.value === sel.value ? 'active' : ''}" data-value="${escHtml(o.value)}">${escHtml(o.label)}</button>
+          `).join('')
+        : '<div style="padding:10px; font-size:11px; color:var(--muted);">Aucun résultat.</div>';
+      return options.length;
+    }
+
     function openToolbarDropdown(id) {
       const sel = $(id);
       const fake = $(id + 'Fake');
       if (!sel || !fake) return;
       toolbarDropdownSelectId = id;
-      const options = Array.from(sel.options).map(o => ({ value: o.value, label: o.textContent }));
-      $('toolbarDropdownList').innerHTML = options.map(o => `
-        <button type="button" class="inline-dropdown-item ${o.value === sel.value ? 'active' : ''}" data-value="${escHtml(o.value)}">${escHtml(o.label)}</button>
-      `).join('');
-      positionToolbarDropdown(fake, options.length);
+      const total = sel.options.length;
+      const searchWrap = $('toolbarDropdownSearchWrap');
+      const searchInput = $('toolbarDropdownSearch');
+      const withSearch = total > TOOLBAR_DROPDOWN_SEARCH_THRESHOLD;
+      searchWrap.classList.toggle('hidden', !withSearch);
+      searchInput.value = '';
+      renderToolbarDropdownItems('');
+      positionToolbarDropdown(fake, Math.min(total, 8));
       $('toolbarDropdownPopover').classList.remove('hidden');
+      if (withSearch) setTimeout(() => searchInput.focus(), 0);
     }
 
     function closeToolbarDropdown() {
@@ -6213,7 +6459,7 @@
               <div class="task-title">${escHtml(t.title)}${isActive ? (isPrimary ? ' ★︎' : ' ○︎') : ''}</div>
               <div class="task-meta">
                 <button type="button" class="inline-badge status-badge ${statusClass}" data-inline-edit="status" data-id="${t.id}" title="Changer le statut">${statusLabel}</button>
-                <span>${t.duration}m</span>
+                ${t.duration ? `<span>${t.duration}m</span>` : ''}
                 <button type="button" class="inline-badge priority-${t.priority}" data-inline-edit="priority" data-id="${t.id}" title="Changer la priorité">${t.priority}</button>
                 <button type="button" class="inline-badge inline-badge-category" data-inline-edit="category" data-id="${t.id}" title="Changer la catégorie">${escHtml(t.category) || 'Général'}</button>
                 <span><span class="math-icon">◷︎</span> ${formatTimeShort(t.timeSpent || 0)}</span>
@@ -6574,7 +6820,7 @@
         const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : (t.status === 'done' ? 100 : 0);
         report += `${i + 1}. ${t.title}\n`;
         report += `   Statut : ${statusLabels[t.status] || t.status}  ·  Priorité : ${priorityLabels[t.priority] || t.priority}  ·  Catégorie : ${t.category || 'Général'}\n`;
-        report += `   Estimé : ${t.duration}m  ·  Passé : ${formatTimeShort(t.timeSpent || 0)}\n`;
+        report += `   Estimé : ${t.duration ? t.duration + 'm' : '—'}  ·  Passé : ${formatTimeShort(t.timeSpent || 0)}\n`;
         if (subtasks.length) report += `   Sous-tâches : ${doneSub}/${subtasks.length} (${progress}%)\n`;
         if (t.deadline) report += `   Échéance : ${new Date(t.deadline).toLocaleString('fr-FR')}\n`;
         if (t.notes) report += `   Notes : ${t.notes}\n`;
@@ -6613,7 +6859,7 @@
           </div>
           <div style="font-size:11px; color:#888888; margin-top:8px; display:flex; gap:14px; flex-wrap:wrap;">
             <span>${escHtml(t.category || 'Général')}</span>
-            <span>Estimé ${t.duration}m</span>
+            <span>Estimé ${t.duration ? t.duration + 'm' : '—'}</span>
             <span>Passé ${formatTimeShort(t.timeSpent || 0)}</span>
             ${t.deadline ? `<span>Échéance ${new Date(t.deadline).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>` : ''}
           </div>
@@ -6785,6 +7031,10 @@
           timer.notified = false;
           updateTimerTarget();
           updateCategorySelects();
+          updateFamilySelects();
+          updateGroupBySelectOptions();
+          renderCategoryGrid();
+          applyCollapsedCards();
           renderTasks();
           renderTimeline();
           renderWeeklyChart();
@@ -6798,30 +7048,40 @@
       reader.readAsText(file);
     }
 
+    // Un tableur interprete comme une FORMULE toute cellule commencant par = + - @ (ou une
+    // tabulation) : un titre de tache tape par un collegue pourrait donc executer quelque
+    // chose a l'ouverture du fichier. On neutralise en prefixant d'une apostrophe, et on
+    // entoure systematiquement de guillemets pour qu'une virgule ne decale pas les colonnes.
+    function csvCell(value) {
+      let v = value == null ? '' : String(value);
+      if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+      return '"' + v.replace(/"/g, '""') + '"';
+    }
+
     function exportCSV() {
       const selected = getSelectedTasks();
       if (!selected.length) { toast('Sélectionnez des tâches.'); return; }
       const statusLabels = { todo: 'À faire', inprogress: 'En cours', done: 'Terminée', blocked: 'Bloquée' };
       const priorityLabels = { high: 'Critique', medium: 'Normale', low: 'Basse' };
       let csv = '﻿'; // BOM : accents corrects à l'ouverture dans Excel
-      csv += 'Titre,Statut,Priorité,Catégorie,Durée estimée,Temps passé,Progression,Échéance,Notes\n';
+      csv += ['Titre', 'Statut', 'Priorité', 'Catégorie', 'Durée estimée', 'Temps passé', 'Progression', 'Échéance', 'Notes'].map(csvCell).join(',') + '\n';
       selected.forEach(t => {
         const subtasks = t.subtasks || [];
         const doneSub = subtasks.filter(s => s.done).length;
         const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : (t.status === 'done' ? 100 : 0);
         const deadline = t.deadline ? new Date(t.deadline).toLocaleString('fr-FR') : '';
         const row = [
-          `"${t.title.replace(/"/g, '""')}"`,
+          t.title,
           statusLabels[t.status] || t.status,
           priorityLabels[t.priority] || t.priority,
           t.category || 'Général',
-          t.duration,
+          t.duration ? t.duration + 'm' : '',
           formatTimeShort(t.timeSpent || 0),
           progress + '%',
-          `"${deadline}"`,
-          `"${(t.notes || '').replace(/"/g, '""')}"`
+          deadline,
+          t.notes || ''
         ];
-        csv += row.join(',') + '\n';
+        csv += row.map(csvCell).join(',') + '\n';
       });
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -7514,7 +7774,7 @@
       return Object.assign({
         id: Date.now().toString() + Math.random().toString(36).slice(2),
         title: '',
-        duration: 25,
+        duration: null,
         priority: 'medium',
         category: (state.categories && state.categories[0]) || 'Général',
         status: 'todo',
@@ -7543,7 +7803,9 @@
       const familyValue = $('taskFamily') && $('taskFamily').value !== '__new__' ? $('taskFamily').value : '';
       const newTask = createTaskObject({
         title,
-        duration: +$('taskDuration').value,
+        // Durée facultative : sans choix explicite, la tâche n'affiche aucune estimation
+        // plutôt qu'un « 25m » inventé qui fausserait ensuite l'analyse estimé/réel.
+        duration: +$('taskDuration').value || null,
         priority: $('taskPriority').value,
         category: $('taskCategory').value || 'Général',
         deadline: deadline,
@@ -8033,7 +8295,7 @@
       if (!task) return;
       editingTaskId = id;
       $('editTitle').value = task.title;
-      $('editDuration').value = task.duration;
+      $('editDuration').value = task.duration || '';
       $('editPriority').value = task.priority;
       $('editStatus').value = task.status;
       $('editCategory').value = task.category || 'Général';
@@ -8108,7 +8370,7 @@
         category: task.category, assignee: task.assignee || null
       };
       task.title = $('editTitle').value.trim() || task.title;
-      task.duration = +$('editDuration').value;
+      task.duration = +$('editDuration').value || null;
       task.priority = $('editPriority').value;
       // Le statut passe par le point d'entrée unique pour que le panneau d'édition ait
       // exactement les mêmes effets sur le chrono que le Kanban (appliqué en fin de fonction,
@@ -8343,6 +8605,9 @@
           </div>
         `;
       }).join('');
+      // Les listes des champs personnalises viennent d'etre recreees : elles doivent
+      // recevoir le meme habillage que tous les autres menus de l'app.
+      enhanceAllSelects(container);
     }
 
     // ================================================================
@@ -8716,7 +8981,7 @@
       const colorSwatchBtn = e.target.closest('.color-swatch-btn');
       if (colorSwatchBtn) {
         e.stopPropagation();
-        if (categoryColorPopoverTarget) setCategoryColor(categoryColorPopoverTarget, colorSwatchBtn.getAttribute('data-hex'));
+        applyColorPopoverChoice(colorSwatchBtn.getAttribute('data-hex'));
         closeCategoryColorPopover();
         return;
       }
@@ -8868,6 +9133,18 @@
       e.stopPropagation();
       dp.selectedDay = new Date(dp.viewYear, dp.viewMonth, parseInt(btn.dataset.day, 10));
       renderDatePickerCalendar();
+    });
+    $('toolbarDropdownSearch').addEventListener('input', function() {
+      renderToolbarDropdownItems(this.value);
+    });
+    $('toolbarDropdownSearch').addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeToolbarDropdown(); return; }
+      // Entree valide directement le seul resultat restant : c'est le geste attendu apres
+      // avoir tape trois lettres pour retrouver une tache precise.
+      if (e.key === 'Enter') {
+        const first = $('toolbarDropdownList').querySelector('.inline-dropdown-item');
+        if (first) first.click();
+      }
     });
     $('dpConfirmBtn').addEventListener('click', confirmDatePicker);
     $('dpClearBtn').addEventListener('click', clearDatePickerValue);
@@ -9034,6 +9311,43 @@
     });
 
     $('manageCategoriesBtn').addEventListener('click', openCategoriesManageModal);
+    $('manageFamiliesBtn').addEventListener('click', openFamiliesManageModal);
+    $('familiesManageModalCloseBtn').addEventListener('click', closeFamiliesManageModal);
+    $('familiesManageModal').addEventListener('click', function(e) { if (e.target === this) closeFamiliesManageModal(); });
+    $('addFamilyManageBtn').addEventListener('click', function() {
+      const input = $('newFamilyManageName');
+      const name = input.value.trim();
+      if (!name) return;
+      addFamilyOption(name);
+      input.value = '';
+      renderFamilyManageList();
+      renderFamilyGrid();
+    });
+    $('newFamilyManageName').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') $('addFamilyManageBtn').click();
+    });
+
+    // Cartes pliables : l'etat est memorise pour que la mise en page reste celle que
+    // l'utilisateur a choisie d'une session a l'autre.
+    function applyCollapsedCards() {
+      document.querySelectorAll('[data-collapsible]').forEach(card => {
+        const key = card.getAttribute('data-collapsible');
+        card.classList.toggle('is-collapsed', !!(state.collapsedCards && state.collapsedCards[key]));
+      });
+    }
+    document.querySelectorAll('[data-collapse-toggle]').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const card = this.closest('[data-collapsible]');
+        if (!card) return;
+        const key = card.getAttribute('data-collapsible');
+        if (!state.collapsedCards) state.collapsedCards = {};
+        state.collapsedCards[key] = !state.collapsedCards[key];
+        save();
+        applyCollapsedCards();
+      });
+    });
+    applyCollapsedCards();
     $('categoriesManageModalCloseBtn').addEventListener('click', closeCategoriesManageModal);
     $('categoriesManageModal').addEventListener('click', function(e) { if (e.target === this) closeCategoriesManageModal(); });
     $('addCategoryManageBtn').addEventListener('click', addCategoryFromManageModal);
@@ -9324,12 +9638,9 @@
       const famField = (state.customFields || []).find(f => f.id.indexOf('svc-') === 0);
       if (famField) { state.familyFieldId = famField.id; save(); }
     }
-    enhanceToolbarSelect('filterStatus');
-    enhanceToolbarSelect('filterCategory');
-    enhanceToolbarSelect('filterPriority');
-    enhanceToolbarSelect('filterDeadline');
-    enhanceToolbarSelect('taskSort');
-    enhanceToolbarSelect('groupBySelect');
+    // Un seul appel couvre desormais toute l'app : filtres, formulaire de creation,
+    // panneau de tache, modales... aucun <select> natif ne subsiste.
+    enhanceAllSelects();
     const groupBySelectWrap = $('groupBySelect') && $('groupBySelect').closest('.select-wrap');
     if (groupBySelectWrap) groupBySelectWrap.classList.add('important');
     updateCategorySelects();
