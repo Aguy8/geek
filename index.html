@@ -46,6 +46,10 @@
       --warning: #fbbf24;
       --info: #60a5fa;
       --radius: 10px;
+      /* Rayon partagé par toute la famille des « contrôles flottants » (popovers de menu,
+         tuiles de catégorie/famille, boutons de select maison...) : un seul endroit à changer
+         pour que tout ce groupe évolue ensemble, plutôt que des valeurs éparpillées. */
+      --radius-sm: 8px;
       --shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
       --transition: 0.2s ease;
     }
@@ -426,7 +430,7 @@
       align-items: center;
       padding: 14px 12px;
       border: 1px solid transparent;
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       cursor: pointer;
       transition: var(--transition);
       text-align: left;
@@ -667,6 +671,7 @@
       padding: 0 12px;
       font-size: 10px;
       font-weight: 700;
+      font-family: 'Inter', sans-serif;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: var(--text-dim);
@@ -677,7 +682,9 @@
       left: 0;
       width: fit-content;
       min-width: 100%;
+      margin: 0;
     }
+    .tl-group-header:hover { color: var(--text); }
     .tl-row {
       display: flex;
       border-bottom: 1px solid var(--line);
@@ -1146,7 +1153,37 @@
     }
     .field:focus { border-color: var(--text-dim); }
     .field::placeholder { color: var(--muted); }
-    input[type="checkbox"] { accent-color: var(--primary); }
+    /* Case à cocher maison : une seule règle pour toute l'app (sous-tâches, éditeur de
+       sous-tâches, filtre "masquer terminées", sélection de rapport...) — le natif du
+       navigateur garde des coins carrés qui détonnent avec le reste de l'interface. */
+    input[type="checkbox"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      margin: 0;
+      border: 1.5px solid var(--line);
+      border-radius: 4px;
+      background: var(--bg);
+      display: inline-grid;
+      place-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    input[type="checkbox"]:hover { border-color: var(--text-dim); }
+    input[type="checkbox"]:checked {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    input[type="checkbox"]:checked::after {
+      content: '';
+      width: 4px;
+      height: 8px;
+      border: solid var(--primary-text);
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
     .task-list {
       padding: 12px 20px 20px;
       display: grid;
@@ -1257,7 +1294,6 @@
       font-size: 12px;
     }
     .subtask-row input[type="checkbox"] {
-      accent-color: var(--success);
       width: 14px;
       height: 14px;
       cursor: pointer;
@@ -1636,6 +1672,7 @@
     .start-prompt {
       background: var(--surface);
       border: 1px solid var(--line);
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 26px 24px 22px;
       width: 100%;
@@ -1695,6 +1732,7 @@
       width: 280px;
       background: var(--surface);
       border: 1px solid var(--line);
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 12px 14px;
       font-family: 'Inter', sans-serif;
@@ -1738,6 +1776,7 @@
       font-family: 'Inter', sans-serif;
       background: var(--surface-2);
       border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
       color: var(--text);
       cursor: pointer;
       transition: var(--transition);
@@ -2461,7 +2500,7 @@
       z-index: 10002;
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       box-shadow: var(--shadow);
       padding: 4px;
       min-width: 130px;
@@ -2498,7 +2537,7 @@
       border: 1px solid var(--line);
       color: var(--text);
       padding: 10px 12px;
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       font-size: 12px;
       font-family: 'Inter', sans-serif;
       cursor: pointer;
@@ -2540,6 +2579,15 @@
       box-shadow: 0 0 0 1px var(--primary) inset;
     }
     .select-wrap.important .select-fake-chevron { color: var(--primary); }
+    /* Repère qu'un filtre restreint déjà la liste (Statut/Catégorie/Priorité/Échéance,
+       recherche, masquer terminées) : sans lui, on peut chercher une tâche un moment avant
+       de se rappeler qu'un filtre est encore actif. */
+    .select-wrap.filter-active .select-fake {
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+    input.field.filter-active { border-color: var(--warning); }
+    label.filter-active { color: var(--warning); }
     .dd-dot.dot-todo { background: var(--muted); }
     .dd-dot.dot-inprogress { background: var(--warning); }
     .dd-dot.dot-blocked { background: var(--danger); }
@@ -2554,7 +2602,7 @@
       z-index: 10002;
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 10px;
     }
@@ -3344,9 +3392,9 @@
         </div>
         <div class="card" style="padding:20px; margin-bottom:20px;">
           <div class="card-header" style="padding:0 0 4px 0; border:none;">
-            <h2>Répartition du temps par catégorie</h2>
+            <h2>Répartition du temps estimé par catégorie</h2>
           </div>
-          <div style="font-size:11px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Part du temps de concentration passé sur chaque catégorie, tout historique confondu.</div>
+          <div style="font-size:11px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Part de la durée estimée des tâches (suivies au chrono ou non) répartie par catégorie — reflète où va l'effort planifié, pas seulement les sessions chronométrées.</div>
           <div class="cat-donut-wrap">
             <div class="cat-donut-box">
               <div class="cat-donut" id="categoryDonut"></div>
@@ -4975,7 +5023,7 @@
         <div class="detail-row"><span class="label">Priorité</span><span class="value">${task.priority}</span></div>
         <div class="detail-row"><span class="label">Catégorie</span><span class="value">${escHtml(task.category) || 'Général'}</span></div>
         ${task.duration ? `<div class="detail-row"><span class="label">Durée estimée</span><span class="value">${task.duration}m</span></div>` : ''}
-        <div class="detail-row"><span class="label">Temps passé</span><span class="value">${formatTimeShort(task.timeSpent || 0)}</span></div>
+        <div class="detail-row"><span class="label">Temps passé</span><span class="value">${formatTimeShort((task.timeSpent || 0) * 1000)}</span></div>
         ${task.deadline ? `<div class="detail-row"><span class="label">Échéance</span><span class="value">${new Date(task.deadline).toLocaleString('fr-FR')} (${getDeadlineLabelForTask(task)})</span></div>` : ''}
         ${task.notes ? `<div class="detail-row"><span class="label">Notes</span><span class="value">${escHtml(task.notes)}</span></div>` : ''}
         ${subtasks.length ? `
@@ -5488,6 +5536,26 @@
     // ================================================================
     // RENDU TÂCHES
     // ================================================================
+    // Signale visuellement qu'un filtre restreint déjà la liste : sans ce repère, on peut
+    // chercher une tâche pendant un moment avant de se rappeler qu'un filtre est encore actif.
+    function updateFilterHighlights({ filterStatus, filterCat, filterPriority, filterDeadline, search, hideDone }) {
+      const marks = {
+        filterStatus: filterStatus !== 'all',
+        filterCategory: filterCat !== 'all',
+        filterPriority: filterPriority !== 'all',
+        filterDeadline: filterDeadline !== 'all'
+      };
+      Object.entries(marks).forEach(([id, active]) => {
+        const sel = $(id);
+        const wrap = sel && sel.closest('.select-wrap');
+        if (wrap) wrap.classList.toggle('filter-active', active);
+      });
+      const searchInput = $('searchInput');
+      if (searchInput) searchInput.classList.toggle('filter-active', !!search);
+      const hideDoneLabel = $('hideDoneToggle') && $('hideDoneToggle').closest('label');
+      if (hideDoneLabel) hideDoneLabel.classList.toggle('filter-active', hideDone);
+    }
+
     function renderTasks() {
       const allTasks = state.tasks;
       renderDashTaskList();
@@ -5518,6 +5586,7 @@
         }
         return true;
       });
+      updateFilterHighlights({ filterStatus, filterCat, filterPriority, filterDeadline, search, hideDone });
       const priorityRank = { high: 0, medium: 1, low: 2 };
       const statusRank = { blocked: 0, inprogress: 1, todo: 2, done: 3 };
       filtered.sort((a, b) => {
@@ -6462,7 +6531,7 @@
                 ${t.duration ? `<span>${t.duration}m</span>` : ''}
                 <button type="button" class="inline-badge priority-${t.priority}" data-inline-edit="priority" data-id="${t.id}" title="Changer la priorité">${t.priority}</button>
                 <button type="button" class="inline-badge inline-badge-category" data-inline-edit="category" data-id="${t.id}" title="Changer la catégorie">${escHtml(t.category) || 'Général'}</button>
-                <span><span class="math-icon">◷︎</span> ${formatTimeShort(t.timeSpent || 0)}</span>
+                <span><span class="math-icon">◷︎</span> ${formatTimeShort((t.timeSpent || 0) * 1000)}</span>
                 ${subtasks.length ? `<span><span class="math-icon">≡︎</span> ${doneSubtasks}/${subtasks.length}</span>` : ''}
                 ${t.repeat && t.repeat !== 'none' ? `<span><span class="math-icon">⟳︎</span> ${t.repeat === 'daily' ? 'Quotidienne' : 'Hebdomadaire'}</span>` : ''}
                 ${t.assignee && memberEmailFor(t.assignee) ? `<span><span class="math-icon">⚇︎</span> ${escHtml(memberEmailFor(t.assignee))}</span>` : ''}
@@ -6748,36 +6817,40 @@
       const center = $('categoryDonutCenter');
       const legend = $('categoryLegend');
       if (!donut || !legend) return;
+      // Basé sur la durée ESTIMÉE (task.duration), pas sur le temps suivi au chrono : la
+      // plupart des tâches sont cochées terminées sans jamais être lancées, donc le temps
+      // réel ne reflète pas l'effort réparti par catégorie — seule une minorité de tâches
+      // aurait un poids, faussant complètement la répartition affichée.
       const totals = {};
       state.tasks.forEach(t => {
-        const secs = t.timeSpent || 0;
-        if (secs <= 0) return;
+        const mins = t.duration || 0;
+        if (mins <= 0) return;
         const cat = t.category || 'Général';
-        totals[cat] = (totals[cat] || 0) + secs;
+        totals[cat] = (totals[cat] || 0) + mins;
       });
       const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-      const totalSecs = entries.reduce((sum, [, s]) => sum + s, 0);
+      const totalMins = entries.reduce((sum, [, m]) => sum + m, 0);
 
       if (!entries.length) {
         donut.style.background = 'var(--line)';
         center.innerHTML = '<strong>--</strong><small>Aucune donnée</small>';
-        legend.innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucun temps enregistré pour l\'instant.</div>';
+        legend.innerHTML = '<div style="color:var(--muted); font-size:12px;">Aucune tâche estimée pour l\'instant.</div>';
         return;
       }
 
       let acc = 0;
-      const stops = entries.map(([cat, secs]) => {
+      const stops = entries.map(([cat, mins]) => {
         const color = categoryColor(cat);
         const from = acc;
-        acc += (secs / totalSecs) * 100;
+        acc += (mins / totalMins) * 100;
         return `${color} ${from}% ${acc}%`;
       }).join(', ');
       donut.style.background = `conic-gradient(${stops})`;
-      center.innerHTML = `<strong>${formatTimeShort(totalSecs)}</strong><small>au total</small>`;
-      legend.innerHTML = entries.map(([cat, secs]) => {
+      center.innerHTML = `<strong>${formatTimeShort(totalMins * 60000)}</strong><small>estimé</small>`;
+      legend.innerHTML = entries.map(([cat, mins]) => {
         const color = categoryColor(cat);
-        const pct = Math.round((secs / totalSecs) * 100);
-        return `<div class="cat-legend-item"><span class="cat-legend-dot" style="background:${color};"></span><span class="cat-legend-label">${escHtml(cat)}</span><span class="cat-legend-value">${formatTimeShort(secs)} · ${pct}%</span></div>`;
+        const pct = Math.round((mins / totalMins) * 100);
+        return `<div class="cat-legend-item"><span class="cat-legend-dot" style="background:${color};"></span><span class="cat-legend-label">${escHtml(cat)}</span><span class="cat-legend-value">${formatTimeShort(mins * 60000)} · ${pct}%</span></div>`;
       }).join('');
     }
 
@@ -6820,13 +6893,13 @@
         const progress = subtasks.length ? Math.round((doneSub / subtasks.length) * 100) : (t.status === 'done' ? 100 : 0);
         report += `${i + 1}. ${t.title}\n`;
         report += `   Statut : ${statusLabels[t.status] || t.status}  ·  Priorité : ${priorityLabels[t.priority] || t.priority}  ·  Catégorie : ${t.category || 'Général'}\n`;
-        report += `   Estimé : ${t.duration ? t.duration + 'm' : '—'}  ·  Passé : ${formatTimeShort(t.timeSpent || 0)}\n`;
+        report += `   Estimé : ${t.duration ? t.duration + 'm' : '—'}  ·  Passé : ${formatTimeShort((t.timeSpent || 0) * 1000)}\n`;
         if (subtasks.length) report += `   Sous-tâches : ${doneSub}/${subtasks.length} (${progress}%)\n`;
         if (t.deadline) report += `   Échéance : ${new Date(t.deadline).toLocaleString('fr-FR')}\n`;
         if (t.notes) report += `   Notes : ${t.notes}\n`;
         report += '\n';
       });
-      const totalTime = tasks.reduce((acc, t) => acc + (t.timeSpent || 0), 0);
+      const totalTime = tasks.reduce((acc, t) => acc + (t.timeSpent || 0) * 1000, 0);
       report += `Total : ${tasks.length} tâche${tasks.length > 1 ? 's' : ''}  ·  Temps cumulé : ${formatTimeShort(totalTime)}\n`;
       report += `Généré avec Tempo.PRO`;
       return report;
@@ -6860,7 +6933,7 @@
           <div style="font-size:11px; color:#888888; margin-top:8px; display:flex; gap:14px; flex-wrap:wrap;">
             <span>${escHtml(t.category || 'Général')}</span>
             <span>Estimé ${t.duration ? t.duration + 'm' : '—'}</span>
-            <span>Passé ${formatTimeShort(t.timeSpent || 0)}</span>
+            <span>Passé ${formatTimeShort((t.timeSpent || 0) * 1000)}</span>
             ${t.deadline ? `<span>Échéance ${new Date(t.deadline).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>` : ''}
           </div>
           ${subtasks.length ? `
@@ -6878,7 +6951,7 @@
 
     function generateReportHTML(tasks) {
       const total = tasks.length;
-      const totalTime = tasks.reduce((acc, t) => acc + (t.timeSpent || 0), 0);
+      const totalTime = tasks.reduce((acc, t) => acc + (t.timeSpent || 0) * 1000, 0);
       const doneCount = tasks.filter(t => t.status === 'done').length;
       const pct = total ? Math.round((doneCount / total) * 100) : 0;
       return `
@@ -7076,7 +7149,7 @@
           priorityLabels[t.priority] || t.priority,
           t.category || 'Général',
           t.duration ? t.duration + 'm' : '',
-          formatTimeShort(t.timeSpent || 0),
+          formatTimeShort((t.timeSpent || 0) * 1000),
           progress + '%',
           deadline,
           t.notes || ''
@@ -8014,7 +8087,7 @@
         rows.push(`<div class="tlh-row"><span class="tlh-label">Suivi</span><span class="tlh-value">${escHtml(name)} · ${cur >= 0 ? cur + 1 : 0}/${task.trackingLevels.length}</span></div>`);
       }
       if (task.status === 'inprogress' || task.timeSpent > 0) {
-        rows.push(`<div class="tlh-row"><span class="tlh-label">Chrono</span><span class="tlh-value tlh-chrono" id="tlhChrono">${escHtml(formatTimeShort(task.timeSpent || 0))}</span></div>`);
+        rows.push(`<div class="tlh-row"><span class="tlh-label">Chrono</span><span class="tlh-value tlh-chrono" id="tlhChrono">${escHtml(formatTimeShort((task.timeSpent || 0) * 1000))}</span></div>`);
       }
       return `
         <div class="tlh-title">${escHtml(task.title)}</div>
@@ -8055,7 +8128,7 @@
           const t = state.tasks.find(x => x.id === tlHoverTaskId);
           const el = $('tlhChrono');
           if (!t || !el) { clearInterval(tlHoverChronoTimer); return; }
-          el.textContent = formatTimeShort(t.timeSpent || 0);
+          el.textContent = formatTimeShort((t.timeSpent || 0) * 1000);
         }, 1000);
       }
     }
@@ -8221,8 +8294,19 @@
       const posById = {}; // task.id -> { y, left, right, visible }
 
       orderedCats.forEach(cat => {
-        bodyHTML += `<div class="tl-group-header">${escHtml(cat)}</div>`;
+        const groupId = 'tl:' + cat;
+        const collapsed = collapsedGroups.has(groupId);
+        bodyHTML += `
+          <button type="button" class="tl-group-header" data-group-toggle="${escHtml(groupId)}" style="cursor:pointer; width:100%; border:0; text-align:left;">
+            <span class="math-icon group-chevron ${collapsed ? 'collapsed' : ''}" style="margin-right:6px;">▾</span>${escHtml(cat)}
+            <span style="margin-left:6px; font-weight:400; text-transform:none; letter-spacing:0;">(${tasksByCat[cat].length})</span>
+          </button>
+        `;
         cumulativeTop += TL_GROUP_H;
+        // Repliée, une catégorie ne réserve plus l'espace de ses tâches (ni de coordonnées
+        // pour les connecteurs de dépendance, qui les ignorent simplement faute d'entrée
+        // dans posById) : c'est ce qui évite les listes interminables à l'écran.
+        if (collapsed) return;
         tasksByCat[cat].forEach(({ task, range }) => {
           const offsetStart = tlDayOffset(range.start, timelineWindowStart);
           const offsetEnd = tlDayOffset(range.end, timelineWindowStart);
@@ -8939,11 +9023,19 @@
     document.addEventListener('click', function(e) {
       const groupToggleBtn = e.target.closest('[data-group-toggle]');
       if (groupToggleBtn) {
+        const id = groupToggleBtn.getAttribute('data-group-toggle');
+        // La Timeline recalcule les positions (barres + connecteurs de dépendance) à partir
+        // d'un seul passage séquentiel : un simple repli CSS laisserait les connecteurs
+        // pointer vers d'anciennes coordonnées. Elle a donc besoin d'un vrai nouveau rendu.
+        if (id.indexOf('tl:') === 0) {
+          if (collapsedGroups.has(id)) collapsedGroups.delete(id); else collapsedGroups.add(id);
+          renderTimelineView();
+          return;
+        }
         const body = groupToggleBtn.nextElementSibling;
         const chevron = groupToggleBtn.querySelector('.group-chevron');
         const isHidden = body.classList.toggle('hidden');
         chevron.classList.toggle('collapsed', isHidden);
-        const id = groupToggleBtn.getAttribute('data-group-toggle');
         if (isHidden) collapsedGroups.add(id); else collapsedGroups.delete(id);
         return;
       }
