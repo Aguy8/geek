@@ -7888,23 +7888,27 @@
 
     // ================================================================
     // DÉMARRAGE AUTOMATIQUE DES TÂCHES PROGRAMMÉES (date de début choisie
-    // à la création ou dans le panneau d'édition). Contrairement à une tâche
-    // juste créée (qui attend toujours un geste explicite), une date de début
-    // est un engagement conscient : le suivi démarre tout seul à cette heure-là,
-    // sans qu'on ait besoin de rappuyer sur ▶.
+    // à la création ou dans le panneau d'édition) ET DES TÂCHES RÉCURRENTES.
+    // Contrairement à une tâche juste créée (qui attend toujours un geste explicite),
+    // une date de début est un engagement conscient : le suivi démarre tout seul à cette
+    // heure-là. Une tâche récurrente SANS date de début choisit ce même comportement par
+    // défaut, choix explicite de l'utilisateur : sans lui, une tâche quotidienne resterait
+    // « pas commencée » chaque jour et n'apparaîtrait jamais dans l'analytique.
     // ================================================================
     function checkScheduledStarts() {
       const now = Date.now();
-      state.tasks.forEach(t => {
-        if (t.status === 'done' || !t.startDate || t.autoStartFired) return;
-        if (new Date(t.startDate).getTime() > now) return;
-        t.autoStartFired = true;
-        if (t.status !== 'inprogress' || timer.activeTaskId !== t.id || !timer.running) {
-          startTrackingTask(t.id);
-          toast(`« ${t.title} » démarrée automatiquement (heure programmée atteinte).`);
-          sendNotification('Suivi démarré', `« ${t.title} » a démarré automatiquement — heure de début programmée atteinte.`);
-        }
+      const scheduled = state.tasks.find(t => {
+        if (t.status === 'done' || t.autoStartFired) return false;
+        if (t.startDate) return new Date(t.startDate).getTime() <= now;
+        return !!(t.repeat && t.repeat !== 'none');
       });
+      if (!scheduled) return;
+      scheduled.autoStartFired = true;
+      if (scheduled.status !== 'inprogress' || timer.activeTaskId !== scheduled.id || !timer.running) {
+        startTrackingTask(scheduled.id);
+        toast(`« ${scheduled.title} » démarrée automatiquement (heure programmée atteinte).`);
+        sendNotification('Suivi démarré', `« ${scheduled.title} » a démarré automatiquement — heure de début programmée atteinte.`);
+      }
     }
 
     // ================================================================
@@ -7971,12 +7975,12 @@
       $('taskStartDate').value = '';
       setDatePickerField('taskStartDate', 'taskStartDateBtn', null, 'Date de début (programmer)');
       if ($('taskAssignee')) $('taskAssignee').value = '';
-      // Une tâche "programmée" (date de début choisie) n'a pas besoin qu'on lui demande de
-      // démarrer maintenant : elle démarrera toute seule à l'heure prévue (checkScheduledStarts),
-      // sauf si cette heure est déjà passée, auquel cas on la démarre tout de suite.
+      // Une tâche "programmée" (date de début choisie) ou récurrente n'a pas besoin qu'on
+      // lui demande de démarrer maintenant : elle démarre toute seule (checkScheduledStarts),
+      // sauf date de début future, auquel cas on attend l'heure prévue.
       if (startDate) {
         if (new Date(startDate).getTime() <= Date.now()) startTrackingTask(newTask.id);
-      } else {
+      } else if (!newTask.repeat || newTask.repeat === 'none') {
         offerToStartTracking(newTask);
       }
     }
