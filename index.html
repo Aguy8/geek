@@ -10037,8 +10037,14 @@
       // Temps passé À REGARDER l'appli sans qu'aucun chrono ne tourne (navigation, réglages,
       // consultation des tâches...) : ce n'est pas du temps de concentration sur une tâche,
       // donc il doit être retiré du focus réel de la journée (voir computeRealFocusSecs).
-      // On ne compte que si l'onglet est réellement affiché, pas juste ouvert en arrière-plan.
-      if (document.visibilityState === 'visible' && !timer.running) {
+      // document.hasFocus(), pas juste visibilityState : un onglet Tempo.PRO peut rester
+      // "visible" (actif dans son navigateur) des heures alors que l'utilisateur travaille
+      // dans une tout autre application — visibilityState ne détecte QUE le changement
+      // d'onglet ou la minimisation, pas la perte de focus de la fenêtre. Sans hasFocus(),
+      // ce compteur gonflait bien au-delà du temps réellement passé à utiliser l'appli, et
+      // finissait par dépasser le temps suivi lui-même : le focus réel ne faisait que baisser
+      // toute la journée, même en travaillant activement sur les tâches.
+      if (document.hasFocus() && !timer.running) {
         historyToday().appOnlySecs = (historyToday().appOnlySecs || 0) + 1;
         save();
       }
