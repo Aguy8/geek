@@ -1625,6 +1625,28 @@
     .fs-stats .overdue { color: var(--danger); }
 
     /* ===== TOAST ===== */
+    .update-banner {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: var(--primary-text);
+      padding: 8px 10px 8px 16px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow);
+      z-index: 10001;
+      font-family: 'Inter', sans-serif;
+      max-width: calc(100vw - 32px);
+    }
+    .update-banner.hidden { display: none; }
+    .update-banner .icon-btn { color: var(--primary-text); opacity: 0.8; }
+    .update-banner .icon-btn:hover { opacity: 1; }
     .toast {
       position: fixed;
       right: 24px;
@@ -2336,6 +2358,41 @@
       cursor: pointer;
       font-family: 'Times New Roman', serif;
     }
+
+    /* ===== QUALITÉ DU FOCUS ===== */
+    .focus-quality-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .fq-stat small {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .fq-stat strong { font-size: 22px; font-weight: 700; }
+    .fq-stat .fq-sub { font-size: 10px; color: var(--text-dim); }
+    .focus-quality-bar {
+      display: flex;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--surface-3);
+    }
+    .focus-quality-bar span { display: block; height: 100%; }
+    .fq-deep { background: var(--success); }
+    .fq-shallow { background: var(--warning); }
+    .deep-progress {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 6px;
+      min-height: 15px;
+    }
+    .deep-progress .reached { color: var(--success); font-weight: 600; }
 
     /* ===== VUE RÉUNION ===== */
     .meeting-grid {
@@ -3622,10 +3679,12 @@
             <button class="btn-ghost" onclick="setManualTimer(15, 'pause')"><span class="math-icon">⏸︎</span> Pause 15m</button>
             <button class="btn-ghost" onclick="setChronoMode()"><span class="math-icon">∞</span> Chrono Libre</button>
           </div>
+          <div class="deep-progress" id="focusDeepProgress"></div>
           <div class="timer-controls">
             <button class="btn btn-primary" style="padding:12px 36px; font-size:15px;" id="focusPageStart"><span class="math-icon">▶︎</span> Démarrer</button>
             <button class="btn btn-ghost" style="padding:12px 28px;" id="focusPageReset"><span class="math-icon">⟳︎</span> Reset</button>
             <button class="btn btn-ghost" style="padding:12px 28px;" id="focusPageFull"><span class="math-icon">⊙︎</span> Plein Écran</button>
+            <button class="btn btn-ghost" style="padding:12px 28px;" id="focusPageDistraction" title="Noter une interruption pour mesurer ce qui casse votre concentration"><span class="math-icon">⚡︎</span> Distraction</button>
           </div>
         </div>
       </section>
@@ -3649,6 +3708,17 @@
             <div class="eyebrow" style="font-size:10px;">Objectif quotidien <span class="math-icon">✎︎</span></div>
             <div style="font-size:32px; font-weight:700;" id="statsGoalPct">0%</div>
             <div style="font-size:11px; color:var(--text-dim); margin-top:4px;" id="statsGoalSub">0 / 120m · Série 0j</div>
+          </div>
+        </div>
+        <div class="card" style="padding:20px; margin-bottom:20px;" data-collapsible="focusQuality">
+          <div class="card-header" style="padding:0 0 12px 0; border:none;">
+            <h2>Qualité du focus — aujourd'hui</h2>
+            <button type="button" class="icon-btn" data-collapse-toggle aria-label="Replier"><span class="math-icon">⌄</span></button>
+          </div>
+          <div class="card-collapsible-body">
+            <div class="focus-quality-grid" id="focusQualityGrid"></div>
+            <div class="focus-quality-bar" id="focusQualityBar" title="Répartition du temps suivi entre blocs profonds et temps fragmenté"></div>
+            <div id="focusQualityHint" style="font-size:11px; color:var(--muted); margin-top:10px;"></div>
           </div>
         </div>
         <div class="card" style="padding:20px; margin-bottom:20px;">
@@ -4183,10 +4253,12 @@
         <div class="flip-unit" data-unit="s1"><div class="flip-card-face">0</div></div>
         <div class="flip-unit" data-unit="s2"><div class="flip-card-face">0</div></div>
       </div>
+      <div class="deep-progress" id="fsDeepProgress"></div>
       <div class="fs-controls">
         <button class="btn btn-primary" style="padding:14px 36px; font-size:16px;" id="fsStart"><span class="math-icon">▶︎</span> Démarrer</button>
         <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsPause"><span class="math-icon">⏸︎</span> Pause</button>
         <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsReset"><span class="math-icon">⟳︎</span> Reset</button>
+        <button class="btn-ghost" style="padding:14px 28px; font-size:16px;" id="fsDistraction" title="Noter une interruption"><span class="math-icon">⚡︎</span> Distraction</button>
       </div>
 
       <!-- Mini horloges des tâches actives (mode immersif) -->
@@ -4218,6 +4290,17 @@
 
   <div class="toast" id="toast">Message</div>
 
+  <!-- Bandeau de mise à jour disponible : un onglet resté ouvert (le cas le plus à risque
+       pour la synchro entre appareils) continue de faire tourner l'ancien code en mémoire
+       tant qu'il n'est pas rechargé, même une fois un correctif déployé. Persistant (pas
+       de disparition automatique comme le toast) tant que l'utilisateur n'a pas rechargé
+       ou explicitement ignoré. -->
+  <div class="update-banner hidden" id="updateBanner">
+    <span><span class="math-icon">⟳︎</span> Nouvelle version disponible — cet onglet utilise encore l'ancienne.</span>
+    <button type="button" class="btn btn-primary" id="updateBannerReloadBtn" style="padding:4px 14px; font-size:11px;">Recharger</button>
+    <button type="button" class="icon-btn" id="updateBannerDismissBtn" aria-label="Ignorer" title="Ignorer (à vos risques : certains correctifs ne seront actifs qu'après rechargement)">✕</button>
+  </div>
+
   <script src="vendor/supabase.js"></script>
   <script>
     // ================================================================
@@ -4240,7 +4323,7 @@
       const key = dayKey();
       if (!state.history) state.history = {};
       if (!state.history[key]) {
-        state.history[key] = { focusSecs: 0, pauseSecs: 0, appOnlySecs: 0, manualPauseSecs: 0, sessions: 0, completedTasks: [] };
+        state.history[key] = { focusSecs: 0, pauseSecs: 0, appOnlySecs: 0, manualPauseSecs: 0, sessions: 0, completedTasks: [], focusSessions: [], distractions: 0 };
       }
       return state.history[key];
     }
@@ -4257,6 +4340,82 @@
     function computeRealFocusSecs(day) {
       if (!day) return 0;
       return day.focusSecs || 0;
+    }
+
+    // ================================================================
+    // QUALITÉ DU FOCUS (profondeur réelle du travail, pas seulement son volume)
+    // ================================================================
+    // Un total de temps suivi ne dit rien de la manière dont la journée s'est passée :
+    // 3 h en un seul bloc et 3 h hachées en douze bouts de quinze minutes donnent le même
+    // chiffre, alors que ce n'est pas du tout le même travail. On mesure donc aussi la
+    // FORME du temps, à partir des sessions enregistrées.
+    //
+    // Seuil de 25 min : la recherche sur l'attention situe l'entrée en concentration
+    // profonde autour de 20-30 min (il faut ~23 min pour se recentrer après une
+    // interruption, d'après les travaux de Gloria Mark à UC Irvine) ; c'est aussi la
+    // durée d'un cycle Pomodoro. En deçà, le bloc n'a pas eu le temps de devenir profond.
+    const DEEP_WORK_MIN_SECS = 25 * 60;
+    // Repère de référence : un bloc ininterrompu de 30 min dans la journée. Selon les
+    // données de RescueTime, 4 travailleurs du savoir sur 10 n'en obtiennent aucun.
+    const UNBROKEN_BLOCK_TARGET_SECS = 30 * 60;
+    // Sessions plus courtes que ça : démarrage/arrêt accidentel, pas une session de travail.
+    const MIN_RECORDABLE_SESSION_SECS = 30;
+
+    function recordFocusSession() {
+      if (!timer.sessionStart) return;
+      const start = timer.sessionStart;
+      timer.sessionStart = null;
+      // Une pause est du repos : elle n'entre pas dans la mesure du travail (même règle
+      // que focusSecs, qui l'exclut déjà).
+      if (timer.mode === 'pause') return;
+      const secs = Math.round((Date.now() - start) / 1000);
+      if (secs < MIN_RECORDABLE_SESSION_SECS) return;
+      const day = historyToday();
+      if (!day.focusSessions) day.focusSessions = [];
+      day.focusSessions.push({ start, end: Date.now(), secs, taskId: timer.activeTaskId || null, mode: timer.mode });
+      save();
+    }
+
+    function computeFocusQuality(day) {
+      const sessions = (day && day.focusSessions) || [];
+      let deepSecs = 0, shallowSecs = 0, longestSecs = 0;
+      sessions.forEach(s => {
+        const secs = s.secs || 0;
+        if (secs >= DEEP_WORK_MIN_SECS) deepSecs += secs;
+        else shallowSecs += secs;
+        if (secs > longestSecs) longestSecs = secs;
+      });
+      const total = deepSecs + shallowSecs;
+      return {
+        count: sessions.length,
+        deepSecs,
+        shallowSecs,
+        longestSecs,
+        totalSecs: total,
+        avgSecs: sessions.length ? Math.round(total / sessions.length) : 0,
+        // Part du temps suivi passée en blocs réellement profonds : c'est l'indicateur de
+        // qualité, là où focusSecs n'est qu'un volume.
+        deepRatio: total ? deepSecs / total : 0,
+        hitUnbrokenTarget: longestSecs >= UNBROKEN_BLOCK_TARGET_SECS,
+        distractions: (day && day.distractions) || 0
+      };
+    }
+
+    // Une session n'est enregistrée qu'à l'arrêt du chrono : sans ce filet, fermer l'onglet
+    // en plein travail perdait le bloc entier (le timer ne survit pas au rechargement), et
+    // les journées les plus concentrées — celles qu'on ne coupe jamais — étaient justement
+    // celles qui disparaissaient de la mesure.
+    window.addEventListener('pagehide', recordFocusSession);
+
+    // Interruptions déclarées par l'utilisateur pendant une session (sollicitation, notif,
+    // pensée parasite...). Auto-déclaratif faute de pouvoir observer l'extérieur de l'appli,
+    // mais c'est précisément ce que mesurent les outils du domaine.
+    function logDistraction() {
+      const day = historyToday();
+      day.distractions = (day.distractions || 0) + 1;
+      save();
+      updateDisplays();
+      toast('Distraction notée.');
     }
 
     const defaultState = {
@@ -4299,6 +4458,9 @@
     const timer = {
       running: false,
       startTime: null,
+      // Début du bloc ininterrompu courant, distinct de startTime : startTime est remis à zéro
+      // à chaque tick de reprise interne, sessionStart couvre la session entière.
+      sessionStart: null,
       elapsed: 0,
       interval: null,
       targetDuration: 25 * 60 * 1000,
@@ -4420,6 +4582,19 @@
           return true;
         });
         day.pausePromptAnswered = !!(l.pausePromptAnswered || r.pausePromptAnswered);
+        // Sessions de travail : union par instant de départ. Deux appareils peuvent avoir
+        // suivi des blocs différents le même jour ; en garder un seul côté effacerait des
+        // sessions réelles et fausserait la mesure de profondeur.
+        const seenSessions = new Set();
+        day.focusSessions = [...(r.focusSessions || []), ...(l.focusSessions || [])]
+          .filter(sess => {
+            const k = String(sess.start);
+            if (seenSessions.has(k)) return false;
+            seenSessions.add(k);
+            return true;
+          })
+          .sort((a, b) => (a.start || 0) - (b.start || 0));
+        day.distractions = Math.max(l.distractions || 0, r.distractions || 0);
         merged[key] = day;
       });
       return merged;
@@ -7291,6 +7466,95 @@
     // ================================================================
     // CHART
     // ================================================================
+    function fmtDur(secs) {
+      const m = Math.round(secs / 60);
+      if (m < 60) return m + ' min';
+      return Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0');
+    }
+
+    function renderFocusQuality() {
+      const grid = $('focusQualityGrid');
+      if (!grid) return;
+      const day = historyToday();
+      const q = computeFocusQuality(day);
+      const tracked = computeRealFocusSecs(day);
+
+      grid.innerHTML = `
+        <div class="fq-stat">
+          <small>Temps de travail suivi</small>
+          <strong>${fmtDur(tracked)}</strong>
+          <div class="fq-sub">chrono réellement lancé</div>
+        </div>
+        <div class="fq-stat">
+          <small>Dont travail profond</small>
+          <strong style="color:var(--success);">${fmtDur(q.deepSecs)}</strong>
+          <div class="fq-sub">${q.totalSecs ? Math.round(q.deepRatio * 100) + '% des blocs mesurés' : 'aucun bloc mesuré'}</div>
+        </div>
+        <div class="fq-stat">
+          <small>Plus long bloc</small>
+          <strong class="${q.hitUnbrokenTarget ? '' : ''}" style="color:${q.hitUnbrokenTarget ? 'var(--success)' : 'var(--text)'};">${q.longestSecs ? fmtDur(q.longestSecs) : '—'}</strong>
+          <div class="fq-sub">${q.hitUnbrokenTarget ? 'objectif 30 min atteint' : 'objectif : 30 min d’affilée'}</div>
+        </div>
+        <div class="fq-stat">
+          <small>Blocs de travail</small>
+          <strong>${q.count}</strong>
+          <div class="fq-sub">${q.count ? 'moyenne ' + fmtDur(q.avgSecs) : '—'}</div>
+        </div>
+        <div class="fq-stat">
+          <small>Distractions notées</small>
+          <strong>${q.distractions}</strong>
+          <div class="fq-sub">déclarées pendant le travail</div>
+        </div>
+      `;
+
+      const bar = $('focusQualityBar');
+      if (bar) {
+        if (!q.totalSecs) {
+          bar.innerHTML = '';
+          bar.style.display = 'none';
+        } else {
+          bar.style.display = 'flex';
+          const deepPct = Math.round(q.deepRatio * 100);
+          bar.innerHTML = `<span class="fq-deep" style="width:${deepPct}%;"></span><span class="fq-shallow" style="width:${100 - deepPct}%;"></span>`;
+        }
+      }
+
+      const hint = $('focusQualityHint');
+      if (hint) {
+        if (!q.count) {
+          hint.textContent = 'Lancez un chrono sur une tâche : chaque bloc de travail est mesuré séparément pour distinguer le travail profond du temps fragmenté.';
+        } else if (!q.deepSecs) {
+          hint.textContent = `Aucun bloc n’a atteint 25 min d’affilée aujourd’hui. C’est autour de 20-30 min que la concentration devient profonde (il faut environ 23 min pour se recentrer après une interruption) : viser un seul bloc long vaut mieux que multiplier les courts.`;
+        } else if (!q.hitUnbrokenTarget) {
+          hint.textContent = `Le plus long bloc fait ${fmtDur(q.longestSecs)}. Un bloc de 30 min d’affilée dans la journée est un repère utile — 4 travailleurs du savoir sur 10 n’en obtiennent aucun.`;
+        } else if (q.deepRatio < 0.5) {
+          hint.textContent = `${Math.round(q.deepRatio * 100)}% du temps suivi est en blocs profonds. Le reste est fragmenté : regrouper les petites sessions augmenterait la profondeur sans allonger la journée.`;
+        } else {
+          hint.textContent = `${Math.round(q.deepRatio * 100)}% du temps suivi est en blocs profonds — c’est une bonne journée de concentration. Au-delà de ~4 h de travail profond quotidien, même les praticiens expérimentés plafonnent.`;
+        }
+      }
+    }
+
+    // Indicateur en direct pendant une session : où en est le bloc courant par rapport au
+    // seuil de profondeur. C'est ce qui rend le seuil actionnable plutôt que rétrospectif.
+    function updateDeepProgress() {
+      const els = [$('focusDeepProgress'), $('fsDeepProgress')].filter(Boolean);
+      if (!els.length) return;
+      let html = '';
+      if (timer.running && timer.sessionStart && timer.mode !== 'pause') {
+        const secs = Math.floor((Date.now() - timer.sessionStart) / 1000);
+        if (secs >= DEEP_WORK_MIN_SECS) {
+          html = `<span class="reached">● Bloc profond — ${fmtDur(secs)} sans interruption</span>`;
+        } else {
+          const left = DEEP_WORK_MIN_SECS - secs;
+          html = `Bloc en cours : ${fmtDur(secs)} · encore ${fmtDur(left)} pour atteindre la concentration profonde`;
+        }
+      } else if (timer.mode === 'pause') {
+        html = 'Pause — le temps de repos n’entre pas dans la mesure du travail.';
+      }
+      els.forEach(el => { el.innerHTML = html; });
+    }
+
     function renderWeeklyChart() {
       const chart = $('weeklyChart');
       chart.innerHTML = '';
@@ -8130,6 +8394,11 @@
       }
       timer.running = true;
       timer.startTime = Date.now();
+      // Début du bloc de travail ininterrompu en cours. Le total de la journée (focusSecs) ne
+      // dit pas COMMENT le temps a été passé : 3 h en un bloc et 3 h hachées en douze bouts
+      // y sont identiques. On enregistre donc chaque session pour pouvoir mesurer la
+      // profondeur réelle du travail (voir computeFocusQuality).
+      timer.sessionStart = Date.now();
       timer.notified = false;
       $('startBtn').textContent = '⏹︎ En cours';
       $('focusPageStart').textContent = '⏹︎ En cours';
@@ -8343,6 +8612,7 @@
       clearInterval(timer.interval);
       timer.elapsed += Date.now() - timer.startTime;
       timer.startTime = null;
+      recordFocusSession();
       $('startBtn').textContent = '▶︎ Démarrer';
       $('focusPageStart').textContent = '▶︎ Démarrer';
       $('fsStart').textContent = '▶︎ Démarrer';
@@ -9963,6 +10233,10 @@
     ['resetBtn', 'focusPageReset', 'fsReset'].forEach(id => {
       $(id).addEventListener('click', resetTimer);
     });
+    ['focusPageDistraction', 'fsDistraction'].forEach(id => {
+      const el = $(id);
+      if (el) el.addEventListener('click', logDistraction);
+    });
     $('adminRefreshBtn').addEventListener('click', loadAdminStats);
 
     // ================================================================
@@ -10763,6 +11037,7 @@
         $('topbarTitle').textContent = titles[v].h1;
         if (v === 'stats') { renderWeeklyChart();
           renderReportSelector();
+          renderFocusQuality();
           renderPerformance(); }
         if (v === 'tasks') renderTasks();
         if (v === 'dashboard') renderTasks();
@@ -11303,6 +11578,11 @@
       checkScheduledMeetings();
       if (!timer.running) updateClock();
       updateMeetingClock();
+      updateDeepProgress();
+      // Rafraîchi ici plutôt que depuis updateDisplays(), appelé toutes les 100 ms pendant
+      // qu'un chrono tourne : une seconde suffit largement pour ces chiffres.
+      const statsView = $('viewStats');
+      if (statsView && !statsView.classList.contains('hidden')) renderFocusQuality();
       // Temps passé à regarder l'appli sans qu'aucun chrono ne tourne (navigation, réglages,
       // consultation des tâches...). Purement informatif désormais : il n'est plus retiré du
       // focus réel (computeRealFocusSecs), qui n'a jamais inclus ce temps pour commencer — le
@@ -11329,6 +11609,24 @@
     // ACCÈS HORS-LIGNE (Service Worker + PWA installable)
     // ================================================================
     if ('serviceWorker' in navigator) {
+      // Un onglet resté ouvert continue de faire tourner le JS déjà chargé en mémoire même
+      // après qu'un nouveau service worker a pris le contrôle (skipWaiting + clients.claim
+      // dans sw.js) : la mise à jour du cache ne recharge PAS la page elle-même. Concrètement,
+      // un onglet laissé ouvert plusieurs jours — le cas le plus exposé aux bugs de synchro
+      // entre appareils, puisque c'est justement lui qui accumule le décalage — pouvait
+      // continuer d'exécuter indéfiniment une ancienne logique de fusion cloud, même
+      // corrigée depuis sur le serveur. On détecte donc la prise de contrôle par un NOUVEAU
+      // service worker (pas le tout premier, qui ne correspond à aucune mise à jour) et on
+      // propose un rechargement explicite plutôt que de le faire silencieusement (perdrait
+      // une saisie en cours).
+      const hadControllerAtLoad = !!navigator.serviceWorker.controller;
+      let updateReloadPending = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadControllerAtLoad || updateReloadPending) return;
+        updateReloadPending = true;
+        const banner = $('updateBanner');
+        if (banner) banner.classList.remove('hidden');
+      });
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
           .then(reg => { swRegistration = reg; })
@@ -11348,6 +11646,12 @@
           startTrackingTask(msg.taskId);
         }
       });
+    }
+    if ($('updateBannerReloadBtn')) {
+      $('updateBannerReloadBtn').addEventListener('click', () => location.reload());
+    }
+    if ($('updateBannerDismissBtn')) {
+      $('updateBannerDismissBtn').addEventListener('click', () => $('updateBanner').classList.add('hidden'));
     }
   </script>
 </body>
