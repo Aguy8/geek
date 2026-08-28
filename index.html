@@ -2472,16 +2472,9 @@
       font-variant-numeric: tabular-nums;
     }
     .agenda-time.over { color: var(--danger); font-weight: 600; }
-    .agenda-notes { margin-top: 6px; padding-left: 24px; }
-    .agenda-note {
-      display: flex;
-      gap: 6px;
-      align-items: flex-start;
-      font-size: 11px;
-      color: var(--text-dim);
-      padding: 2px 0;
-    }
-    .agenda-note span { flex: 1; word-break: break-word; }
+    .agenda-notes { margin-top: 6px; padding-left: 24px; display: grid; gap: 4px; }
+    .agenda-subpoint { font-size: 11px; }
+    .agenda-subpoint .subtask-label { word-break: break-word; }
     .agenda-note-add { display: flex; gap: 6px; margin-top: 4px; }
     .agenda-note-add input { flex: 1; font-size: 11px; padding: 4px 8px; }
     .participant-chip {
@@ -10514,14 +10507,23 @@
       if (!m.agenda) m.agenda = [];
       m.agenda.push({
         id: Date.now().toString() + Math.random().toString(36).slice(2),
+        // Un point d'ordre du jour est un intitulé qui regroupe plusieurs points à traiter
+        // (subpoints), chacun coché individuellement pendant la réunion — pas juste un
+        // journal de notes horodatées.
         text: text.trim(),
         done: false,
         allocMin: +allocMin || null,
         spentMs: 0,
-        notes: []
+        subpoints: []
       });
       save();
       renderMeetingView();
+    }
+    // Sous-points hérités d'avant cette évolution (simple journal de notes horodatées, sans
+    // case à cocher) : lus tels quels, jamais réécrits automatiquement, pour ne perdre
+    // aucune donnée existante.
+    function agendaSubpoints(item) {
+      return item.subpoints || item.notes || [];
     }
     function toggleAgendaItem(id) {
       const m = activeMeeting();
@@ -10541,21 +10543,32 @@
       save();
       renderMeetingView();
     }
-    function addAgendaNote(agendaId, text) {
+    function addAgendaSubpoint(agendaId, text) {
       const m = activeMeeting();
       const item = m && (m.agenda || []).find(a => a.id === agendaId);
       const trimmed = (text || '').trim();
       if (!item || !trimmed) return;
-      if (!item.notes) item.notes = [];
-      item.notes.push({ id: Date.now().toString() + Math.random().toString(36).slice(2), text: trimmed, at: Date.now() });
+      if (!item.subpoints) item.subpoints = [];
+      item.subpoints.push({ id: Date.now().toString() + Math.random().toString(36).slice(2), text: trimmed, done: false, at: Date.now() });
       save();
       renderMeetingView();
     }
-    function removeAgendaNote(agendaId, noteId) {
+    function toggleAgendaSubpoint(agendaId, subId) {
       const m = activeMeeting();
       const item = m && (m.agenda || []).find(a => a.id === agendaId);
-      if (!item || !item.notes) return;
-      item.notes = item.notes.filter(n => n.id !== noteId);
+      const sub = item && agendaSubpoints(item).find(s => s.id === subId);
+      if (!sub) return;
+      sub.done = !sub.done;
+      save();
+      renderMeetingView();
+    }
+    function removeAgendaSubpoint(agendaId, subId) {
+      const m = activeMeeting();
+      const item = m && (m.agenda || []).find(a => a.id === agendaId);
+      if (!item) return;
+      // Écrit toujours sous subpoints : une suppression sur un point hérité (notes) le fait
+      // basculer vers le nouveau champ, sans perdre les autres sous-points restants.
+      item.subpoints = agendaSubpoints(item).filter(s => s.id !== subId);
       save();
       renderMeetingView();
     }
@@ -10696,7 +10709,7 @@
         const spent = agendaSpentMs(m, a);
         const time = a.allocMin ? ` [${Math.round(spent / 60000)}/${a.allocMin} min]` : (spent > 0 ? ` [${Math.round(spent / 60000)} min]` : '');
         L.push(`${i + 1}. ${a.done ? '[x]' : '[ ]'} ${a.text}${time}`);
-        (a.notes || []).forEach(n => L.push('   - ' + n.text));
+        agendaSubpoints(a).forEach(s => L.push(`   ${s.done ? '[x]' : '[ ]'} ${s.text}`));
       });
       L.push('');
 
@@ -10805,24 +10818,28 @@
           const timeLabel = a.allocMin
             ? `${Math.floor(spent / 60000)}/${a.allocMin} min`
             : (spent > 0 ? `${Math.floor(spent / 60000)} min` : '');
+          const subpoints = agendaSubpoints(a);
+          const subDone = subpoints.filter(s => s.done).length;
           return `
           <div class="agenda-item ${a.done ? 'done' : ''} ${m.currentAgendaId === a.id ? 'current' : ''}">
             <div class="agenda-item-head">
               <input type="checkbox" ${a.done ? 'checked' : ''} data-agenda-toggle="${a.id}" />
               <span class="subtask-label">${escHtml(a.text)}</span>
+              ${subpoints.length ? `<span class="agenda-time">${subDone}/${subpoints.length} pts</span>` : ''}
               ${timeLabel ? `<span class="agenda-time ${over ? 'over' : ''}">${timeLabel}</span>` : ''}
               <button type="button" class="btn-ghost" data-agenda-current="${a.id}" style="padding:2px 8px; font-size:10px; white-space:nowrap;">${m.currentAgendaId === a.id ? '● en cours' : 'Traiter'}</button>
               <button type="button" class="comment-delete" data-agenda-remove="${a.id}" aria-label="Retirer ce point">✕</button>
             </div>
             <div class="agenda-notes">
-              ${(a.notes || []).map(n => `
-                <div class="agenda-note">
-                  <span>• ${escHtml(n.text)}</span>
-                  <button type="button" class="comment-delete" data-agenda-note-remove="${a.id}|${n.id}" aria-label="Supprimer la note">✕</button>
+              ${subpoints.map(s => `
+                <div class="subtask-row agenda-subpoint ${s.done ? 'done' : ''}">
+                  <input type="checkbox" ${s.done ? 'checked' : ''} data-agenda-subpoint-toggle="${a.id}|${s.id}" />
+                  <span class="subtask-label">${escHtml(s.text)}</span>
+                  <button type="button" class="comment-delete" data-agenda-subpoint-remove="${a.id}|${s.id}" aria-label="Retirer ce point à traiter">✕</button>
                 </div>
               `).join('')}
               <div class="agenda-note-add">
-                <input type="text" class="field" data-agenda-note-input="${a.id}" placeholder="Note sur ce point..." />
+                <input type="text" class="field" data-agenda-subpoint-input="${a.id}" placeholder="+ point à traiter..." />
               </div>
             </div>
           </div>`;
@@ -10892,10 +10909,10 @@
       if (agendaCurrent) { setCurrentAgendaPoint(agendaCurrent.getAttribute('data-agenda-current')); return; }
       const agendaRemove = e.target.closest('[data-agenda-remove]');
       if (agendaRemove) { removeAgendaItem(agendaRemove.getAttribute('data-agenda-remove')); return; }
-      const noteRemove = e.target.closest('[data-agenda-note-remove]');
-      if (noteRemove) {
-        const [aid, nid] = noteRemove.getAttribute('data-agenda-note-remove').split('|');
-        removeAgendaNote(aid, nid);
+      const subRemove = e.target.closest('[data-agenda-subpoint-remove]');
+      if (subRemove) {
+        const [aid, sid] = subRemove.getAttribute('data-agenda-subpoint-remove').split('|');
+        removeAgendaSubpoint(aid, sid);
         return;
       }
       const decisionRemove = e.target.closest('[data-decision-remove]');
@@ -10914,18 +10931,24 @@
     $('viewMeeting').addEventListener('change', function(e) {
       const agendaToggle = e.target.closest('[data-agenda-toggle]');
       if (agendaToggle) { toggleAgendaItem(agendaToggle.getAttribute('data-agenda-toggle')); return; }
+      const subToggle = e.target.closest('[data-agenda-subpoint-toggle]');
+      if (subToggle) {
+        const [aid, sid] = subToggle.getAttribute('data-agenda-subpoint-toggle').split('|');
+        toggleAgendaSubpoint(aid, sid);
+        return;
+      }
       const actionToggle = e.target.closest('[data-action-toggle]');
       if (actionToggle) { toggleMeetingAction(actionToggle.getAttribute('data-action-toggle')); return; }
       const presence = e.target.closest('[data-participant-presence]');
       if (presence) { toggleParticipantPresence(presence.getAttribute('data-participant-presence')); return; }
     });
-    // Les notes de point sont saisies dans des champs régénérés à chaque rendu : on écoute
+    // Les points à traiter sont saisis dans des champs régénérés à chaque rendu : on écoute
     // donc au niveau de la vue plutôt que sur chaque champ.
     $('viewMeeting').addEventListener('keydown', function(e) {
-      const noteInput = e.target.closest('[data-agenda-note-input]');
-      if (noteInput && e.key === 'Enter') {
+      const subInput = e.target.closest('[data-agenda-subpoint-input]');
+      if (subInput && e.key === 'Enter') {
         e.preventDefault();
-        addAgendaNote(noteInput.getAttribute('data-agenda-note-input'), noteInput.value);
+        addAgendaSubpoint(subInput.getAttribute('data-agenda-subpoint-input'), subInput.value);
       }
     });
 
