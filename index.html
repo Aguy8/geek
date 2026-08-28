@@ -5157,12 +5157,9 @@
       return data;
     }
 
-    function applyRemoteState(remoteState) {
-      applyingRemoteState = true;
-      // Fusion (pas remplacement) : un appareil resté hors connexion pousse parfois un état
-      // périmé en se reconnectant — un simple `state = remoteState` écraserait alors sans
-      // avertissement des données plus récentes déjà en local (voir mergeRemoteState).
-      state = mergeRemoteState(remoteState);
+    // Étapes communes une fois `state` posé (fusionné ou remplacé) : valeurs par défaut,
+    // persistance locale et rafraîchissement de tout ce qui dépend de l'état global.
+    function finishApplyingState() {
       primeTaskSyncSnapshots();
       primeMeetingSyncSnapshots();
       if (!state.activeTaskIds) state.activeTaskIds = [];
@@ -5196,6 +5193,30 @@
       renderPerformance();
       renderMeetingView();
       updateDisplays();
+    }
+
+    // Fusion (pas remplacement) : un appareil resté hors connexion pousse parfois un état
+    // périmé en se reconnectant — un simple `state = remoteState` écraserait alors sans
+    // avertissement des données plus récentes déjà en local (voir mergeRemoteState).
+    // N'UTILISER QUE dans la MÊME portée (mêmes appareils sur le même compte personnel, ou
+    // le même espace d'équipe) : voir replaceRemoteState pour un changement de portée.
+    function applyRemoteState(remoteState) {
+      applyingRemoteState = true;
+      state = mergeRemoteState(remoteState);
+      finishApplyingState();
+      applyingRemoteState = false;
+    }
+
+    // Remplacement complet, SANS fusion — à utiliser quand la PORTÉE change (bascule entre
+    // l'espace personnel et un espace d'équipe, ou l'inverse). L'espace d'équipe et l'espace
+    // personnel sont deux documents distincts, pas deux copies désynchronisées du même : les
+    // fusionner faisait apparaître les tâches personnelles dans l'espace d'équipe (et
+    // inversement) au moment de basculer, puisque `state` en mémoire appartenait encore à
+    // l'ancienne portée au moment de la fusion.
+    function replaceRemoteState(remoteState) {
+      applyingRemoteState = true;
+      state = remoteState;
+      finishApplyingState();
       applyingRemoteState = false;
     }
 
@@ -5287,7 +5308,11 @@
       renderWorkspaceSwitcher();
       const remote = await pullStateFromCloud();
       if (remote && remote.state && Array.isArray(remote.state.tasks)) {
-        applyRemoteState(remote.state);
+        // Un espace d'équipe est une portée à part : remplacement, pas fusion (voir
+        // replaceRemoteState). En espace personnel, un pull cloud peut légitimement se
+        // combiner avec du travail fait localement avant la connexion.
+        if (activeWorkspaceId) replaceRemoteState(remote.state);
+        else applyRemoteState(remote.state);
         toast('Données cloud chargées.');
       } else if (!activeWorkspaceId) {
         await pushStateToCloud();
@@ -5408,12 +5433,26 @@
 
     async function switchWorkspace(id) {
       if (activeWorkspaceId === id) return;
+      // Vide d'abord toute sauvegarde en attente sur l'espace qu'on quitte : le debounce cloud
+      // est de 600 ms, donc une modification faite juste avant de basculer pourrait sinon
+      // n'avoir jamais atteint le cloud avant que `state` ne soit remplacé ci-dessous.
+      if (cloudSaveTimeout) {
+        clearTimeout(cloudSaveTimeout);
+        cloudSaveTimeout = null;
+        await pushStateToCloud();
+      }
       activeWorkspaceId = id || null;
       if (activeWorkspaceId) localStorage.setItem('tempo_pro_active_workspace', activeWorkspaceId);
       else localStorage.removeItem('tempo_pro_active_workspace');
       const remote = await pullStateFromCloud();
       if (remote && remote.state && Array.isArray(remote.state.tasks)) {
-        applyRemoteState(remote.state);
+        // Remplacement, pas fusion : l'espace qu'on quitte et celui qu'on rejoint sont deux
+        // documents distincts (voir replaceRemoteState).
+        replaceRemoteState(remote.state);
+      } else if (activeWorkspaceId) {
+        // Nouvel espace d'équipe sans état cloud encore écrit (juste créé) : partir d'un
+        // état vide plutôt que de garder l'ancienne portée affichée.
+        replaceRemoteState({ tasks: [], history: {}, deletedTasks: {}, meetings: [], people: [], categories: ['Général'] });
       }
       subscribeRealtime();
       if (activeWorkspaceId) await fetchWorkspaceMembers(activeWorkspaceId);
@@ -10615,62 +10654,6 @@
       toast('Action envoyée dans les tâches.');
     }
 
-    // Renvoie une tâche d'un espace d'équipe vers l'espace personnel : les actions qui me
-    // concernent dans une réunion d'équipe alimentent souvent mon propre plan de travail,
-    // sans devoir rester visibles de toute l'équipe.
-    async function transferTaskToPersonalSpace(taskId) {
-      const task = state.tasks.find(t => t.id === taskId);
-      if (!task) return;
-      if (!activeWorkspaceId) { toast('Cette tâche est déjà dans votre espace personnel.'); return; }
-      if (!supa || !cloudUser) { toast('Connectez-vous pour transférer vers votre espace personnel.'); return; }
-      if (!confirm(`Transférer « ${task.title} » vers votre espace personnel ? Elle quittera l’espace d’équipe.`)) return;
-      try {
-        const { data, error } = await supa
-          .from('tempo_pro_state')
-          .select('state')
-          .eq('user_id', cloudUser.id)
-          .maybeSingle();
-        if (error) throw error;
-        const personal = (data && data.state) || { tasks: [], history: {}, deletedTasks: {}, meetings: [], people: [] };
-        if (!Array.isArray(personal.tasks)) personal.tasks = [];
-        const copy = Object.assign({}, task, { updatedAt: Date.now() });
-        // Sans ça, la tâche reviendrait dans l'espace d'équipe à la première fusion, la
-        // suppression locale n'étant pas distinguable d'un simple retard de synchro.
-        personal.tasks.unshift(copy);
-        personal.updatedAt = Date.now();
-        const { error: upErr } = await supa.from('tempo_pro_state').upsert({
-          user_id: cloudUser.id,
-          state: Object.assign({}, personal, { _client: CLIENT_ID }),
-          updated_at: new Date().toISOString()
-        });
-        if (upErr) throw upErr;
-        deleteTaskSilently(taskId);
-        toast('Tâche transférée vers votre espace personnel.');
-      } catch (e) {
-        console.warn(e);
-        toast('Transfert impossible : ' + (e.message || 'erreur réseau'));
-      }
-    }
-
-    // Suppression sans confirmation ni toast « Annuler » : utilisée par le transfert, où la
-    // tâche n'est pas perdue mais déplacée.
-    function deleteTaskSilently(id) {
-      const idx = state.tasks.findIndex(t => t.id === id);
-      if (idx === -1) return;
-      state.tasks.splice(idx, 1);
-      if (!state.deletedTasks) state.deletedTasks = {};
-      state.deletedTasks[id] = Date.now();
-      state.activeTaskIds = (state.activeTaskIds || []).filter(aid => aid !== id);
-      (state.meetings || []).forEach(m => {
-        (m.actions || []).forEach(a => { if (a.taskId === id) a.taskId = null; });
-      });
-      save();
-      renderTasks();
-      renderMeetingView();
-      updateTimerTarget();
-      updateDisplays();
-    }
-
     let meetingNotesSaveTimeout = null;
     function scheduleMeetingNotesSave(text) {
       const m = activeMeeting();
@@ -10887,8 +10870,7 @@
             ${who ? `<span class="agenda-time"><span class="math-icon">⚇︎</span> ${escHtml(who)}</span>` : ''}
             ${due ? `<span class="agenda-time"><span class="math-icon">◷︎</span> ${escHtml(due)}</span>` : ''}
             ${a.taskId
-              ? `<button type="button" class="btn-ghost" data-action-open-task="${a.taskId}" style="padding:2px 8px; font-size:11px; white-space:nowrap;">Voir la tâche</button>
-                 ${activeWorkspaceId ? `<button type="button" class="btn-ghost" data-action-to-personal="${a.taskId}" title="Transférer cette tâche vers mon espace personnel" style="padding:2px 8px; font-size:11px; white-space:nowrap;">→ Perso</button>` : ''}`
+              ? `<button type="button" class="btn-ghost" data-action-open-task="${a.taskId}" style="padding:2px 8px; font-size:11px; white-space:nowrap;">Voir la tâche</button>`
               : `<button type="button" class="btn-ghost" data-action-convert="${a.id}" style="padding:2px 8px; font-size:11px; white-space:nowrap;">→ Tâche</button>`}
             <button type="button" class="comment-delete" data-action-remove="${a.id}" aria-label="Supprimer l’action">✕</button>
           </div>
@@ -10922,8 +10904,6 @@
       if (actionConvert) { convertActionToTask(actionConvert.getAttribute('data-action-convert')); return; }
       const actionOpenTask = e.target.closest('[data-action-open-task]');
       if (actionOpenTask) { openEditModal(actionOpenTask.getAttribute('data-action-open-task')); return; }
-      const actionToPersonal = e.target.closest('[data-action-to-personal]');
-      if (actionToPersonal) { transferTaskToPersonalSpace(actionToPersonal.getAttribute('data-action-to-personal')); return; }
       const actionRemove = e.target.closest('[data-action-remove]');
       if (actionRemove) { removeMeetingAction(actionRemove.getAttribute('data-action-remove')); return; }
       // En dernier : la sélection d'une réunion, pour qu'un clic sur un bouton interne à la
