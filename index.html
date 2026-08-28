@@ -4036,10 +4036,15 @@
       tasks: [],
       history: {},
       categories: ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'],
-      dailyGoalMin: 120
+      dailyGoalMin: 120,
+      deletedTasks: {}
     };
 
     let state = JSON.parse(localStorage.getItem(STORE_KEY)) || defaultState;
+    // Déclaré ici (et non plus bas, près de save()) car primeTaskSyncSnapshots() est appelée
+    // dès l'initialisation ci-dessous : une const/let référencée avant sa propre ligne
+    // d'exécution est en zone morte temporelle, même dans une fonction déjà hoistée.
+    let taskSnapshotForSync = new Map();
 
     historyToday();
     if (!state.activeTaskIds) state.activeTaskIds = [];
@@ -4047,6 +4052,8 @@
     if (!state.customFields) state.customFields = [];
     if (!state.dailyNotes) state.dailyNotes = {};
     if (!state.categoryColors) state.categoryColors = {};
+    if (!state.deletedTasks) state.deletedTasks = {};
+    primeTaskSyncSnapshots();
 
     // Préférence son/vibration (par appareil, non synchronisée dans le cloud)
     let soundEnabled = localStorage.getItem('tempo_pro_sound_pref') !== '0';
@@ -4083,7 +4090,111 @@
     // ================================================================
     // UTILITAIRES
     // ================================================================
+    // ================================================================
+    // FUSION D'ÉTAT DISTANT (anti-écrasement silencieux entre appareils)
+    // ================================================================
+    // Le stockage cloud est un blob JSON unique par compte : sans logique de fusion, le dernier
+    // appareil à synchroniser écrasait entièrement les données de tous les autres, y compris
+    // celles plus récentes. Un appareil resté hors connexion plusieurs jours, en se
+    // reconnectant, réécrivait ainsi tout l'état des autres appareils avec sa propre version
+    // périmée (ex. une tâche terminée ailleurs redevenait « en retard »). On fusionne donc
+    // désormais tâche par tâche (via updatedAt) et jour par jour pour l'historique, au lieu
+    // d'écraser tout le bloc. (taskSnapshotForSync est déclaré plus haut, avant `state`, car
+    // primeTaskSyncSnapshots() est déjà appelée pendant l'initialisation.)
+
+    function primeTaskSyncSnapshots() {
+      taskSnapshotForSync = new Map();
+      (state.tasks || []).forEach(t => {
+        const { updatedAt, ...rest } = t;
+        taskSnapshotForSync.set(t.id, JSON.stringify(rest));
+      });
+    }
+
+    // Horodate toute tâche dont le contenu a changé depuis le dernier appel. Comme save() est
+    // le point de passage unique de toute modification, ceci donne à chaque tâche un updatedAt
+    // fiable sans avoir à instrumenter individuellement les dizaines d'endroits qui éditent une
+    // tâche (Kanban, panneau d'édition, sous-tâches, suivi, dépendances, commentaires...).
+    function stampChangedTasks() {
+      (state.tasks || []).forEach(t => {
+        const { updatedAt, ...rest } = t;
+        const json = JSON.stringify(rest);
+        if (taskSnapshotForSync.get(t.id) !== json) {
+          t.updatedAt = Date.now();
+        }
+        taskSnapshotForSync.set(t.id, json);
+      });
+    }
+
+    function mergeDeletedTombstones(localDeleted, remoteDeleted) {
+      const merged = Object.assign({}, localDeleted || {}, remoteDeleted || {});
+      Object.keys(merged).forEach(id => {
+        const l = (localDeleted || {})[id], r = (remoteDeleted || {})[id];
+        if (l != null && r != null) merged[id] = Math.max(l, r);
+      });
+      return merged;
+    }
+
+    function mergeTaskArrays(localTasks, remoteTasks, deletedAt) {
+      const byId = new Map();
+      (remoteTasks || []).forEach(t => byId.set(t.id, t));
+      (localTasks || []).forEach(t => {
+        const r = byId.get(t.id);
+        if (!r) { byId.set(t.id, t); return; }
+        const lt = t.updatedAt || 0, rt = r.updatedAt || 0;
+        byId.set(t.id, lt >= rt ? t : r);
+      });
+      const result = [];
+      byId.forEach((t, id) => {
+        const delAt = deletedAt[id];
+        // Une suppression n'est honorée que si elle est postérieure à la dernière modification
+        // connue de la tâche : sinon une tâche restaurée (annulation, ou modifiée après coup
+        // sur un autre appareil) pourrait disparaître à tort à la fusion suivante.
+        if (delAt != null && delAt >= (t.updatedAt || 0)) return;
+        result.push(t);
+      });
+      return result;
+    }
+
+    const HISTORY_NUMERIC_FIELDS = ['focusSecs', 'pauseSecs', 'appOnlySecs', 'manualPauseSecs', 'sessions'];
+    function mergeHistoryDays(localHistory, remoteHistory) {
+      const merged = {};
+      const allKeys = new Set([...Object.keys(localHistory || {}), ...Object.keys(remoteHistory || {})]);
+      allKeys.forEach(key => {
+        const l = (localHistory || {})[key], r = (remoteHistory || {})[key];
+        if (l && !r) { merged[key] = l; return; }
+        if (r && !l) { merged[key] = r; return; }
+        // Présent des deux côtés : ce sont des compteurs cumulés sur la journée, jamais une
+        // régression même si les deux appareils ont suivi du temps le même jour — on garde le
+        // plus grand de chaque plutôt que de choisir un seul côté en bloc.
+        const day = Object.assign({}, r, l);
+        HISTORY_NUMERIC_FIELDS.forEach(f => { day[f] = Math.max(l[f] || 0, r[f] || 0); });
+        const seen = new Set();
+        day.completedTasks = [...(r.completedTasks || []), ...(l.completedTasks || [])].filter(entry => {
+          const k = JSON.stringify(entry);
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        day.pausePromptAnswered = !!(l.pausePromptAnswered || r.pausePromptAnswered);
+        merged[key] = day;
+      });
+      return merged;
+    }
+
+    function mergeRemoteState(remoteState) {
+      const localState = state;
+      const deletedAt = mergeDeletedTombstones(localState.deletedTasks, remoteState.deletedTasks);
+      const tasks = mergeTaskArrays(localState.tasks, remoteState.tasks, deletedAt);
+      const history = mergeHistoryDays(localState.history, remoteState.history);
+      // Pour le reste (réglages, catégories, couleurs...) l'enjeu d'une perte est bien moindre :
+      // on garde simplement le bloc entier le plus récemment sauvegardé.
+      const base = (remoteState.updatedAt || 0) >= (localState.updatedAt || 0) ? remoteState : localState;
+      return Object.assign({}, base, { tasks, history, deletedTasks: deletedAt });
+    }
+
     function save() {
+      state.updatedAt = Date.now();
+      stampChangedTasks();
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
       scheduleCloudSave();
     }
@@ -4546,7 +4657,10 @@
       clearTimeout(cloudSaveTimeout);
       // Court délai (regroupe les modifications rafales, ex. frappe rapide) sans pénaliser
       // la synchronisation entre appareils, qui doit rester quasi instantanée.
-      cloudSaveTimeout = setTimeout(pushStateToCloud, 600);
+      // cloudSaveTimeout est remis à null dès le déclenchement : sans ça il restait un id de
+      // timer déjà expiré indéfiniment, ce qui faisait croire à tort à refreshFromCloudIfNeeded()
+      // qu'un envoi restait en attente à chaque reconnexion.
+      cloudSaveTimeout = setTimeout(() => { cloudSaveTimeout = null; pushStateToCloud(); }, 600);
     }
 
     async function pushStateToCloud() {
@@ -4594,7 +4708,11 @@
 
     function applyRemoteState(remoteState) {
       applyingRemoteState = true;
-      state = remoteState;
+      // Fusion (pas remplacement) : un appareil resté hors connexion pousse parfois un état
+      // périmé en se reconnectant — un simple `state = remoteState` écraserait alors sans
+      // avertissement des données plus récentes déjà en local (voir mergeRemoteState).
+      state = mergeRemoteState(remoteState);
+      primeTaskSyncSnapshots();
       if (!state.activeTaskIds) state.activeTaskIds = [];
       if (!state.categories || !state.categories.length) {
         state.categories = ['Général', 'Livraison', 'Développement', 'Personnel', 'Urgent'];
@@ -4602,6 +4720,7 @@
       if (!state.dailyGoalMin) state.dailyGoalMin = 120;
       if (!state.customFields) state.customFields = [];
       if (!state.history) state.history = {};
+      if (!state.deletedTasks) state.deletedTasks = {};
       historyToday();
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
       stopTimer();
@@ -4677,15 +4796,21 @@
       if (!supa || !cloudUser || cloudRefreshInFlight) return;
       cloudRefreshInFlight = true;
       try {
+        // On fusionne AVANT de repousser quoi que ce soit : un appareil qui vient de
+        // reconnecter (après une coupure réseau ou des heures hors ligne) a potentiellement un
+        // état local périmé. Le pousser en premier écraserait des changements plus récents
+        // faits ailleurs entre-temps ; on pull+fusionne d'abord, et seulement ensuite on
+        // repousse le résultat déjà réconcilié s'il restait une sauvegarde locale en attente.
+        const hadPendingSave = !!cloudSaveTimeout;
         if (cloudSaveTimeout) {
           clearTimeout(cloudSaveTimeout);
           cloudSaveTimeout = null;
-          await pushStateToCloud();
         }
         const remote = await pullStateFromCloud();
         if (remote && remote.state && Array.isArray(remote.state.tasks)) {
           applyRemoteState(remote.state);
         }
+        if (hadPendingSave) await pushStateToCloud();
         subscribeRealtime();
       } finally {
         cloudRefreshInFlight = false;
@@ -7269,7 +7394,12 @@
           }
           if (!state.activeTaskIds) state.activeTaskIds = [];
           if (!state.dailyGoalMin) state.dailyGoalMin = 120;
+          if (!state.deletedTasks) state.deletedTasks = {};
           historyToday();
+          // Restauration explicite d'une sauvegarde par l'utilisateur : ce nouvel état devient
+          // la référence pour la fusion cloud (pas de faux "changements" détectés au prochain
+          // save() sur des tâches qui n'ont en réalité pas bougé depuis la sauvegarde).
+          primeTaskSyncSnapshots();
           save();
           stopTimer();
           timer.mode = 'task';
@@ -8130,6 +8260,11 @@
       const idx = state.tasks.findIndex(t => t.id === id);
       if (idx === -1) return;
       const [removed] = state.tasks.splice(idx, 1);
+      // Trace la suppression (horodatée) pour que la fusion entre appareils (voir
+      // mergeTaskArrays) sache qu'elle est volontaire et plus récente qu'une éventuelle copie
+      // encore présente ailleurs, au lieu de la faire réapparaître au prochain sync.
+      if (!state.deletedTasks) state.deletedTasks = {};
+      state.deletedTasks[id] = Date.now();
       if (state.lastCreatedTaskId === id) state.lastCreatedTaskId = null;
       state.activeTaskIds = state.activeTaskIds.filter(aid => aid !== id);
       if (timer.activeTaskId === id) {
@@ -8143,7 +8278,9 @@
       updateDisplays();
       toast(`"${removed.title}" supprimée.`, 'Annuler', function() {
         const insertAt = Math.min(idx, state.tasks.length);
+        removed.updatedAt = Date.now();
         state.tasks.splice(insertAt, 0, removed);
+        delete state.deletedTasks[id];
         save();
         renderTasks();
         updateTimerTarget();
