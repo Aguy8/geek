@@ -4019,17 +4019,18 @@
       return state.history[key];
     }
 
-    // Le "focus" d'une journée n'est pas simplement le temps suivi sur les tâches : on en
-    // retire le temps passé sur l'appli Tempo.PRO elle-même sans qu'aucune tâche ne tourne
-    // (navigation, réglages...) et le temps de pause (déclaré via le mode Pause, ou indiqué
-    // manuellement si aucune pause n'a été enregistrée dans la journée). Ce qu'il reste est
-    // le temps réellement passé concentré sur une tâche.
+    // Le focus, c'est le temps réel passé à suivre une tâche (chrono actif, hors mode Pause) —
+    // focusSecs lui-même. On ne soustrait plus le temps « appli seule » ni la pause : ces deux
+    // compteurs s'accumulent dans des branches strictement séparées de focusSecs (voir le tick
+    // du chrono plus bas), donc ils n'y sont JAMAIS inclus au départ. Les en retirer en plus
+    // revenait à pénaliser deux fois la simple navigation dans l'appli (consulter ses tâches,
+    // ouvrir l'analytique...) — le focus ne pouvait alors que diminuer au fil de la journée,
+    // même en travaillant activement. focusSecs seul est déjà, honnêtement, le temps de
+    // travail réel : il ne peut que croître pendant qu'un chrono tourne, jamais reculer du
+    // simple fait d'utiliser l'appli.
     function computeRealFocusSecs(day) {
       if (!day) return 0;
-      const gross = day.focusSecs || 0;
-      const appOnly = day.appOnlySecs || 0;
-      const pause = (day.pauseSecs || 0) + (day.manualPauseSecs || 0);
-      return Math.max(0, gross - appOnly - pause);
+      return day.focusSecs || 0;
     }
 
     const defaultState = {
@@ -8154,11 +8155,11 @@
     }
 
     // ================================================================
-    // DEMANDE DE PAUSE (pour calculer le focus réel de la journée — voir
-    // computeRealFocusSecs). On ne demande que si la journée a déjà du temps suivi
-    // (sinon rien à corriger), qu'aucune pause n'a déjà été enregistrée (via le mode
-    // Pause) et qu'on n'a pas encore répondu aujourd'hui, une fois l'heure du déjeuner
-    // passée.
+    // DEMANDE DE PAUSE — plus appelée automatiquement (voir le commentaire sur
+    // computeRealFocusSecs : la pause n'est plus soustraite du focus, donc la réponse
+    // n'avait plus d'effet visible et redemander devenait juste une question sans suite).
+    // Fonctions conservées telles quelles si un futur récapitulatif de journée veut les
+    // réutiliser pour un affichage purement informatif.
     // ================================================================
     function maybeAskAboutPause() {
       const day = historyToday();
@@ -10169,18 +10170,16 @@
       updateStatusBar();
       checkUpcomingDeadlines();
       checkScheduledStarts();
-      maybeAskAboutPause();
       if (!timer.running) updateClock();
-      // Temps passé À REGARDER l'appli sans qu'aucun chrono ne tourne (navigation, réglages,
-      // consultation des tâches...) : ce n'est pas du temps de concentration sur une tâche,
-      // donc il doit être retiré du focus réel de la journée (voir computeRealFocusSecs).
+      // Temps passé à regarder l'appli sans qu'aucun chrono ne tourne (navigation, réglages,
+      // consultation des tâches...). Purement informatif désormais : il n'est plus retiré du
+      // focus réel (computeRealFocusSecs), qui n'a jamais inclus ce temps pour commencer — le
+      // soustraire en plus pénalisait deux fois la simple navigation dans l'appli. Conservé au
+      // cas où un futur récapitulatif de journée voudrait l'afficher à titre indicatif.
       // document.hasFocus(), pas juste visibilityState : un onglet Tempo.PRO peut rester
       // "visible" (actif dans son navigateur) des heures alors que l'utilisateur travaille
       // dans une tout autre application — visibilityState ne détecte QUE le changement
-      // d'onglet ou la minimisation, pas la perte de focus de la fenêtre. Sans hasFocus(),
-      // ce compteur gonflait bien au-delà du temps réellement passé à utiliser l'appli, et
-      // finissait par dépasser le temps suivi lui-même : le focus réel ne faisait que baisser
-      // toute la journée, même en travaillant activement sur les tâches.
+      // d'onglet ou la minimisation, pas la perte de focus de la fenêtre.
       if (document.hasFocus() && !timer.running) {
         historyToday().appOnlySecs = (historyToday().appOnlySecs || 0) + 1;
         save();
