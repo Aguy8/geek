@@ -2444,6 +2444,7 @@
     }
     .meeting-sched-row label { display: flex; align-items: center; gap: 6px; }
     .meeting-sched-row .field { margin-bottom: 0; width: auto; }
+    .meeting-sched-label { color: var(--text-dim); }
     .meeting-clock-sub {
       font-size: 11px;
       color: var(--muted);
@@ -3566,9 +3567,9 @@
                 <div class="clock" id="meetingClock">00:00:00</div>
                 <div class="meeting-clock-sub" id="meetingClockSub"></div>
                 <div class="meeting-sched-row">
-                  <label for="meetingScheduledAt">Programmée le
-                    <input type="datetime-local" class="field" id="meetingScheduledAt" />
-                  </label>
+                  <span class="meeting-sched-label">Programmée le</span>
+                  <button type="button" class="field date-picker-btn" id="meetingScheduledAtBtn" data-picker="meetingScheduledAt" data-placeholder="Choisir une date et heure" title="Date et heure de la réunion">Choisir une date et heure</button>
+                  <input type="hidden" id="meetingScheduledAt" />
                   <label for="meetingPlannedMin">Durée prévue
                     <input type="number" class="field" id="meetingPlannedMin" min="0" step="5" placeholder="min" style="width:80px;" />
                   </label>
@@ -3631,7 +3632,8 @@
                   <div class="meeting-add-row">
                     <input type="text" class="field" id="meetingActionInput" placeholder="Ajouter une action..." />
                     <select class="field" id="meetingActionOwner" title="Responsable de l'action" style="flex:0 0 auto; min-width:150px;"></select>
-                    <input type="date" class="field" id="meetingActionDue" title="Échéance" style="flex:0 0 auto;" />
+                    <button type="button" class="field date-picker-btn" id="meetingActionDueBtn" data-picker="meetingActionDue" data-placeholder="Échéance" title="Échéance de l'action" style="flex:0 0 auto; min-width:110px;">Échéance</button>
+                    <input type="hidden" id="meetingActionDue" />
                     <button type="button" class="btn-ghost" id="meetingActionAddBtn">Ajouter</button>
                   </div>
                   <div id="meetingActionsList"></div>
@@ -4878,13 +4880,22 @@
       const hour = Math.min(23, Math.max(0, parseInt($('dpHour').value, 10) || 0));
       const minute = Math.min(59, Math.max(0, parseInt($('dpMinute').value, 10) || 0));
       const finalDate = new Date(dp.selectedDay.getFullYear(), dp.selectedDay.getMonth(), dp.selectedDay.getDate(), hour, minute);
+      const inputId = dp.inputId;
       setDatePickerField(dp.inputId, dp.btnId, finalDate.toISOString(), dp.placeholder);
       if (dp.relatedId) $(dp.relatedId).value = '';
       closeDatePicker();
+      // Contrairement à une saisie native, poser .value par script ne déclenche aucun
+      // évènement : les champs qui persistent en direct sur 'change' (hors formulaire à
+      // bouton Enregistrer explicite, ex. les réglages de réunion) ne le sauraient jamais sans ça.
+      $(inputId).dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     function clearDatePickerValue() {
-      if (dp.inputId) setDatePickerField(dp.inputId, dp.btnId, null, dp.placeholder);
+      if (dp.inputId) {
+        const inputId = dp.inputId;
+        setDatePickerField(dp.inputId, dp.btnId, null, dp.placeholder);
+        $(inputId).dispatchEvent(new Event('change', { bubbles: true }));
+      }
       closeDatePicker();
     }
 
@@ -10785,8 +10796,11 @@
 
       const titleEl = $('meetingDetailTitle');
       if (titleEl && document.activeElement !== titleEl) titleEl.value = m.title;
-      const schedEl = $('meetingScheduledAt');
-      if (schedEl && document.activeElement !== schedEl) schedEl.value = m.scheduledAt ? m.scheduledAt.slice(0, 16) : '';
+      // Le popover est un composant partagé : ne pas réécrire le champ tant qu'il pilote
+      // cette réunion, sous peine d'effacer une sélection en cours.
+      if (dp.inputId !== 'meetingScheduledAt') {
+        setDatePickerField('meetingScheduledAt', 'meetingScheduledAtBtn', m.scheduledAt || null, 'Choisir une date et heure');
+      }
       const plannedEl = $('meetingPlannedMin');
       if (plannedEl && document.activeElement !== plannedEl) plannedEl.value = m.plannedMin || '';
       const startBtn = $('meetingStartBtn');
@@ -11002,9 +11016,13 @@
     $('meetingDecisionAddBtn').addEventListener('click', () => { addDecision($('meetingDecisionInput').value); $('meetingDecisionInput').value = ''; });
     $('meetingDecisionInput').addEventListener('keydown', e => { if (e.key === 'Enter') { addDecision(e.target.value); e.target.value = ''; } });
     $('meetingActionAddBtn').addEventListener('click', () => {
-      addMeetingAction($('meetingActionInput').value, $('meetingActionOwner').value, $('meetingActionDue').value);
+      // L'échéance d'une action est une date, sans heure significative : on ne garde que la
+      // partie date de la valeur ISO posée par le sélecteur (qui gère toujours une heure,
+      // par cohérence avec les autres champs de date de l'appli).
+      const dueVal = $('meetingActionDue').value;
+      addMeetingAction($('meetingActionInput').value, $('meetingActionOwner').value, dueVal ? dueVal.slice(0, 10) : null);
       $('meetingActionInput').value = '';
-      $('meetingActionDue').value = '';
+      setDatePickerField('meetingActionDue', 'meetingActionDueBtn', null, 'Échéance');
       // Le responsable est remis à zéro : le garder sélectionné assignait silencieusement
       // l'action suivante à la même personne, ce qui se remarque rarement à la saisie.
       $('meetingActionOwner').value = '';
