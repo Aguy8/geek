@@ -2365,8 +2365,95 @@
     .meeting-list-item .comment-delete { position: absolute; right: 8px; top: 10px; }
     #meetingDetailTitle { font-size: 17px; font-weight: 700; border: none; background: transparent; padding: 4px 0; width: 100%; text-align: center; color: var(--text); }
     #meetingDetailTitle:focus { outline: none; border-bottom: 1px solid var(--primary); }
-    .meeting-add-row { display: flex; gap: 8px; margin-bottom: 10px; }
-    .meeting-add-row input { flex: 1; }
+    .meeting-add-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    /* Seul le champ texte s'étire : sans ça, la date et le menu Responsable (dont .select-wrap
+       est en width:100% pour la stabilité de mise en page ailleurs) réclamaient chacun une
+       ligne entière et la barre d'ajout se dépliait sur quatre rangées. */
+    .meeting-add-row input[type="text"], .meeting-add-row input[type="email"] { flex: 1 1 140px; min-width: 120px; }
+    /* Largeur explicite : .field est en width:100%, et un flex-item non extensible garde
+       cette largeur — le champ réclamait donc à lui seul toute la rangée. */
+    .meeting-add-row input[type="number"] { flex: 0 0 auto; width: 74px; }
+    .meeting-add-row input[type="date"] { flex: 0 0 auto; width: 150px; }
+    .meeting-add-row .select-wrap { width: auto; flex: 0 0 auto; min-width: 160px; }
+    .meeting-sched-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      margin: 4px 0 10px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .meeting-sched-row label { display: flex; align-items: center; gap: 6px; }
+    .meeting-sched-row .field { margin-bottom: 0; width: auto; }
+    .meeting-clock-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: -4px;
+      margin-bottom: 10px;
+      min-height: 14px;
+    }
+    .meeting-clock-sub .over { color: var(--danger); font-weight: 600; }
+    /* Point d'ordre du jour : une ligne repliable (notes + minutage), et non une simple
+       case à cocher — un point de réunion porte presque toujours des notes. */
+    .agenda-item {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      background: var(--bg);
+    }
+    .agenda-item.current { border-color: var(--primary); background: var(--surface-2); }
+    .agenda-item-head { display: flex; align-items: center; gap: 8px; }
+    .agenda-item-head .subtask-label { flex: 1; }
+    .agenda-item.done .subtask-label { text-decoration: line-through; opacity: 0.5; }
+    .agenda-time {
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .agenda-time.over { color: var(--danger); font-weight: 600; }
+    .agenda-notes { margin-top: 6px; padding-left: 24px; }
+    .agenda-note {
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 2px 0;
+    }
+    .agenda-note span { flex: 1; word-break: break-word; }
+    .agenda-note-add { display: flex; gap: 6px; margin-top: 4px; }
+    .agenda-note-add input { flex: 1; font-size: 11px; padding: 4px 8px; }
+    .participant-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 11px;
+      margin: 0 4px 4px 0;
+    }
+    .participant-chip.absent { opacity: 0.45; }
+    .participant-chip button { background: transparent; border: 0; color: var(--muted); cursor: pointer; padding: 0; font-size: 11px; }
+    .participant-chip button:hover { color: var(--danger); }
+    .meeting-origin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--surface-3);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+    }
 
     /* ===== GRILLES (ex-inline, nécessaires pour override responsive) ===== */
     .grid-2 {
@@ -3427,18 +3514,49 @@
               <div class="card focus-widget" style="margin-bottom:16px;">
                 <input type="text" id="meetingDetailTitle" placeholder="Titre de la réunion" />
                 <div class="clock" id="meetingClock">00:00:00</div>
+                <div class="meeting-clock-sub" id="meetingClockSub"></div>
+                <div class="meeting-sched-row">
+                  <label for="meetingScheduledAt">Programmée le
+                    <input type="datetime-local" class="field" id="meetingScheduledAt" />
+                  </label>
+                  <label for="meetingPlannedMin">Durée prévue
+                    <input type="number" class="field" id="meetingPlannedMin" min="0" step="5" placeholder="min" style="width:80px;" />
+                  </label>
+                </div>
                 <div class="timer-controls">
                   <button class="btn btn-primary" id="meetingStartBtn"><span class="math-icon">▶︎</span> Démarrer</button>
                   <button class="btn btn-ghost" id="meetingResetBtn"><span class="math-icon">⟳︎</span> Reset</button>
+                  <button class="btn btn-ghost" id="meetingExportBtn"><span class="math-icon">⎘︎</span> Compte-rendu</button>
+                </div>
+              </div>
+
+              <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><h2>Participants</h2></div>
+                <div style="padding:12px;">
+                  <div class="meeting-add-row">
+                    <input type="text" class="field" id="meetingParticipantName" placeholder="Nom du participant..." />
+                    <input type="email" class="field" id="meetingParticipantEmail" placeholder="E-mail (facultatif)" />
+                    <button type="button" class="btn-ghost" id="meetingParticipantAddBtn">Ajouter</button>
+                  </div>
+                  <div id="meetingParticipantsList"></div>
+                  <div style="font-size:10px; color:var(--muted); margin-top:8px;">
+                    Un participant sans compte Tempo.PRO peut être ajouté par son nom : il reste assignable
+                    pour suivre les actions qui le concernent. Avec un e-mail et un espace d’équipe, une
+                    invitation peut lui être envoyée.
+                  </div>
                 </div>
               </div>
 
               <div class="grid-2col" style="margin-bottom:16px;">
                 <div class="card">
-                  <div class="card-header"><h2>Ordre du jour</h2></div>
+                  <div class="card-header">
+                    <h2>Ordre du jour</h2>
+                    <span style="font-size:10px; color:var(--muted);" id="meetingAgendaBudget"></span>
+                  </div>
                   <div style="padding:12px;">
                     <div class="meeting-add-row">
                       <input type="text" class="field" id="meetingAgendaInput" placeholder="Ajouter un point..." />
+                      <input type="number" class="field" id="meetingAgendaMin" min="0" step="5" placeholder="min" style="width:70px; flex:0 0 auto;" />
                       <button type="button" class="btn-ghost" id="meetingAgendaAddBtn">Ajouter</button>
                     </div>
                     <div id="meetingAgendaList"></div>
@@ -3462,6 +3580,8 @@
                 <div style="padding:12px;">
                   <div class="meeting-add-row">
                     <input type="text" class="field" id="meetingActionInput" placeholder="Ajouter une action..." />
+                    <select class="field" id="meetingActionOwner" title="Responsable de l'action" style="flex:0 0 auto; min-width:150px;"></select>
+                    <input type="date" class="field" id="meetingActionDue" title="Échéance" style="flex:0 0 auto;" />
                     <button type="button" class="btn-ghost" id="meetingActionAddBtn">Ajouter</button>
                   </div>
                   <div id="meetingActionsList"></div>
@@ -4146,7 +4266,8 @@
       dailyGoalMin: 120,
       deletedTasks: {},
       meetings: [],
-      activeMeetingId: null
+      activeMeetingId: null,
+      people: []
     };
 
     let state = JSON.parse(localStorage.getItem(STORE_KEY)) || defaultState;
@@ -4165,6 +4286,7 @@
     if (!state.categoryColors) state.categoryColors = {};
     if (!state.deletedTasks) state.deletedTasks = {};
     if (!state.meetings) state.meetings = [];
+    if (!state.people) state.people = [];
     primeTaskSyncSnapshots();
     primeMeetingSyncSnapshots();
 
@@ -4325,6 +4447,13 @@
       const tasks = mergeTaskArrays(localState.tasks, remoteState.tasks, deletedAt);
       const history = mergeHistoryDays(localState.history, remoteState.history);
       const meetings = mergeMeetingArrays(localState.meetings, remoteState.meetings);
+      // Carnet de personnes : union par id. Une personne ajoutée sur un appareil ne doit pas
+      // disparaître d'un autre — sinon les tâches qui lui sont assignées afficheraient un
+      // assigné introuvable après une simple synchro.
+      const peopleById = new Map();
+      (remoteState.people || []).forEach(p => peopleById.set(p.id, p));
+      (localState.people || []).forEach(p => peopleById.set(p.id, p));
+      const people = [...peopleById.values()];
       // Pour le reste (réglages, catégories, couleurs...) l'enjeu d'une perte est bien moindre :
       // on garde simplement le bloc entier le plus récemment sauvegardé.
       const base = (remoteState.updatedAt || 0) >= (localState.updatedAt || 0) ? remoteState : localState;
@@ -4335,7 +4464,7 @@
       const activeMeetingId = (localState.activeMeetingId && meetings.some(m => m.id === localState.activeMeetingId))
         ? localState.activeMeetingId
         : ((base.activeMeetingId && meetings.some(m => m.id === base.activeMeetingId)) ? base.activeMeetingId : null);
-      return Object.assign({}, base, { tasks, history, deletedTasks: deletedAt, meetings, activeMeetingId });
+      return Object.assign({}, base, { tasks, history, deletedTasks: deletedAt, meetings, activeMeetingId, people });
     }
 
     function save() {
@@ -4870,6 +4999,7 @@
       if (!state.history) state.history = {};
       if (!state.deletedTasks) state.deletedTasks = {};
       if (!state.meetings) state.meetings = [];
+      if (!state.people) state.people = [];
       historyToday();
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
       stopTimer();
@@ -5174,23 +5304,76 @@
       toast('Vous avez quitté l\'espace d\'équipe.');
     }
 
+    // ================================================================
+    // PERSONNES (carnet local) — un interlocuteur dont dépend une action n'a pas
+    // forcément (ou pas encore) de compte Tempo.PRO : sans ce carnet, il était
+    // impossible de noter à qui incombe une action tant qu'il n'avait pas rejoint
+    // la plateforme, alors que c'est précisément à ce moment qu'on en a besoin.
+    // Ces personnes sont assignables exactement comme un membre d'équipe.
+    // ================================================================
+    function addPerson(name, email) {
+      const trimmed = (name || '').trim();
+      if (!trimmed) return null;
+      if (!state.people) state.people = [];
+      const mail = (email || '').trim().toLowerCase();
+      const existing = state.people.find(p =>
+        p.name.toLowerCase() === trimmed.toLowerCase() || (mail && (p.email || '').toLowerCase() === mail));
+      if (existing) {
+        if (mail && !existing.email) { existing.email = mail; save(); }
+        return existing;
+      }
+      const person = { id: 'p-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: trimmed, email: mail || null };
+      state.people.push(person);
+      save();
+      updateAssigneeFieldsVisibility();
+      return person;
+    }
+
+    function personById(id) {
+      return (state.people || []).find(p => p.id === id) || null;
+    }
+
+    // Options d'assignation : membres réels de l'espace d'équipe ET personnes du carnet.
+    // Pas d'<optgroup> : tous les menus de l'app sont rendus par le menu déroulant maison,
+    // qui aplatit les options — le groupe serait invisible. On distingue donc les deux
+    // familles directement dans le libellé.
+    function assigneeOptionsHtml() {
+      let html = '<option value="">Non assigné</option>';
+      html += currentWorkspaceMembers
+        .map(m => `<option value="${m.user_id}">${escHtml(m.email)}</option>`).join('');
+      html += (state.people || [])
+        .map(p => `<option value="${p.id}">${escHtml(p.name)}${p.email ? ' · ' + escHtml(p.email) : ' · hors plateforme'}</option>`).join('');
+      return html;
+    }
+
     function updateAssigneeFieldsVisibility() {
-      const isTeam = !!activeWorkspaceId;
-      const opts = '<option value="">Non assigné</option>' +
-        currentWorkspaceMembers.map(m => `<option value="${m.user_id}">${escHtml(m.email)}</option>`).join('');
-      ['taskAssignee', 'editAssignee'].forEach(id => {
+      // Visible dès qu'il y a quelqu'un à qui assigner — membre d'équipe OU personne du
+      // carnet : on peut suivre les actions d'un tiers même depuis l'espace personnel.
+      const hasSomeone = !!activeWorkspaceId || !!(state.people || []).length;
+      const opts = assigneeOptionsHtml();
+      ['taskAssignee', 'editAssignee', 'meetingActionOwner'].forEach(id => {
         const el = $(id);
         if (!el) return;
         const current = el.value;
         el.innerHTML = opts;
         if (Array.from(el.options).some(o => o.value === current)) el.value = current;
-        el.classList.toggle('hidden', !isTeam);
+        if (id !== 'meetingActionOwner') el.classList.toggle('hidden', !hasSomeone);
       });
     }
 
     function memberEmailFor(userId) {
       const m = currentWorkspaceMembers.find(m => m.user_id === userId);
       return m ? m.email : null;
+    }
+
+    // Libellé lisible d'un assigné, qu'il s'agisse d'un membre de l'espace ou d'une
+    // personne du carnet (les deux vivent dans le même champ task.assignee).
+    function assigneeLabel(ref) {
+      if (!ref) return null;
+      const email = memberEmailFor(ref);
+      if (email) return email;
+      const p = personById(ref);
+      return p ? p.name : null;
     }
 
     function openWorkspaceModal() {
@@ -6605,7 +6788,7 @@
       if (groupBy.indexOf('cf:') === 0) return key || 'Non renseigné';
       if (groupBy === 'status') return KANBAN_STATUS_LABELS[key] || key;
       if (groupBy === 'priority') return GROUP_PRIORITY_LABELS[key] || key;
-      if (groupBy === 'assignee') return key ? (memberEmailFor(key) || 'Membre') : 'Non assigné';
+      if (groupBy === 'assignee') return key ? (assigneeLabel(key) || 'Membre') : 'Non assigné';
       return key || 'Général';
     }
 
@@ -6909,6 +7092,16 @@
       toast('Section ajoutée.');
     }
 
+    // Marque visiblement une tâche née d'une action de réunion, avec le nom de la réunion.
+    // Le titre est recopié sur la tâche (meetingTitle) plutôt que relu depuis la réunion :
+    // le badge doit rester lisible même si la réunion est supprimée plus tard.
+    function meetingOriginBadgeHTML(t) {
+      if (!t || !t.meetingId) return '';
+      const m = (state.meetings || []).find(x => x.id === t.meetingId);
+      const label = (m && m.title) || t.meetingTitle || 'Réunion';
+      return `<span class="meeting-origin-badge" title="Issue de la réunion « ${escHtml(label)} »"><span class="math-icon">✓︎</span> ${escHtml(label)}</span>`;
+    }
+
     function trackingBadgeHTML(t) {
       if (!t.trackingLevels || !t.trackingLevels.length) return '';
       const cur = t.trackingCurrent != null ? t.trackingCurrent : -1;
@@ -6955,7 +7148,8 @@
                 <span><span class="math-icon">◷︎</span> ${formatTimeShort((t.timeSpent || 0) * 1000)}</span>
                 ${subtasks.length ? `<span><span class="math-icon">≡︎</span> ${doneSubtasks}/${subtasks.length}</span>` : ''}
                 ${t.repeat && t.repeat !== 'none' ? `<span><span class="math-icon">⟳︎</span> ${t.repeat === 'daily' ? 'Quotidienne' : 'Hebdomadaire'}</span>` : ''}
-                ${t.assignee && memberEmailFor(t.assignee) ? `<span><span class="math-icon">⚇︎</span> ${escHtml(memberEmailFor(t.assignee))}</span>` : ''}
+                ${t.assignee && assigneeLabel(t.assignee) ? `<span><span class="math-icon">⚇︎</span> ${escHtml(assigneeLabel(t.assignee))}</span>` : ''}
+                ${meetingOriginBadgeHTML(t)}
                 ${hasIncompleteDependencies(t) ? `<span class="status-badge priority-high"><span class="math-icon">⛓︎</span> En attente</span>` : ''}
                 ${trackingBadgeHTML(t)}
                 ${deadlineBadge}
@@ -7546,6 +7740,7 @@
           if (!state.dailyGoalMin) state.dailyGoalMin = 120;
           if (!state.deletedTasks) state.deletedTasks = {};
           if (!state.meetings) state.meetings = [];
+          if (!state.people) state.people = [];
           historyToday();
           // Restauration explicite d'une sauvegarde par l'utilisateur : ce nouvel état devient
           // la référence pour la fusion cloud (pas de faux "changements" détectés au prochain
@@ -8359,7 +8554,11 @@
         customFieldValues: {},
         dependsOn: [],
         startDate: null,
-        autoStartFired: false
+        autoStartFired: false,
+        // Réunion d'origine, quand la tâche est née d'une action de réunion. Le titre est
+        // recopié pour que le badge reste lisible même si la réunion est supprimée.
+        meetingId: null,
+        meetingTitle: null
       }, overrides);
     }
 
@@ -8379,7 +8578,9 @@
         deadline: deadline,
         startDate: startDate,
         repeat: $('taskRepeat')?.value || 'none',
-        assignee: (activeWorkspaceId && $('taskAssignee')?.value) || null,
+        // Plus conditionné à l'espace d'équipe : une personne du carnet est assignable
+        // même en espace personnel (voir addPerson / assigneeOptionsHtml).
+        assignee: ($('taskAssignee')?.value) || null,
         customFieldValues: (state.familyFieldId && familyValue) ? { [state.familyFieldId]: familyValue } : {}
       });
       logActivity(newTask, 'Tâche créée.');
@@ -8539,7 +8740,7 @@
     function boardCardHTML(t) {
       const colIdx = BOARD_COLUMNS.findIndex(c => c.status === t.status);
       const deadlineBadge = getDeadlineBadge(t);
-      const assigneeEmail = t.assignee ? memberEmailFor(t.assignee) : null;
+      const assigneeEmail = t.assignee ? assigneeLabel(t.assignee) : null;
       return `
         <div class="board-card" draggable="true" data-id="${t.id}">
           <div class="board-card-title">${escHtml(t.title)}</div>
@@ -8971,7 +9172,7 @@
       task.startDate = newStartDate;
       task.notes = $('editNotes').value;
       if ($('editRepeat')) task.repeat = $('editRepeat').value;
-      if (activeWorkspaceId && $('editAssignee')) task.assignee = $('editAssignee').value || null;
+      if ($('editAssignee')) task.assignee = $('editAssignee').value || null;
 
       if (!task.customFieldValues) task.customFieldValues = {};
       if (state.familyFieldId && $('editFamily')) {
@@ -8993,7 +9194,7 @@
       if (before.priority !== task.priority) logActivity(task, `Priorité : ${before.priority} → ${task.priority}.`);
       if (before.category !== task.category) logActivity(task, `Catégorie : ${before.category} → ${task.category}.`);
       if ((before.assignee || null) !== (task.assignee || null)) {
-        const newLabel = task.assignee ? (memberEmailFor(task.assignee) || 'un membre') : 'personne';
+        const newLabel = task.assignee ? (assigneeLabel(task.assignee) || 'un membre') : 'personne';
         logActivity(task, `Assigné à ${newLabel}.`);
       }
       // Applique le statut en dernier : moveTaskToStatus journalise le changement, ajuste le
@@ -9774,9 +9975,29 @@
       return (state.meetings || []).find(m => m.id === state.activeMeetingId) || null;
     }
 
+    // Famille attribuée d'office aux tâches nées d'une réunion, pour qu'elles se regroupent
+    // ensemble dans le groupement par famille sans avoir à les classer une à une.
+    const MEETING_FAMILY = 'Réunion';
+
     function meetingElapsedMs(m) {
       if (!m) return 0;
       return (m.elapsedMs || 0) + (m.running && m.startedAt ? Math.max(0, Date.now() - m.startedAt) : 0);
+    }
+
+    // Temps restant sur la durée prévue. Volontairement NON borné à zéro : un dépassement
+    // doit se lire en négatif (« -04:12 »), c'est l'information utile en réunion.
+    function meetingRemainingMs(m) {
+      if (!m || !m.plannedMin) return null;
+      return m.plannedMin * 60 * 1000 - meetingElapsedMs(m);
+    }
+
+    function formatClockMs(ms) {
+      const neg = ms < 0;
+      const s = Math.floor(Math.abs(ms) / 1000);
+      const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+      const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return (neg ? '-' : '') + `${hh}:${mm}:${ss}`;
     }
 
     function createMeeting() {
@@ -9786,13 +10007,19 @@
         id: Date.now().toString() + Math.random().toString(36).slice(2),
         title,
         createdAt: Date.now(),
+        scheduledAt: null,
+        plannedMin: null,
+        scheduledNotified: false,
+        participants: [],
         agenda: [],
         notes: '',
         decisions: [],
         actions: [],
         elapsedMs: 0,
         running: false,
-        startedAt: null
+        startedAt: null,
+        currentAgendaId: null,
+        currentAgendaSince: null
       };
       if (!state.meetings) state.meetings = [];
       state.meetings.unshift(m);
@@ -9812,6 +10039,7 @@
       }
       save();
       renderMeetingView();
+      renderTasks();
     }
 
     function selectMeeting(id) {
@@ -9820,16 +10048,47 @@
       renderMeetingView();
     }
 
+    // ----- Minutage par point d'ordre du jour (time-boxing) -----
+    function agendaSpentMs(m, a) {
+      if (!m || !a) return 0;
+      const live = (m.running && m.currentAgendaId === a.id && m.currentAgendaSince)
+        ? Math.max(0, Date.now() - m.currentAgendaSince) : 0;
+      return (a.spentMs || 0) + live;
+    }
+
+    // Referme l'intervalle du point courant et cumule sa durée. Appelé à chaque bascule
+    // (changement de point, pause, arrêt) pour qu'aucune seconde ne soit ni perdue ni
+    // comptée deux fois.
+    function flushCurrentAgenda(m) {
+      if (!m || !m.currentAgendaId || !m.currentAgendaSince) return;
+      const cur = (m.agenda || []).find(a => a.id === m.currentAgendaId);
+      if (cur) cur.spentMs = (cur.spentMs || 0) + Math.max(0, Date.now() - m.currentAgendaSince);
+      m.currentAgendaSince = null;
+    }
+
+    function setCurrentAgendaPoint(id) {
+      const m = activeMeeting();
+      if (!m) return;
+      flushCurrentAgenda(m);
+      // Recliquer sur le point déjà courant le désélectionne.
+      m.currentAgendaId = (m.currentAgendaId === id) ? null : id;
+      m.currentAgendaSince = (m.currentAgendaId && m.running) ? Date.now() : null;
+      save();
+      renderMeetingView();
+    }
+
     function toggleMeetingTimer() {
       const m = activeMeeting();
       if (!m) return;
       if (m.running) {
+        flushCurrentAgenda(m);
         m.elapsedMs = meetingElapsedMs(m);
         m.running = false;
         m.startedAt = null;
       } else {
         m.running = true;
         m.startedAt = Date.now();
+        if (m.currentAgendaId) m.currentAgendaSince = Date.now();
       }
       save();
       renderMeetingView();
@@ -9838,10 +10097,12 @@
     function resetMeetingTimer() {
       const m = activeMeeting();
       if (!m) return;
-      if (!confirm('Réinitialiser le chronomètre de cette réunion ?')) return;
+      if (!confirm('Réinitialiser le chronomètre de cette réunion (points compris) ?')) return;
       m.elapsedMs = 0;
       m.running = false;
       m.startedAt = null;
+      m.currentAgendaSince = null;
+      (m.agenda || []).forEach(a => { a.spentMs = 0; });
       save();
       renderMeetingView();
     }
@@ -9850,19 +10111,102 @@
       const view = $('viewMeeting');
       const el = $('meetingClock');
       if (!view || !el || view.classList.contains('hidden')) return;
-      const ms = meetingElapsedMs(activeMeeting());
-      const s = Math.floor(ms / 1000);
-      const hh = String(Math.floor(s / 3600)).padStart(2, '0');
-      const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-      const ss = String(s % 60).padStart(2, '0');
-      el.textContent = `${hh}:${mm}:${ss}`;
+      const m = activeMeeting();
+      if (!m) return;
+      const elapsed = meetingElapsedMs(m);
+      const remaining = meetingRemainingMs(m);
+      // Avec une durée prévue, le grand chrono affiche le RESTANT (et le dépassement en
+      // négatif) : c'est ce qu'on surveille en réunion. Sans durée prévue, il compte le temps
+      // écoulé, comme un chronomètre classique.
+      const showRemaining = remaining !== null;
+      el.textContent = formatClockMs(showRemaining ? remaining : elapsed);
+      el.classList.toggle('negative', showRemaining && remaining < 0);
+
+      const sub = $('meetingClockSub');
+      if (sub) {
+        const parts = [];
+        if (showRemaining) {
+          parts.push(`Prévu ${m.plannedMin} min · écoulé ${formatClockMs(elapsed)}`);
+          if (remaining < 0) parts.push(`<span class="over">dépassement de ${formatClockMs(Math.abs(remaining))}</span>`);
+        } else {
+          parts.push('Chronomètre libre — définissez une durée prévue pour suivre le dépassement.');
+        }
+        if (m.scheduledAt) {
+          const d = new Date(m.scheduledAt);
+          if (!isNaN(d.getTime())) parts.unshift('Programmée le ' + d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }));
+        }
+        sub.innerHTML = parts.join(' · ');
+      }
     }
 
-    function addAgendaItem(text) {
+    // Rappel à l'heure programmée, sur le même principe que le démarrage programmé des
+    // tâches : sans ça, programmer une réunion n'aurait aucun effet observable.
+    function checkScheduledMeetings() {
+      const now = Date.now();
+      (state.meetings || []).forEach(m => {
+        if (!m.scheduledAt || m.scheduledNotified || m.running) return;
+        const t = new Date(m.scheduledAt).getTime();
+        if (isNaN(t) || t > now) return;
+        // Passé de plus de 2 h : c'est une vieille réunion chargée depuis l'historique, pas
+        // un rappel utile — on marque sans notifier pour ne pas réveiller l'utilisateur pour rien.
+        if (now - t < 2 * 60 * 60 * 1000) {
+          toast(`« ${m.title} » devait commencer maintenant.`);
+          sendNotification('Réunion', `« ${m.title} » devait commencer maintenant.`);
+        }
+        m.scheduledNotified = true;
+        save();
+      });
+    }
+
+    // ----- Participants -----
+    function addMeetingParticipant(name, email) {
+      const m = activeMeeting();
+      if (!m) return;
+      const person = addPerson(name, email);
+      if (!person) return;
+      if (!m.participants) m.participants = [];
+      if (m.participants.some(p => p.ref === person.id)) { toast('Déjà participant.'); return; }
+      m.participants.push({ ref: person.id, present: true });
+      save();
+      renderMeetingView();
+      updateAssigneeFieldsVisibility();
+    }
+    function toggleParticipantPresence(ref) {
+      const m = activeMeeting();
+      const p = m && (m.participants || []).find(x => x.ref === ref);
+      if (!p) return;
+      p.present = !p.present;
+      save();
+      renderMeetingView();
+    }
+    function removeMeetingParticipant(ref) {
+      const m = activeMeeting();
+      if (!m) return;
+      m.participants = (m.participants || []).filter(p => p.ref !== ref);
+      save();
+      renderMeetingView();
+    }
+    // Invite un participant déjà listé (qui a un e-mail) dans l'espace d'équipe actif.
+    async function inviteParticipant(ref) {
+      const person = personById(ref);
+      if (!person || !person.email) { toast('Ajoutez d’abord un e-mail à ce participant.'); return; }
+      if (!activeWorkspaceId) { toast('Activez un espace d’équipe pour inviter.'); return; }
+      await inviteToWorkspace(activeWorkspaceId, person.email);
+    }
+
+    // ----- Ordre du jour -----
+    function addAgendaItem(text, allocMin) {
       const m = activeMeeting();
       if (!m || !text || !text.trim()) return;
       if (!m.agenda) m.agenda = [];
-      m.agenda.push({ id: Date.now().toString() + Math.random().toString(36).slice(2), text: text.trim(), done: false });
+      m.agenda.push({
+        id: Date.now().toString() + Math.random().toString(36).slice(2),
+        text: text.trim(),
+        done: false,
+        allocMin: +allocMin || null,
+        spentMs: 0,
+        notes: []
+      });
       save();
       renderMeetingView();
     }
@@ -9871,17 +10215,39 @@
       const item = m && (m.agenda || []).find(a => a.id === id);
       if (!item) return;
       item.done = !item.done;
+      // Un point qu'on vient de clore ne doit pas continuer à consommer du temps.
+      if (item.done && m.currentAgendaId === id) { flushCurrentAgenda(m); m.currentAgendaId = null; }
       save();
       renderMeetingView();
     }
     function removeAgendaItem(id) {
       const m = activeMeeting();
       if (!m) return;
+      if (m.currentAgendaId === id) { flushCurrentAgenda(m); m.currentAgendaId = null; }
       m.agenda = (m.agenda || []).filter(a => a.id !== id);
       save();
       renderMeetingView();
     }
+    function addAgendaNote(agendaId, text) {
+      const m = activeMeeting();
+      const item = m && (m.agenda || []).find(a => a.id === agendaId);
+      const trimmed = (text || '').trim();
+      if (!item || !trimmed) return;
+      if (!item.notes) item.notes = [];
+      item.notes.push({ id: Date.now().toString() + Math.random().toString(36).slice(2), text: trimmed, at: Date.now() });
+      save();
+      renderMeetingView();
+    }
+    function removeAgendaNote(agendaId, noteId) {
+      const m = activeMeeting();
+      const item = m && (m.agenda || []).find(a => a.id === agendaId);
+      if (!item || !item.notes) return;
+      item.notes = item.notes.filter(n => n.id !== noteId);
+      save();
+      renderMeetingView();
+    }
 
+    // ----- Décisions -----
     function addDecision(text) {
       const m = activeMeeting();
       if (!m || !text || !text.trim()) return;
@@ -9898,6 +10264,7 @@
       renderMeetingView();
     }
 
+    // ----- Actions -----
     // Une action liée à une tâche (taskId) n'a plus d'état "fait" propre : la tâche devient
     // la seule source de vérité, pour éviter que les deux se désynchronisent silencieusement
     // (le même défaut que la synchro cloud avant sa fusion — voir plus haut dans le fichier).
@@ -9908,11 +10275,19 @@
       }
       return !!item.done;
     }
-    function addMeetingAction(text) {
+    function addMeetingAction(text, owner, due) {
       const m = activeMeeting();
       if (!m || !text || !text.trim()) return;
       if (!m.actions) m.actions = [];
-      m.actions.push({ id: Date.now().toString() + Math.random().toString(36).slice(2), text: text.trim(), done: false, taskId: null, at: Date.now() });
+      m.actions.push({
+        id: Date.now().toString() + Math.random().toString(36).slice(2),
+        text: text.trim(),
+        done: false,
+        taskId: null,
+        assignee: owner || null,
+        due: due || null,
+        at: Date.now()
+      });
       save();
       renderMeetingView();
     }
@@ -9936,19 +10311,90 @@
       renderMeetingView();
     }
     // Envoie l'action dans le système de tâches habituel (Kanban, échéances, suivi...) au lieu
-    // de dupliquer un mini gestionnaire de statut propre aux réunions.
+    // de dupliquer un mini gestionnaire de statut propre aux réunions. La tâche garde une
+    // trace de sa réunion d'origine (badge) et hérite de la famille « Réunion » pour se
+    // regrouper avec les autres tâches issues de réunions.
     function convertActionToTask(id) {
       const m = activeMeeting();
       const item = m && (m.actions || []).find(a => a.id === id);
       if (!item || item.taskId) return;
-      const task = createTaskObject({ title: item.text, category: (state.categories && state.categories[0]) || 'Général' });
-      logActivity(task, `Tâche créée depuis une action de réunion : « ${m.title} ».`);
+      addFamilyOption(MEETING_FAMILY);
+      const overrides = {
+        title: item.text,
+        category: (state.categories && state.categories[0]) || 'Général',
+        assignee: item.assignee || null,
+        meetingId: m.id,
+        meetingTitle: m.title
+      };
+      if (item.due) {
+        const d = new Date(item.due + 'T18:00');
+        if (!isNaN(d.getTime())) overrides.deadline = d.toISOString();
+      }
+      if (state.familyFieldId) overrides.customFieldValues = { [state.familyFieldId]: MEETING_FAMILY };
+      const task = createTaskObject(overrides);
+      logActivity(task, `Tâche créée depuis une action de la réunion « ${m.title} ».`);
       state.tasks.unshift(task);
       item.taskId = task.id;
       save();
       renderTasks();
       renderMeetingView();
       toast('Action envoyée dans les tâches.');
+    }
+
+    // Renvoie une tâche d'un espace d'équipe vers l'espace personnel : les actions qui me
+    // concernent dans une réunion d'équipe alimentent souvent mon propre plan de travail,
+    // sans devoir rester visibles de toute l'équipe.
+    async function transferTaskToPersonalSpace(taskId) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task) return;
+      if (!activeWorkspaceId) { toast('Cette tâche est déjà dans votre espace personnel.'); return; }
+      if (!supa || !cloudUser) { toast('Connectez-vous pour transférer vers votre espace personnel.'); return; }
+      if (!confirm(`Transférer « ${task.title} » vers votre espace personnel ? Elle quittera l’espace d’équipe.`)) return;
+      try {
+        const { data, error } = await supa
+          .from('tempo_pro_state')
+          .select('state')
+          .eq('user_id', cloudUser.id)
+          .maybeSingle();
+        if (error) throw error;
+        const personal = (data && data.state) || { tasks: [], history: {}, deletedTasks: {}, meetings: [], people: [] };
+        if (!Array.isArray(personal.tasks)) personal.tasks = [];
+        const copy = Object.assign({}, task, { updatedAt: Date.now() });
+        // Sans ça, la tâche reviendrait dans l'espace d'équipe à la première fusion, la
+        // suppression locale n'étant pas distinguable d'un simple retard de synchro.
+        personal.tasks.unshift(copy);
+        personal.updatedAt = Date.now();
+        const { error: upErr } = await supa.from('tempo_pro_state').upsert({
+          user_id: cloudUser.id,
+          state: Object.assign({}, personal, { _client: CLIENT_ID }),
+          updated_at: new Date().toISOString()
+        });
+        if (upErr) throw upErr;
+        deleteTaskSilently(taskId);
+        toast('Tâche transférée vers votre espace personnel.');
+      } catch (e) {
+        console.warn(e);
+        toast('Transfert impossible : ' + (e.message || 'erreur réseau'));
+      }
+    }
+
+    // Suppression sans confirmation ni toast « Annuler » : utilisée par le transfert, où la
+    // tâche n'est pas perdue mais déplacée.
+    function deleteTaskSilently(id) {
+      const idx = state.tasks.findIndex(t => t.id === id);
+      if (idx === -1) return;
+      state.tasks.splice(idx, 1);
+      if (!state.deletedTasks) state.deletedTasks = {};
+      state.deletedTasks[id] = Date.now();
+      state.activeTaskIds = (state.activeTaskIds || []).filter(aid => aid !== id);
+      (state.meetings || []).forEach(m => {
+        (m.actions || []).forEach(a => { if (a.taskId === id) a.taskId = null; });
+      });
+      save();
+      renderTasks();
+      renderMeetingView();
+      updateTimerTarget();
+      updateDisplays();
     }
 
     let meetingNotesSaveTimeout = null;
@@ -9960,17 +10406,100 @@
       meetingNotesSaveTimeout = setTimeout(save, 400);
     }
 
+    // ----- Compte-rendu exportable -----
+    function generateMeetingReport(m) {
+      if (!m) return '';
+      const L = [];
+      L.push('# ' + m.title);
+      if (m.scheduledAt) {
+        const d = new Date(m.scheduledAt);
+        if (!isNaN(d.getTime())) L.push('Date : ' + d.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' }));
+      } else {
+        L.push('Date : ' + new Date(m.createdAt).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' }));
+      }
+      const elapsed = meetingElapsedMs(m);
+      let durLine = 'Durée : ' + formatClockMs(elapsed);
+      if (m.plannedMin) {
+        const rem = m.plannedMin * 60 * 1000 - elapsed;
+        durLine += ` (prévu ${m.plannedMin} min — ` + (rem < 0 ? `dépassement de ${formatClockMs(Math.abs(rem))}` : `${formatClockMs(rem)} restantes`) + ')';
+      }
+      L.push(durLine);
+
+      const parts = (m.participants || []).map(p => {
+        const person = personById(p.ref);
+        return (person ? person.name : 'Participant') + (p.present ? '' : ' (absent)');
+      });
+      L.push('Participants : ' + (parts.length ? parts.join(', ') : '—'));
+      L.push('');
+
+      L.push('## Ordre du jour');
+      const agenda = m.agenda || [];
+      if (!agenda.length) L.push('—');
+      agenda.forEach((a, i) => {
+        const spent = agendaSpentMs(m, a);
+        const time = a.allocMin ? ` [${Math.round(spent / 60000)}/${a.allocMin} min]` : (spent > 0 ? ` [${Math.round(spent / 60000)} min]` : '');
+        L.push(`${i + 1}. ${a.done ? '[x]' : '[ ]'} ${a.text}${time}`);
+        (a.notes || []).forEach(n => L.push('   - ' + n.text));
+      });
+      L.push('');
+
+      L.push('## Décisions');
+      const decisions = m.decisions || [];
+      if (!decisions.length) L.push('—');
+      decisions.forEach(d => L.push('- ' + d.text));
+      L.push('');
+
+      L.push('## Actions à mener');
+      const actions = m.actions || [];
+      if (!actions.length) L.push('—');
+      actions.forEach(a => {
+        const who = a.assignee ? (assigneeLabel(a.assignee) || 'non assigné') : 'non assigné';
+        const due = a.due ? ' — échéance ' + new Date(a.due).toLocaleDateString('fr-FR') : '';
+        L.push(`- ${meetingActionIsDone(a) ? '[x]' : '[ ]'} ${a.text} (${who})${due}${a.taskId ? ' — suivie dans les tâches' : ''}`);
+      });
+
+      if (m.notes && m.notes.trim()) {
+        L.push('');
+        L.push('## Notes');
+        L.push(m.notes.trim());
+      }
+      return L.join('\n');
+    }
+
+    async function exportMeetingReport() {
+      const m = activeMeeting();
+      if (!m) return;
+      const text = generateMeetingReport(m);
+      const blob = new Blob([text], { type: 'text/markdown;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'compte-rendu-' + m.title.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.md';
+      link.click();
+      URL.revokeObjectURL(link.href);
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('Compte-rendu exporté et copié dans le presse-papiers.');
+      } catch (e) {
+        toast('Compte-rendu exporté.');
+      }
+    }
+
     function renderMeetingView() {
       const listEl = $('meetingList');
       const meetings = state.meetings || [];
       if (listEl) {
-        listEl.innerHTML = meetings.length ? meetings.map(m => `
+        listEl.innerHTML = meetings.length ? meetings.map(m => {
+          const when = m.scheduledAt && !isNaN(new Date(m.scheduledAt).getTime())
+            ? new Date(m.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+            : formatPanelTimestamp(m.createdAt);
+          const openActions = (m.actions || []).filter(a => !meetingActionIsDone(a)).length;
+          return `
           <div class="meeting-list-item ${m.id === state.activeMeetingId ? 'active' : ''}" data-meeting-id="${m.id}">
             <div class="meeting-list-item-title">${escHtml(m.title)}</div>
-            <div class="meeting-list-item-meta">${formatPanelTimestamp(m.createdAt)}${m.running ? ' · <span class="math-icon" style="color:var(--success);">●</span> en cours' : ''}</div>
+            <div class="meeting-list-item-meta">${escHtml(when)}${m.running ? ' · <span class="math-icon" style="color:var(--success);">●</span> en cours' : ''}${openActions ? ` · ${openActions} action(s) ouverte(s)` : ''}</div>
             <button type="button" class="comment-delete" data-meeting-delete="${m.id}" aria-label="Supprimer la réunion">✕</button>
           </div>
-        `).join('') : '<div class="task-panel-empty" style="padding:0 4px;">Aucune réunion pour l’instant.</div>';
+        `; }).join('') : '<div class="task-panel-empty" style="padding:0 4px;">Aucune réunion pour l’instant.</div>';
       }
 
       const m = activeMeeting();
@@ -9986,20 +10515,74 @@
 
       const titleEl = $('meetingDetailTitle');
       if (titleEl && document.activeElement !== titleEl) titleEl.value = m.title;
+      const schedEl = $('meetingScheduledAt');
+      if (schedEl && document.activeElement !== schedEl) schedEl.value = m.scheduledAt ? m.scheduledAt.slice(0, 16) : '';
+      const plannedEl = $('meetingPlannedMin');
+      if (plannedEl && document.activeElement !== plannedEl) plannedEl.value = m.plannedMin || '';
       const startBtn = $('meetingStartBtn');
       if (startBtn) startBtn.innerHTML = m.running ? '<span class="math-icon">⏸︎</span> Pause' : '<span class="math-icon">▶︎</span> Démarrer';
       updateMeetingClock();
 
+      const partsEl = $('meetingParticipantsList');
+      if (partsEl) {
+        const parts = m.participants || [];
+        partsEl.innerHTML = parts.length ? parts.map(p => {
+          const person = personById(p.ref);
+          const name = person ? person.name : 'Participant';
+          return `
+          <span class="participant-chip ${p.present ? '' : 'absent'}">
+            <input type="checkbox" ${p.present ? 'checked' : ''} data-participant-presence="${p.ref}" title="Présent" />
+            ${escHtml(name)}
+            ${person && person.email && activeWorkspaceId ? `<button type="button" data-participant-invite="${p.ref}" title="Inviter dans l’espace d’équipe">✉</button>` : ''}
+            <button type="button" data-participant-remove="${p.ref}" aria-label="Retirer">✕</button>
+          </span>`;
+        }).join('') : '<div class="task-panel-empty">Aucun participant.</div>';
+      }
+
       const agendaList = $('meetingAgendaList');
+      const agenda = m.agenda || [];
       if (agendaList) {
-        const agenda = m.agenda || [];
-        agendaList.innerHTML = agenda.length ? agenda.map(a => `
-          <div class="subtask-row ${a.done ? 'done' : ''}">
-            <input type="checkbox" ${a.done ? 'checked' : ''} data-agenda-toggle="${a.id}" />
-            <span class="subtask-label">${escHtml(a.text)}</span>
-            <button type="button" class="comment-delete" data-agenda-remove="${a.id}" aria-label="Retirer ce point">✕</button>
-          </div>
-        `).join('') : '<div class="task-panel-empty">Aucun point à l’ordre du jour.</div>';
+        agendaList.innerHTML = agenda.length ? agenda.map(a => {
+          const spent = agendaSpentMs(m, a);
+          const over = a.allocMin && spent > a.allocMin * 60 * 1000;
+          const timeLabel = a.allocMin
+            ? `${Math.floor(spent / 60000)}/${a.allocMin} min`
+            : (spent > 0 ? `${Math.floor(spent / 60000)} min` : '');
+          return `
+          <div class="agenda-item ${a.done ? 'done' : ''} ${m.currentAgendaId === a.id ? 'current' : ''}">
+            <div class="agenda-item-head">
+              <input type="checkbox" ${a.done ? 'checked' : ''} data-agenda-toggle="${a.id}" />
+              <span class="subtask-label">${escHtml(a.text)}</span>
+              ${timeLabel ? `<span class="agenda-time ${over ? 'over' : ''}">${timeLabel}</span>` : ''}
+              <button type="button" class="btn-ghost" data-agenda-current="${a.id}" style="padding:2px 8px; font-size:10px; white-space:nowrap;">${m.currentAgendaId === a.id ? '● en cours' : 'Traiter'}</button>
+              <button type="button" class="comment-delete" data-agenda-remove="${a.id}" aria-label="Retirer ce point">✕</button>
+            </div>
+            <div class="agenda-notes">
+              ${(a.notes || []).map(n => `
+                <div class="agenda-note">
+                  <span>• ${escHtml(n.text)}</span>
+                  <button type="button" class="comment-delete" data-agenda-note-remove="${a.id}|${n.id}" aria-label="Supprimer la note">✕</button>
+                </div>
+              `).join('')}
+              <div class="agenda-note-add">
+                <input type="text" class="field" data-agenda-note-input="${a.id}" placeholder="Note sur ce point..." />
+              </div>
+            </div>
+          </div>`;
+        }).join('') : '<div class="task-panel-empty">Aucun point à l’ordre du jour.</div>';
+      }
+
+      const budgetEl = $('meetingAgendaBudget');
+      if (budgetEl) {
+        const alloc = agenda.reduce((s, a) => s + (a.allocMin || 0), 0);
+        if (!alloc) budgetEl.textContent = '';
+        else if (m.plannedMin) {
+          budgetEl.textContent = `${alloc} min répartis / ${m.plannedMin} min prévues`;
+          budgetEl.style.color = alloc > m.plannedMin ? 'var(--danger)' : 'var(--muted)';
+        } else {
+          budgetEl.textContent = `${alloc} min répartis`;
+          budgetEl.style.color = 'var(--muted)';
+        }
       }
 
       const decisionsList = $('meetingDecisionsList');
@@ -10021,12 +10604,17 @@
         const actions = m.actions || [];
         actionsList.innerHTML = actions.length ? actions.map(a => {
           const done = meetingActionIsDone(a);
+          const who = a.assignee ? assigneeLabel(a.assignee) : null;
+          const due = a.due && !isNaN(new Date(a.due).getTime()) ? new Date(a.due).toLocaleDateString('fr-FR') : null;
           return `
           <div class="subtask-row ${done ? 'done' : ''}">
             <input type="checkbox" ${done ? 'checked' : ''} data-action-toggle="${a.id}" />
             <span class="subtask-label">${escHtml(a.text)}</span>
+            ${who ? `<span class="agenda-time"><span class="math-icon">⚇︎</span> ${escHtml(who)}</span>` : ''}
+            ${due ? `<span class="agenda-time"><span class="math-icon">◷︎</span> ${escHtml(due)}</span>` : ''}
             ${a.taskId
-              ? `<button type="button" class="btn-ghost" data-action-open-task="${a.taskId}" style="padding:2px 8px; font-size:11px; white-space:nowrap;">Voir la tâche</button>`
+              ? `<button type="button" class="btn-ghost" data-action-open-task="${a.taskId}" style="padding:2px 8px; font-size:11px; white-space:nowrap;">Voir la tâche</button>
+                 ${activeWorkspaceId ? `<button type="button" class="btn-ghost" data-action-to-personal="${a.taskId}" title="Transférer cette tâche vers mon espace personnel" style="padding:2px 8px; font-size:11px; white-space:nowrap;">→ Perso</button>` : ''}`
               : `<button type="button" class="btn-ghost" data-action-convert="${a.id}" style="padding:2px 8px; font-size:11px; white-space:nowrap;">→ Tâche</button>`}
             <button type="button" class="comment-delete" data-action-remove="${a.id}" aria-label="Supprimer l’action">✕</button>
           </div>
@@ -10040,24 +10628,51 @@
     $('viewMeeting').addEventListener('click', function(e) {
       const del = e.target.closest('[data-meeting-delete]');
       if (del) { e.stopPropagation(); deleteMeeting(del.getAttribute('data-meeting-delete')); return; }
-      const sel = e.target.closest('[data-meeting-id]');
-      if (sel) { selectMeeting(sel.getAttribute('data-meeting-id')); return; }
+      const partInvite = e.target.closest('[data-participant-invite]');
+      if (partInvite) { inviteParticipant(partInvite.getAttribute('data-participant-invite')); return; }
+      const partRemove = e.target.closest('[data-participant-remove]');
+      if (partRemove) { removeMeetingParticipant(partRemove.getAttribute('data-participant-remove')); return; }
+      const agendaCurrent = e.target.closest('[data-agenda-current]');
+      if (agendaCurrent) { setCurrentAgendaPoint(agendaCurrent.getAttribute('data-agenda-current')); return; }
       const agendaRemove = e.target.closest('[data-agenda-remove]');
       if (agendaRemove) { removeAgendaItem(agendaRemove.getAttribute('data-agenda-remove')); return; }
+      const noteRemove = e.target.closest('[data-agenda-note-remove]');
+      if (noteRemove) {
+        const [aid, nid] = noteRemove.getAttribute('data-agenda-note-remove').split('|');
+        removeAgendaNote(aid, nid);
+        return;
+      }
       const decisionRemove = e.target.closest('[data-decision-remove]');
       if (decisionRemove) { removeDecision(decisionRemove.getAttribute('data-decision-remove')); return; }
       const actionConvert = e.target.closest('[data-action-convert]');
       if (actionConvert) { convertActionToTask(actionConvert.getAttribute('data-action-convert')); return; }
       const actionOpenTask = e.target.closest('[data-action-open-task]');
       if (actionOpenTask) { openEditModal(actionOpenTask.getAttribute('data-action-open-task')); return; }
+      const actionToPersonal = e.target.closest('[data-action-to-personal]');
+      if (actionToPersonal) { transferTaskToPersonalSpace(actionToPersonal.getAttribute('data-action-to-personal')); return; }
       const actionRemove = e.target.closest('[data-action-remove]');
       if (actionRemove) { removeMeetingAction(actionRemove.getAttribute('data-action-remove')); return; }
+      // En dernier : la sélection d'une réunion, pour qu'un clic sur un bouton interne à la
+      // ligne (supprimer...) ne soit pas avalé par la sélection.
+      const sel = e.target.closest('[data-meeting-id]');
+      if (sel) { selectMeeting(sel.getAttribute('data-meeting-id')); return; }
     });
     $('viewMeeting').addEventListener('change', function(e) {
       const agendaToggle = e.target.closest('[data-agenda-toggle]');
       if (agendaToggle) { toggleAgendaItem(agendaToggle.getAttribute('data-agenda-toggle')); return; }
       const actionToggle = e.target.closest('[data-action-toggle]');
       if (actionToggle) { toggleMeetingAction(actionToggle.getAttribute('data-action-toggle')); return; }
+      const presence = e.target.closest('[data-participant-presence]');
+      if (presence) { toggleParticipantPresence(presence.getAttribute('data-participant-presence')); return; }
+    });
+    // Les notes de point sont saisies dans des champs régénérés à chaque rendu : on écoute
+    // donc au niveau de la vue plutôt que sur chaque champ.
+    $('viewMeeting').addEventListener('keydown', function(e) {
+      const noteInput = e.target.closest('[data-agenda-note-input]');
+      if (noteInput && e.key === 'Enter') {
+        e.preventDefault();
+        addAgendaNote(noteInput.getAttribute('data-agenda-note-input'), noteInput.value);
+      }
     });
 
     $('meetingNewBtn').addEventListener('click', createMeeting);
@@ -10069,15 +10684,56 @@
       if (v) m.title = v;
       save();
       renderMeetingView();
+      renderTasks(); // le badge d'origine des tâches porte le nom de la réunion
+    });
+    $('meetingScheduledAt').addEventListener('change', function() {
+      const m = activeMeeting();
+      if (!m) return;
+      m.scheduledAt = this.value || null;
+      // Reprogrammer doit pouvoir redéclencher le rappel, même si l'ancien avait déjà sonné.
+      m.scheduledNotified = false;
+      save();
+      renderMeetingView();
+    });
+    $('meetingPlannedMin').addEventListener('change', function() {
+      const m = activeMeeting();
+      if (!m) return;
+      m.plannedMin = +this.value || null;
+      save();
+      renderMeetingView();
     });
     $('meetingStartBtn').addEventListener('click', toggleMeetingTimer);
     $('meetingResetBtn').addEventListener('click', resetMeetingTimer);
-    $('meetingAgendaAddBtn').addEventListener('click', () => { addAgendaItem($('meetingAgendaInput').value); $('meetingAgendaInput').value = ''; });
-    $('meetingAgendaInput').addEventListener('keydown', e => { if (e.key === 'Enter') { addAgendaItem(e.target.value); e.target.value = ''; } });
+    $('meetingExportBtn').addEventListener('click', exportMeetingReport);
+    $('meetingParticipantAddBtn').addEventListener('click', () => {
+      addMeetingParticipant($('meetingParticipantName').value, $('meetingParticipantEmail').value);
+      $('meetingParticipantName').value = '';
+      $('meetingParticipantEmail').value = '';
+    });
+    $('meetingParticipantName').addEventListener('keydown', e => {
+      if (e.key === 'Enter') $('meetingParticipantAddBtn').click();
+    });
+    $('meetingParticipantEmail').addEventListener('keydown', e => {
+      if (e.key === 'Enter') $('meetingParticipantAddBtn').click();
+    });
+    $('meetingAgendaAddBtn').addEventListener('click', () => {
+      addAgendaItem($('meetingAgendaInput').value, $('meetingAgendaMin').value);
+      $('meetingAgendaInput').value = '';
+      $('meetingAgendaMin').value = '';
+    });
+    $('meetingAgendaInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('meetingAgendaAddBtn').click(); });
     $('meetingDecisionAddBtn').addEventListener('click', () => { addDecision($('meetingDecisionInput').value); $('meetingDecisionInput').value = ''; });
     $('meetingDecisionInput').addEventListener('keydown', e => { if (e.key === 'Enter') { addDecision(e.target.value); e.target.value = ''; } });
-    $('meetingActionAddBtn').addEventListener('click', () => { addMeetingAction($('meetingActionInput').value); $('meetingActionInput').value = ''; });
-    $('meetingActionInput').addEventListener('keydown', e => { if (e.key === 'Enter') { addMeetingAction(e.target.value); e.target.value = ''; } });
+    $('meetingActionAddBtn').addEventListener('click', () => {
+      addMeetingAction($('meetingActionInput').value, $('meetingActionOwner').value, $('meetingActionDue').value);
+      $('meetingActionInput').value = '';
+      $('meetingActionDue').value = '';
+      // Le responsable est remis à zéro : le garder sélectionné assignait silencieusement
+      // l'action suivante à la même personne, ce qui se remarque rarement à la saisie.
+      $('meetingActionOwner').value = '';
+      syncFakeSelect('meetingActionOwner');
+    });
+    $('meetingActionInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('meetingActionAddBtn').click(); });
     $('meetingNotesInput').addEventListener('input', e => scheduleMeetingNotesSave(e.target.value));
 
     const views = ['dashboard', 'tasks', 'board', 'timeline', 'calendar', 'meeting', 'focus', 'stats', 'admin'];
@@ -10588,6 +11244,10 @@
     if (groupBySelectWrap) groupBySelectWrap.classList.add('important');
     updateCategorySelects();
     updateFamilySelects();
+    // Peuple les sélecteurs d'assigné dès le chargement : le carnet de personnes existe
+    // aussi en espace personnel, sans attendre la connexion à un espace d'équipe.
+    updateAssigneeFieldsVisibility();
+    renderMeetingView();
     updateGroupBySelectOptions();
     // Groupement par Famille actif par défaut dans la liste des tâches, tant que
     // l'utilisateur n'a pas explicitement choisi un autre groupement.
@@ -10640,6 +11300,7 @@
       updateStatusBar();
       checkUpcomingDeadlines();
       checkScheduledStarts();
+      checkScheduledMeetings();
       if (!timer.running) updateClock();
       updateMeetingClock();
       // Temps passé à regarder l'appli sans qu'aucun chrono ne tourne (navigation, réglages,
