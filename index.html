@@ -1547,6 +1547,16 @@
       padding: 32px 40px 24px;
     }
     .focus-screen.open { display: flex; }
+    /* Écran dense (liste + notes + actions) plutôt qu'un seul gros chrono centré : défile
+       verticalement au lieu de se répartir sur toute la hauteur comme le mode Deep Work. */
+    .agenda-focus-screen { overflow-y: auto; }
+    .agenda-fs-body {
+      max-width: 640px;
+      width: 100%;
+      margin: 24px auto 0;
+      text-align: center;
+    }
+    .agenda-fs-body .card { text-align: left; }
     .fs-top {
       display: flex;
       justify-content: space-between;
@@ -4283,6 +4293,60 @@
     </div>
   </div>
 
+  <!-- MODE IMMERSIF PAR POINT D'ORDRE DU JOUR : chrono propre au point, indépendant du
+       décompte général de la réunion — voir toggleAgendaPointTimer. -->
+  <div class="focus-screen agenda-focus-screen" id="agendaFocusScreen">
+    <div class="fs-top">
+      <div>
+        <div class="eyebrow" style="font-size:10px; color:var(--muted); letter-spacing:2px;">POINT D'ORDRE DU JOUR</div>
+        <div class="fs-task" id="agendaFsTitle">—</div>
+      </div>
+      <button class="btn-ghost" id="agendaFsExitBtn"><span class="math-icon">✕︎</span> Quitter</button>
+    </div>
+    <div class="agenda-fs-body">
+      <div class="clock" id="agendaFsClock">00:00:00</div>
+      <div class="meeting-clock-sub" id="agendaFsClockSub">Chrono propre à ce point, indépendant du décompte général de la réunion.</div>
+      <div class="timer-controls">
+        <button class="btn btn-primary" id="agendaFsToggleBtn"><span class="math-icon">⏸︎</span> Pause</button>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="card-header">
+          <h2>Points à traiter</h2>
+          <span style="font-size:10px; color:var(--muted);" id="agendaFsSubBudget"></span>
+        </div>
+        <div style="padding:12px;">
+          <div class="meeting-add-row">
+            <input type="text" class="field" id="agendaFsSubpointInput" placeholder="+ point à traiter..." />
+            <button type="button" class="btn-ghost" id="agendaFsSubpointAddBtn">Ajouter</button>
+          </div>
+          <div id="agendaFsSubpointsList"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header"><h2>Notes du point</h2></div>
+        <div style="padding:12px;">
+          <textarea class="field" id="agendaFsNotes" rows="5" placeholder="Notes sur ce point..." style="width:100%; resize:vertical; font-family:inherit; box-sizing:border-box;"></textarea>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header"><h2>Actions à mener sur ce point</h2></div>
+        <div style="padding:12px;">
+          <div class="meeting-add-row">
+            <input type="text" class="field" id="agendaFsActionInput" placeholder="Ajouter une action..." />
+            <select class="field" id="agendaFsActionOwner" title="Responsable de l'action" style="flex:0 0 auto; min-width:150px;"></select>
+            <button type="button" class="field date-picker-btn" id="agendaFsActionDueBtn" data-picker="agendaFsActionDue" data-placeholder="Échéance" title="Échéance de l'action" style="flex:0 0 auto; min-width:110px;">Échéance</button>
+            <input type="hidden" id="agendaFsActionDue" />
+            <button type="button" class="btn-ghost" id="agendaFsActionAddBtn">Ajouter</button>
+          </div>
+          <div id="agendaFsActionsList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast">Message</div>
 
   <!-- Bandeau de mise à jour disponible : un onglet resté ouvert (le cas le plus à risque
@@ -5569,13 +5633,13 @@
       // carnet : on peut suivre les actions d'un tiers même depuis l'espace personnel.
       const hasSomeone = !!activeWorkspaceId || !!(state.people || []).length;
       const opts = assigneeOptionsHtml();
-      ['taskAssignee', 'editAssignee', 'meetingActionOwner'].forEach(id => {
+      ['taskAssignee', 'editAssignee', 'meetingActionOwner', 'agendaFsActionOwner'].forEach(id => {
         const el = $(id);
         if (!el) return;
         const current = el.value;
         el.innerHTML = opts;
         if (Array.from(el.options).some(o => o.value === current)) el.value = current;
-        if (id !== 'meetingActionOwner') el.classList.toggle('hidden', !hasSomeone);
+        if (id === 'taskAssignee' || id === 'editAssignee') el.classList.toggle('hidden', !hasSomeone);
       });
     }
 
@@ -10334,9 +10398,7 @@
         actions: [],
         elapsedMs: 0,
         running: false,
-        startedAt: null,
-        currentAgendaId: null,
-        currentAgendaSince: null
+        startedAt: null
       };
       if (!state.meetings) state.meetings = [];
       state.meetings.unshift(m);
@@ -10366,46 +10428,68 @@
     }
 
     // ----- Minutage par point d'ordre du jour (time-boxing) -----
-    function agendaSpentMs(m, a) {
-      if (!m || !a) return 0;
-      const live = (m.running && m.currentAgendaId === a.id && m.currentAgendaSince)
-        ? Math.max(0, Date.now() - m.currentAgendaSince) : 0;
-      return (a.spentMs || 0) + live;
+    // Chrono propre à CHAQUE point, indépendant du décompte général de la réunion (qui peut
+    // tourner ou être en pause sans influer dessus) : cliquer « Traiter » lance le chrono du
+    // point et ouvre son mode immersif ; il continue même si on revient au tableau de bord,
+    // jusqu'à ce qu'on le mette en pause explicitement ou qu'on en démarre un autre.
+    // Résumé compact pour la liste du tableau de bord : le détail (sous-points, notes,
+    // actions) ne s'affiche que dans le mode immersif du point, ouvert via « Traiter ».
+    function agendaPointBadgesHTML(a) {
+      const subpoints = agendaSubpoints(a);
+      const subDone = subpoints.filter(s => s.done).length;
+      const linkedActions = (activeMeeting()?.actions || []).filter(ac => ac.agendaId === a.id).length;
+      const parts = [];
+      if (subpoints.length) parts.push(`<span class="agenda-time">${subDone}/${subpoints.length} pts</span>`);
+      if (linkedActions) parts.push(`<span class="agenda-time"><span class="math-icon">☑︎</span> ${linkedActions}</span>`);
+      return parts.join('');
     }
 
-    // Referme l'intervalle du point courant et cumule sa durée. Appelé à chaque bascule
-    // (changement de point, pause, arrêt) pour qu'aucune seconde ne soit ni perdue ni
-    // comptée deux fois.
-    function flushCurrentAgenda(m) {
-      if (!m || !m.currentAgendaId || !m.currentAgendaSince) return;
-      const cur = (m.agenda || []).find(a => a.id === m.currentAgendaId);
-      if (cur) cur.spentMs = (cur.spentMs || 0) + Math.max(0, Date.now() - m.currentAgendaSince);
-      m.currentAgendaSince = null;
+    function agendaSpentMs(item) {
+      if (!item) return 0;
+      const live = (item.running && item.since) ? Math.max(0, Date.now() - item.since) : 0;
+      return (item.spentMs || 0) + live;
     }
 
-    function setCurrentAgendaPoint(id) {
+    // Un seul point à la fois a son chrono actif : en démarrer un referme proprement celui
+    // qui tournait, sans perdre ni dupliquer de temps.
+    function pauseOtherAgendaPoints(m, exceptId) {
+      (m.agenda || []).forEach(a => {
+        if (a.id !== exceptId && a.running) {
+          a.spentMs = agendaSpentMs(a);
+          a.running = false;
+          a.since = null;
+        }
+      });
+    }
+
+    function toggleAgendaPointTimer(id) {
       const m = activeMeeting();
-      if (!m) return;
-      flushCurrentAgenda(m);
-      // Recliquer sur le point déjà courant le désélectionne.
-      m.currentAgendaId = (m.currentAgendaId === id) ? null : id;
-      m.currentAgendaSince = (m.currentAgendaId && m.running) ? Date.now() : null;
+      const item = m && (m.agenda || []).find(a => a.id === id);
+      if (!item) return;
+      if (item.running) {
+        item.spentMs = agendaSpentMs(item);
+        item.running = false;
+        item.since = null;
+      } else {
+        pauseOtherAgendaPoints(m, id);
+        item.running = true;
+        item.since = Date.now();
+      }
       save();
       renderMeetingView();
+      updateAgendaFocusClock();
     }
 
     function toggleMeetingTimer() {
       const m = activeMeeting();
       if (!m) return;
       if (m.running) {
-        flushCurrentAgenda(m);
         m.elapsedMs = meetingElapsedMs(m);
         m.running = false;
         m.startedAt = null;
       } else {
         m.running = true;
         m.startedAt = Date.now();
-        if (m.currentAgendaId) m.currentAgendaSince = Date.now();
       }
       save();
       renderMeetingView();
@@ -10418,10 +10502,106 @@
       m.elapsedMs = 0;
       m.running = false;
       m.startedAt = null;
-      m.currentAgendaSince = null;
-      (m.agenda || []).forEach(a => { a.spentMs = 0; });
+      (m.agenda || []).forEach(a => { a.spentMs = 0; a.running = false; a.since = null; });
       save();
       renderMeetingView();
+    }
+
+    // ----- Mode immersif d'un point d'ordre du jour -----
+    // « Traiter » ouvre cet écran ET démarre le chrono du point (sauf s'il tournait déjà) ;
+    // « Quitter » ne l'arrête pas — comme le mode Deep Work des tâches, on peut ressortir sans
+    // couper le suivi, il continue tant qu'on ne le met pas en pause explicitement.
+    let agendaFsAgendaId = null;
+
+    function openAgendaFocus(id) {
+      const m = activeMeeting();
+      const item = m && (m.agenda || []).find(a => a.id === id);
+      if (!item) return;
+      agendaFsAgendaId = id;
+      if (!item.running) {
+        pauseOtherAgendaPoints(m, id);
+        item.running = true;
+        item.since = Date.now();
+        save();
+      }
+      // La classe "open" doit être posée AVANT le rendu : renderAgendaFocus() se protège
+      // contre un rendu dans un écran fermé (voir son garde en tête de fonction) — sans ça,
+      // ce tout premier rendu était systématiquement avalé par ce garde-fou.
+      $('agendaFocusScreen').classList.add('open');
+      renderMeetingView();
+      renderAgendaFocus();
+    }
+
+    function closeAgendaFocus() {
+      $('agendaFocusScreen').classList.remove('open');
+      agendaFsAgendaId = null;
+    }
+
+    function currentAgendaFsItem() {
+      const m = activeMeeting();
+      return m ? (m.agenda || []).find(a => a.id === agendaFsAgendaId) : null;
+    }
+
+    function updateAgendaFocusClock() {
+      if (!$('agendaFocusScreen').classList.contains('open')) return;
+      const item = currentAgendaFsItem();
+      if (!item) return;
+      const spent = agendaSpentMs(item);
+      $('agendaFsClock').textContent = formatClockMs(spent);
+      const budget = item.allocMin ? ` — prévu ${item.allocMin} min` : '';
+      $('agendaFsClockSub').textContent = `Chrono propre à ce point, indépendant du décompte général de la réunion${budget}.`;
+    }
+
+    function renderAgendaFocus() {
+      if (!$('agendaFocusScreen').classList.contains('open')) return;
+      const item = currentAgendaFsItem();
+      if (!item) { closeAgendaFocus(); return; }
+      $('agendaFsTitle').textContent = item.text;
+      $('agendaFsToggleBtn').innerHTML = item.running
+        ? '<span class="math-icon">⏸︎</span> Pause'
+        : '<span class="math-icon">▶︎</span> Reprendre';
+      updateAgendaFocusClock();
+
+      const subpoints = agendaSubpoints(item);
+      const subDone = subpoints.filter(s => s.done).length;
+      $('agendaFsSubBudget').textContent = subpoints.length ? `${subDone}/${subpoints.length} traités` : '';
+      const subList = $('agendaFsSubpointsList');
+      subList.innerHTML = subpoints.length ? subpoints.map(s => `
+        <div class="subtask-row agenda-subpoint ${s.done ? 'done' : ''}">
+          <input type="checkbox" ${s.done ? 'checked' : ''} data-agenda-subpoint-toggle="${item.id}|${s.id}" />
+          <span class="subtask-label">${escHtml(s.text)}</span>
+          <button type="button" class="comment-delete" data-agenda-subpoint-remove="${item.id}|${s.id}" aria-label="Retirer ce point à traiter">✕</button>
+        </div>
+      `).join('') : '<div class="task-panel-empty">Aucun point à traiter pour l’instant.</div>';
+
+      const notesEl = $('agendaFsNotes');
+      if (notesEl && document.activeElement !== notesEl) notesEl.value = item.notesText || '';
+
+      const m = activeMeeting();
+      const linked = (m.actions || []).filter(a => a.agendaId === item.id);
+      $('agendaFsActionsList').innerHTML = linked.length ? linked.map(a => {
+        const done = meetingActionIsDone(a);
+        const who = a.assignee ? assigneeLabel(a.assignee) : null;
+        const due = a.due && !isNaN(new Date(a.due).getTime()) ? new Date(a.due).toLocaleDateString('fr-FR') : null;
+        return `
+        <div class="subtask-row ${done ? 'done' : ''}">
+          <input type="checkbox" ${done ? 'checked' : ''} data-action-toggle="${a.id}" />
+          <span class="subtask-label">${escHtml(a.text)}</span>
+          ${who ? `<span class="agenda-time"><span class="math-icon">⚇︎</span> ${escHtml(who)}</span>` : ''}
+          ${due ? `<span class="agenda-time"><span class="math-icon">◷︎</span> ${escHtml(due)}</span>` : ''}
+          ${a.taskId ? `<button type="button" class="btn-ghost" data-action-open-task="${a.taskId}" style="padding:2px 8px; font-size:11px; white-space:nowrap;">Voir la tâche</button>` : `<button type="button" class="btn-ghost" data-action-convert="${a.id}" style="padding:2px 8px; font-size:11px; white-space:nowrap;">→ Tâche</button>`}
+          <button type="button" class="comment-delete" data-action-remove="${a.id}" aria-label="Supprimer l’action">✕</button>
+        </div>`;
+      }).join('') : '<div class="task-panel-empty">Aucune action liée à ce point.</div>';
+    }
+
+    let agendaFsNotesSaveTimeout = null;
+    function scheduleAgendaFsNotesSave(text) {
+      const item = currentAgendaFsItem();
+      if (!item) return;
+      item.notesText = text;
+      clearTimeout(agendaFsNotesSaveTimeout);
+      agendaFsNotesSaveTimeout = setTimeout(save, 400);
     }
 
     function updateMeetingClock() {
@@ -10525,6 +10705,12 @@
         done: false,
         allocMin: +allocMin || null,
         spentMs: 0,
+        running: false,
+        since: null,
+        // Notes propres à ce point (mode immersif), distinctes des notes générales de la
+        // réunion — sur un nom différent de "notes" pour ne pas entrer en collision avec le
+        // repli de compatibilité d'agendaSubpoints() ci-dessous.
+        notesText: '',
         subpoints: []
       });
       save();
@@ -10542,15 +10728,17 @@
       if (!item) return;
       item.done = !item.done;
       // Un point qu'on vient de clore ne doit pas continuer à consommer du temps.
-      if (item.done && m.currentAgendaId === id) { flushCurrentAgenda(m); m.currentAgendaId = null; }
+      if (item.done && item.running) { item.spentMs = agendaSpentMs(item); item.running = false; item.since = null; }
       save();
       renderMeetingView();
     }
     function removeAgendaItem(id) {
       const m = activeMeeting();
       if (!m) return;
-      if (m.currentAgendaId === id) { flushCurrentAgenda(m); m.currentAgendaId = null; }
+      if (agendaFsAgendaId === id) closeAgendaFocus();
       m.agenda = (m.agenda || []).filter(a => a.id !== id);
+      // Les actions liées à un point supprimé restent, mais ne pointent plus vers rien.
+      (m.actions || []).forEach(a => { if (a.agendaId === id) a.agendaId = null; });
       save();
       renderMeetingView();
     }
@@ -10612,7 +10800,9 @@
       }
       return !!item.done;
     }
-    function addMeetingAction(text, owner, due) {
+    // agendaId (facultatif) trace le point d'ordre du jour d'où vient l'action, quand elle est
+    // ajoutée depuis le mode immersif d'un point plutôt que depuis la liste générale.
+    function addMeetingAction(text, owner, due, agendaId) {
       const m = activeMeeting();
       if (!m || !text || !text.trim()) return;
       if (!m.actions) m.actions = [];
@@ -10623,10 +10813,12 @@
         taskId: null,
         assignee: owner || null,
         due: due || null,
+        agendaId: agendaId || null,
         at: Date.now()
       });
       save();
       renderMeetingView();
+      if (agendaId) renderAgendaFocus();
     }
     function toggleMeetingAction(id) {
       const m = activeMeeting();
@@ -10634,11 +10826,12 @@
       if (!item) return;
       if (item.taskId) {
         const t = state.tasks.find(x => x.id === item.taskId);
-        if (t) { moveTaskToStatus(t.id, t.status === 'done' ? 'todo' : 'done'); renderMeetingView(); return; }
+        if (t) { moveTaskToStatus(t.id, t.status === 'done' ? 'todo' : 'done'); renderMeetingView(); renderAgendaFocus(); return; }
       }
       item.done = !item.done;
       save();
       renderMeetingView();
+      renderAgendaFocus();
     }
     function removeMeetingAction(id) {
       const m = activeMeeting();
@@ -10646,6 +10839,7 @@
       m.actions = (m.actions || []).filter(a => a.id !== id);
       save();
       renderMeetingView();
+      renderAgendaFocus();
     }
     // Envoie l'action dans le système de tâches habituel (Kanban, échéances, suivi...) au lieu
     // de dupliquer un mini gestionnaire de statut propre aux réunions. La tâche garde une
@@ -10675,6 +10869,7 @@
       save();
       renderTasks();
       renderMeetingView();
+      renderAgendaFocus();
       toast('Action envoyée dans les tâches.');
     }
 
@@ -10717,10 +10912,11 @@
       const agenda = m.agenda || [];
       if (!agenda.length) L.push('—');
       agenda.forEach((a, i) => {
-        const spent = agendaSpentMs(m, a);
+        const spent = agendaSpentMs(a);
         const time = a.allocMin ? ` [${Math.round(spent / 60000)}/${a.allocMin} min]` : (spent > 0 ? ` [${Math.round(spent / 60000)} min]` : '');
         L.push(`${i + 1}. ${a.done ? '[x]' : '[ ]'} ${a.text}${time}`);
         agendaSubpoints(a).forEach(s => L.push(`   ${s.done ? '[x]' : '[ ]'} ${s.text}`));
+        if (a.notesText && a.notesText.trim()) L.push(`   Notes : ${a.notesText.trim()}`);
       });
       L.push('');
 
@@ -10827,34 +11023,20 @@
       const agenda = m.agenda || [];
       if (agendaList) {
         agendaList.innerHTML = agenda.length ? agenda.map(a => {
-          const spent = agendaSpentMs(m, a);
+          const spent = agendaSpentMs(a);
           const over = a.allocMin && spent > a.allocMin * 60 * 1000;
           const timeLabel = a.allocMin
             ? `${Math.floor(spent / 60000)}/${a.allocMin} min`
             : (spent > 0 ? `${Math.floor(spent / 60000)} min` : '');
-          const subpoints = agendaSubpoints(a);
-          const subDone = subpoints.filter(s => s.done).length;
           return `
-          <div class="agenda-item ${a.done ? 'done' : ''} ${m.currentAgendaId === a.id ? 'current' : ''}">
+          <div class="agenda-item ${a.done ? 'done' : ''} ${a.running ? 'current' : ''}">
             <div class="agenda-item-head">
               <input type="checkbox" ${a.done ? 'checked' : ''} data-agenda-toggle="${a.id}" />
               <span class="subtask-label">${escHtml(a.text)}</span>
-              ${subpoints.length ? `<span class="agenda-time">${subDone}/${subpoints.length} pts</span>` : ''}
+              ${agendaPointBadgesHTML(a)}
               ${timeLabel ? `<span class="agenda-time ${over ? 'over' : ''}">${timeLabel}</span>` : ''}
-              <button type="button" class="btn-ghost" data-agenda-current="${a.id}" style="padding:2px 8px; font-size:10px; white-space:nowrap;">${m.currentAgendaId === a.id ? '● en cours' : 'Traiter'}</button>
+              <button type="button" class="btn-ghost" data-agenda-focus="${a.id}" style="padding:2px 8px; font-size:10px; white-space:nowrap;">${a.running ? '● en cours' : 'Traiter'}</button>
               <button type="button" class="comment-delete" data-agenda-remove="${a.id}" aria-label="Retirer ce point">✕</button>
-            </div>
-            <div class="agenda-notes">
-              ${subpoints.map(s => `
-                <div class="subtask-row agenda-subpoint ${s.done ? 'done' : ''}">
-                  <input type="checkbox" ${s.done ? 'checked' : ''} data-agenda-subpoint-toggle="${a.id}|${s.id}" />
-                  <span class="subtask-label">${escHtml(s.text)}</span>
-                  <button type="button" class="comment-delete" data-agenda-subpoint-remove="${a.id}|${s.id}" aria-label="Retirer ce point à traiter">✕</button>
-                </div>
-              `).join('')}
-              <div class="agenda-note-add">
-                <input type="text" class="field" data-agenda-subpoint-input="${a.id}" placeholder="+ point à traiter..." />
-              </div>
             </div>
           </div>`;
         }).join('') : '<div class="task-panel-empty">Aucun point à l’ordre du jour.</div>';
@@ -10894,10 +11076,12 @@
           const done = meetingActionIsDone(a);
           const who = a.assignee ? assigneeLabel(a.assignee) : null;
           const due = a.due && !isNaN(new Date(a.due).getTime()) ? new Date(a.due).toLocaleDateString('fr-FR') : null;
+          const fromPoint = a.agendaId ? (m.agenda || []).find(x => x.id === a.agendaId) : null;
           return `
           <div class="subtask-row ${done ? 'done' : ''}">
             <input type="checkbox" ${done ? 'checked' : ''} data-action-toggle="${a.id}" />
             <span class="subtask-label">${escHtml(a.text)}</span>
+            ${fromPoint ? `<span class="agenda-time" title="Issue du point « ${escHtml(fromPoint.text)} »">↳ ${escHtml(fromPoint.text)}</span>` : ''}
             ${who ? `<span class="agenda-time"><span class="math-icon">⚇︎</span> ${escHtml(who)}</span>` : ''}
             ${due ? `<span class="agenda-time"><span class="math-icon">◷︎</span> ${escHtml(due)}</span>` : ''}
             ${a.taskId
@@ -10910,6 +11094,7 @@
 
       const notesEl = $('meetingNotesInput');
       if (notesEl && document.activeElement !== notesEl) notesEl.value = m.notes || '';
+      renderAgendaFocus();
     }
 
     $('viewMeeting').addEventListener('click', function(e) {
@@ -10919,16 +11104,10 @@
       if (partInvite) { inviteParticipant(partInvite.getAttribute('data-participant-invite')); return; }
       const partRemove = e.target.closest('[data-participant-remove]');
       if (partRemove) { removeMeetingParticipant(partRemove.getAttribute('data-participant-remove')); return; }
-      const agendaCurrent = e.target.closest('[data-agenda-current]');
-      if (agendaCurrent) { setCurrentAgendaPoint(agendaCurrent.getAttribute('data-agenda-current')); return; }
+      const agendaFocus = e.target.closest('[data-agenda-focus]');
+      if (agendaFocus) { openAgendaFocus(agendaFocus.getAttribute('data-agenda-focus')); return; }
       const agendaRemove = e.target.closest('[data-agenda-remove]');
       if (agendaRemove) { removeAgendaItem(agendaRemove.getAttribute('data-agenda-remove')); return; }
-      const subRemove = e.target.closest('[data-agenda-subpoint-remove]');
-      if (subRemove) {
-        const [aid, sid] = subRemove.getAttribute('data-agenda-subpoint-remove').split('|');
-        removeAgendaSubpoint(aid, sid);
-        return;
-      }
       const decisionRemove = e.target.closest('[data-decision-remove]');
       if (decisionRemove) { removeDecision(decisionRemove.getAttribute('data-decision-remove')); return; }
       const actionConvert = e.target.closest('[data-action-convert]');
@@ -10945,6 +11124,48 @@
     $('viewMeeting').addEventListener('change', function(e) {
       const agendaToggle = e.target.closest('[data-agenda-toggle]');
       if (agendaToggle) { toggleAgendaItem(agendaToggle.getAttribute('data-agenda-toggle')); return; }
+      const actionToggle = e.target.closest('[data-action-toggle]');
+      if (actionToggle) { toggleMeetingAction(actionToggle.getAttribute('data-action-toggle')); return; }
+      const presence = e.target.closest('[data-participant-presence]');
+      if (presence) { toggleParticipantPresence(presence.getAttribute('data-participant-presence')); return; }
+    });
+
+    // ----- Mode immersif d'un point d'ordre du jour : sous-points, notes et actions y
+    // vivent désormais exclusivement (plus dans le tableau de bord — voir la doc plus haut). -----
+    $('agendaFsExitBtn').addEventListener('click', closeAgendaFocus);
+    $('agendaFsToggleBtn').addEventListener('click', () => { if (agendaFsAgendaId) toggleAgendaPointTimer(agendaFsAgendaId); });
+    $('agendaFsSubpointAddBtn').addEventListener('click', () => {
+      if (!agendaFsAgendaId) return;
+      addAgendaSubpoint(agendaFsAgendaId, $('agendaFsSubpointInput').value);
+      $('agendaFsSubpointInput').value = '';
+    });
+    $('agendaFsSubpointInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('agendaFsSubpointAddBtn').click(); });
+    $('agendaFsNotes').addEventListener('input', e => scheduleAgendaFsNotesSave(e.target.value));
+    $('agendaFsActionAddBtn').addEventListener('click', () => {
+      if (!agendaFsAgendaId) return;
+      const dueVal = $('agendaFsActionDue').value;
+      addMeetingAction($('agendaFsActionInput').value, $('agendaFsActionOwner').value, dueVal ? dueVal.slice(0, 10) : null, agendaFsAgendaId);
+      $('agendaFsActionInput').value = '';
+      setDatePickerField('agendaFsActionDue', 'agendaFsActionDueBtn', null, 'Échéance');
+      $('agendaFsActionOwner').value = '';
+      syncFakeSelect('agendaFsActionOwner');
+    });
+    $('agendaFsActionInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('agendaFsActionAddBtn').click(); });
+    $('agendaFocusScreen').addEventListener('click', function(e) {
+      const subRemove = e.target.closest('[data-agenda-subpoint-remove]');
+      if (subRemove) {
+        const [aid, sid] = subRemove.getAttribute('data-agenda-subpoint-remove').split('|');
+        removeAgendaSubpoint(aid, sid);
+        return;
+      }
+      const actionConvert = e.target.closest('[data-action-convert]');
+      if (actionConvert) { convertActionToTask(actionConvert.getAttribute('data-action-convert')); return; }
+      const actionOpenTask = e.target.closest('[data-action-open-task]');
+      if (actionOpenTask) { openEditModal(actionOpenTask.getAttribute('data-action-open-task')); return; }
+      const actionRemove = e.target.closest('[data-action-remove]');
+      if (actionRemove) { removeMeetingAction(actionRemove.getAttribute('data-action-remove')); return; }
+    });
+    $('agendaFocusScreen').addEventListener('change', function(e) {
       const subToggle = e.target.closest('[data-agenda-subpoint-toggle]');
       if (subToggle) {
         const [aid, sid] = subToggle.getAttribute('data-agenda-subpoint-toggle').split('|');
@@ -10953,17 +11174,6 @@
       }
       const actionToggle = e.target.closest('[data-action-toggle]');
       if (actionToggle) { toggleMeetingAction(actionToggle.getAttribute('data-action-toggle')); return; }
-      const presence = e.target.closest('[data-participant-presence]');
-      if (presence) { toggleParticipantPresence(presence.getAttribute('data-participant-presence')); return; }
-    });
-    // Les points à traiter sont saisis dans des champs régénérés à chaque rendu : on écoute
-    // donc au niveau de la vue plutôt que sur chaque champ.
-    $('viewMeeting').addEventListener('keydown', function(e) {
-      const subInput = e.target.closest('[data-agenda-subpoint-input]');
-      if (subInput && e.key === 'Enter') {
-        e.preventDefault();
-        addAgendaSubpoint(subInput.getAttribute('data-agenda-subpoint-input'), subInput.value);
-      }
     });
 
     $('meetingNewBtn').addEventListener('click', createMeeting);
@@ -11299,6 +11509,10 @@
         closeWorkspaceModal();
         return;
       }
+      if (e.key === 'Escape' && $('agendaFocusScreen').classList.contains('open')) {
+        closeAgendaFocus();
+        return;
+      }
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
       if (e.key === '?') {
         e.preventDefault();
@@ -11599,6 +11813,7 @@
       checkScheduledMeetings();
       if (!timer.running) updateClock();
       updateMeetingClock();
+      updateAgendaFocusClock();
       updateDeepProgress();
       // Rafraîchi ici plutôt que depuis updateDisplays(), appelé toutes les 100 ms pendant
       // qu'un chrono tourne : une seconde suffit largement pour ces chiffres.
